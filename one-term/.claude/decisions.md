@@ -179,3 +179,10 @@ components/
 **Decision**: Usar snapshot post-envío con tmux capture-pane en lugar de parsear streaming PTY en tiempo real
 **Reason**: Un snapshot captura el estado FINAL estable de la pantalla, evitando los redibujados intermedios. Es más simple (1 captura vs miles de eventos), más confiable, y usa marcadores nativos de Claude (⏺).
 **Consequences**: El chat ahora espera 3 segundos después de enviar un mensaje para capturar la respuesta. Sin duplicados, sin fragmentos. Código más simple en ControlPanel.tsx (eliminados refs de debounce y listener complejo).
+
+## 2025-12-27: Soporte Completo para Menús Interactivos de Claude CLI
+**Context**: El chat del ControlPanel necesita interactuar con menús de Claude CLI que tienen diferentes tipos: selección simple (❯ 1. Yes), selección múltiple con checkboxes (☐/✔), y opciones de texto libre ("Type something"). Cada tipo requiere diferentes controles de entrada.
+**Options considered**: Solo teclas numéricas (limitado a selección simple), Input de texto raw para todo (poco intuitivo), Detección de tipo + controles específicos (elegido), Renderizar terminal inline sin abstracción (complejo)
+**Decision**: Implementar detección automática de tipo de menú y mostrar controles UI apropiados: botones de navegación (↑/↓), toggle (Space) para checkboxes, Enter para confirmar, input de texto para opciones libres, y Esc para cancelar.
+**Reason**: Los menús de Claude CLI usan diferentes patrones de interacción. Un enfoque unificado con detección de tipo permite manejar todos los casos sin que el usuario tenga que recordar teclas específicas. La UI traduce clics a comandos tmux (send-keys).
+**Consequences**: El chat ahora detecta menús interactivos y muestra controles visuales. MenuOption incluye isCheckbox, isChecked, isFreeText. detectMenuType() identifica 'single', 'multiple', o 'freetext'. Funciones sendArrow(), sendToggle(), sendEnter(), sendFreeText() envían comandos a tmux.
