@@ -31,6 +31,9 @@ export function ControlPanel() {
   // Chat history state - usando number para timestamp (mejor serialización)
   const [chatHistory, setChatHistory] = useState<Array<{role: "user" | "claude", content: string, timestamp: number}>>([]);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
+  // Polling para capturas interactivas de Claude
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSnapshotRef = useRef<string>("");  // Para detectar cambios
 
   // Cargar chat history del localStorage al montar
   useEffect(() => {
@@ -76,6 +79,15 @@ export function ControlPanel() {
 
     return () => {
       if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
     };
   }, []);
 
@@ -315,8 +327,13 @@ export function ControlPanel() {
     }
   };
 
-  // Detectar si una línea es basura de UI
+  // Detectar si una línea es basura de UI (excepto menús interactivos)
   const isJunkLine = (text: string): boolean => {
+    // NO filtrar líneas de menús interactivos
+    if (text.includes('❯') || text.includes('☐') || text.includes('✔') ||
+        text.includes('Enter to select') || text.includes('Tab/Arrow')) {
+      return false;
+    }
     return text.includes('──') ||
            text.includes('━━') ||
            text.includes('? for shortcuts') ||
@@ -326,6 +343,157 @@ export function ControlPanel() {
            text.includes('[one-term]') ||
            text.includes('/model') ||
            text.length < 3;
+  };
+
+  // Detectar si el snapshot contiene una ventana interactiva de Claude
+  const isInteractivePrompt = (text: string): boolean => {
+    return (text.includes('❯') || text.includes('☐') || text.includes('✔')) &&
+           (text.includes('Enter to select') || text.includes('Tab/Arrow') || text.includes('Esc to cancel'));
+  };
+
+  // Tipo para opciones del menú
+  interface MenuOption {
+    number: number;
+    text: string;
+    isSelected: boolean;
+  }
+
+  // Parsear opciones del menú interactivo
+  const parseMenuOptions = (text: string): MenuOption[] => {
+    const options: MenuOption[] = [];
+    const lines = text.split('\n');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Buscar patrón: "❯ 1. texto" o "  2. texto"
+      const match = trimmed.match(/^(❯)?\s*(\d+)\.\s*(.+)$/);
+      if (match) {
+        options.push({
+          number: parseInt(match[2]),
+          text: match[3].trim(),
+          isSelected: match[1] === '❯'
+        });
+      }
+    }
+    return options;
+  };
+
+  // Enviar selección de menú a tmux
+  const sendMenuSelection = async (optionNumber: number) => {
+    try {
+      // Enviar el número de la opción + Enter
+      await executeCommand(`tmux send-keys -t ${sessionName}:0 "${optionNumber}" && sleep 0.1 && tmux send-keys -t ${sessionName}:0 C-m`);
+      setStatus(`✓ Opción ${optionNumber} seleccionada`);
+
+      // Detener polling mientras procesamos
+      stopPolling();
+      lastSnapshotRef.current = "";
+
+      // Esperar y capturar nueva respuesta
+      setTimeout(async () => {
+        const response = await captureClaudeResponse();
+        if (response) {
+          setChatHistory((prev) => [...prev, { role: "claude", content: response, timestamp: Date.now() }]);
+        }
+        // Reiniciar polling
+        startPolling();
+      }, 2000);
+    } catch (error) {
+      setStatus(`Error: ${error}`);
+    }
+  };
+
+  // Enviar Escape para cancelar menú
+  const sendMenuCancel = async () => {
+    await executeCommand(`tmux send-keys -t ${sessionName}:0 Escape`);
+    setStatus("✓ Menú cancelado");
+    stopPolling();
+  };
+
+  // Capturar ventana interactiva de Claude
+  const captureInteractiveContent = async (): Promise<string | null> => {
+    try {
+      const output = await executeCommand(`tmux capture-pane -t ${sessionName}:0 -p -S -30`);
+
+      // Verificar si hay contenido interactivo
+      if (!isInteractivePrompt(output)) {
+        return null;
+      }
+
+      const lines = output.split('\n');
+      const interactiveLines: string[] = [];
+      let capturing = false;
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+
+        // Detectar inicio de menú interactivo (línea con ☐, ✔, o pregunta)
+        if (trimmed.includes('☐') || trimmed.includes('✔') || trimmed.includes('?')) {
+          capturing = true;
+        }
+
+        // Capturar opciones y contenido del menú
+        if (capturing) {
+          // Líneas relevantes del menú
+          if (trimmed.includes('❯') || trimmed.includes('☐') || trimmed.includes('✔') ||
+              trimmed.match(/^\d+\./) || // Opciones numeradas
+              trimmed.includes('Enter to select') ||
+              trimmed.includes('Tab/Arrow') ||
+              (trimmed.length > 5 && !trimmed.includes('──'))) {
+            interactiveLines.push(trimmed);
+          }
+        }
+
+        // Fin del menú
+        if (trimmed.includes('Esc to cancel')) {
+          break;
+        }
+      }
+
+      const result = interactiveLines.join('\n').trim();
+      return result.length > 10 ? result : null;
+    } catch (error) {
+      console.error("Error capturando contenido interactivo:", error);
+      return null;
+    }
+  };
+
+  // Detener polling de snapshots
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+      console.log("🛑 Polling detenido");
+    }
+  };
+
+  // Iniciar polling de snapshots cada 2s
+  const startPolling = () => {
+    stopPolling(); // Limpiar cualquier polling anterior
+
+    console.log("🔄 Iniciando polling cada 2s");
+    pollingIntervalRef.current = setInterval(async () => {
+      const content = await captureInteractiveContent();
+
+      if (content && content !== lastSnapshotRef.current) {
+        console.log("📋 Nuevo contenido interactivo detectado");
+        lastSnapshotRef.current = content;
+
+        // Actualizar o agregar mensaje de Claude con el contenido interactivo
+        setChatHistory((prev) => {
+          const lastMsg = prev[prev.length - 1];
+          // Si el último mensaje es de Claude y es interactivo, actualizarlo
+          if (lastMsg && lastMsg.role === "claude" && isInteractivePrompt(lastMsg.content)) {
+            const updated = [...prev];
+            updated[updated.length - 1] = { ...lastMsg, content, timestamp: Date.now() };
+            return updated;
+          }
+          // Si no, agregar nuevo mensaje
+          return [...prev, { role: "claude", content, timestamp: Date.now() }];
+        });
+        setStatus("🎯 Claude espera tu respuesta");
+      }
+    }, 2000);
   };
 
   // Capturar respuesta de Claude desde snapshot de tmux
@@ -374,6 +542,11 @@ export function ControlPanel() {
       setStatus("Escribe un mensaje primero");
       return;
     }
+
+    // 0. Detener polling anterior (usuario envía nuevo mensaje)
+    stopPolling();
+    lastSnapshotRef.current = "";
+
     const userMessage = mensaje.trim();
     console.log("📤 Enviando mensaje:", userMessage);
 
@@ -388,15 +561,18 @@ export function ControlPanel() {
     setMensaje("");
     setStatus("⏳ Esperando respuesta...");
 
-    // 3. Esperar 3 segundos y capturar respuesta
+    // 3. Esperar 3 segundos y capturar respuesta inicial
     setTimeout(async () => {
       const response = await captureClaudeResponse();
       if (response) {
         setChatHistory((prev) => [...prev, { role: "claude", content: response, timestamp: Date.now() }]);
         setStatus("✓ Respuesta recibida");
       } else {
-        setStatus("✓ Mensaje enviado (sin respuesta detectada)");
+        setStatus("✓ Mensaje enviado");
       }
+
+      // 4. Iniciar polling para detectar contenido interactivo
+      startPolling();
     }, 3000);
   };
 
@@ -945,32 +1121,80 @@ export function ControlPanel() {
               Envía un mensaje para comenzar...
             </div>
           ) : (
-            chatHistory.map((msg, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex',
-                  justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  marginBottom: '10px'
-                }}
-              >
-                <div style={{
-                  maxWidth: '85%',
-                  padding: '10px 14px',
-                  borderRadius: '12px',
-                  backgroundColor: msg.role === 'user' ? '#0e639c' : '#3c3c3c',
-                  color: '#fff'
-                }}>
-                  <div style={{ fontSize: '10px', fontWeight: 600, marginBottom: '4px', opacity: 0.7 }}>
-                    {msg.role === 'user' ? 'TÚ' : 'CLAUDE'}
-                  </div>
-                  <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{msg.content}</div>
-                  <div style={{ fontSize: '9px', opacity: 0.5, marginTop: '6px', textAlign: 'right' }}>
-                    {new Date(msg.timestamp).toLocaleTimeString()}
+            chatHistory.map((msg, idx) => {
+              const isInteractive = msg.role === 'claude' && isInteractivePrompt(msg.content);
+              const menuOptions = isInteractive ? parseMenuOptions(msg.content) : [];
+
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    marginBottom: '10px'
+                  }}
+                >
+                  <div style={{
+                    maxWidth: '85%',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    backgroundColor: msg.role === 'user' ? '#0e639c' : isInteractive ? '#2d4a2d' : '#3c3c3c',
+                    color: '#fff',
+                    border: isInteractive ? '1px solid #4a7a4a' : 'none'
+                  }}>
+                    <div style={{ fontSize: '10px', fontWeight: 600, marginBottom: '4px', opacity: 0.7 }}>
+                      {msg.role === 'user' ? 'TÚ' : isInteractive ? '🎯 CLAUDE - SELECCIONA UNA OPCIÓN' : 'CLAUDE'}
+                    </div>
+
+                    {/* Si es interactivo, mostrar botones */}
+                    {isInteractive && menuOptions.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {menuOptions.map((opt) => (
+                          <button
+                            key={opt.number}
+                            onClick={() => sendMenuSelection(opt.number)}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: opt.isSelected ? '#0e639c' : '#4a4a4a',
+                              border: opt.isSelected ? '2px solid #1177bb' : '1px solid #5a5a5a',
+                              borderRadius: '6px',
+                              color: '#fff',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <strong>{opt.number}.</strong> {opt.text}
+                          </button>
+                        ))}
+                        <button
+                          onClick={sendMenuCancel}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: 'transparent',
+                            border: '1px dashed #666',
+                            borderRadius: '6px',
+                            color: '#999',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            marginTop: '4px'
+                          }}
+                        >
+                          ✕ Cancelar (Esc)
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                    )}
+
+                    <div style={{ fontSize: '9px', opacity: 0.5, marginTop: '6px', textAlign: 'right' }}>
+                      {new Date(msg.timestamp).toLocaleTimeString()}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
