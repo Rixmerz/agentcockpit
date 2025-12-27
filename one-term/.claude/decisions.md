@@ -172,3 +172,10 @@ components/
 - Class names are generated (e.g., `.terminalWrapper` → `.Terminal_terminalWrapper__xyz`)
 
 **Date:** 2025-12-27
+
+## 2025-12-27: Snapshot Post-Envío para Captura de Respuestas Claude
+**Context**: El chat del ControlPanel necesita capturar respuestas de Claude CLI. El enfoque inicial parseaba eventos PTY en tiempo real con debounce, pero generaba miles de duplicados y fragmentos porque el terminal se redibuja constantemente.
+**Options considered**: Parsear eventos PTY en tiempo real con debounce, Snapshot post-envío con tmux capture-pane, No parsear y pedir copiar/pegar manual, Usar Claude CLI en modo no-interactivo
+**Decision**: Usar snapshot post-envío con tmux capture-pane en lugar de parsear streaming PTY en tiempo real
+**Reason**: Un snapshot captura el estado FINAL estable de la pantalla, evitando los redibujados intermedios. Es más simple (1 captura vs miles de eventos), más confiable, y usa marcadores nativos de Claude (⏺).
+**Consequences**: El chat ahora espera 3 segundos después de enviar un mensaje para capturar la respuesta. Sin duplicados, sin fragmentos. Código más simple en ControlPanel.tsx (eliminados refs de debounce y listener complejo).
