@@ -79,3 +79,49 @@ export async function onPtyOutput(
     callback(new Uint8Array(event.payload));
   });
 }
+
+// ============ Claude Parser Functions ============
+
+/**
+ * Claude event types
+ */
+export interface ClaudeEvent {
+  type: "Text" | "ToolCall" | "ToolResult" | "Thinking" | "FileRead" | "FileEdit" | "CommandExec" | "Response" | "Status";
+  content?: string;
+  name?: string;
+  path?: string;
+  command?: string;
+  status?: string;
+}
+
+/**
+ * Listen for parsed Claude events
+ */
+export async function onClaudeEvents(
+  callback: (events: ClaudeEvent[]) => void
+): Promise<UnlistenFn> {
+  return listen<ClaudeEvent[]>("claude-events", (event) => {
+    callback(event.payload);
+  });
+}
+
+/**
+ * Get accumulated Claude buffer
+ */
+export async function getClaudeBuffer(): Promise<string> {
+  return invokeCommand("get_claude_buffer", {});
+}
+
+/**
+ * Get all Claude events
+ */
+export async function getClaudeEvents(): Promise<ClaudeEvent[]> {
+  return invokeCommand("get_claude_events", {});
+}
+
+/**
+ * Clear Claude parser state
+ */
+export async function clearClaudeParser(): Promise<void> {
+  return invokeCommand("clear_claude_parser", {});
+}
