@@ -34,6 +34,7 @@ export function ControlPanel() {
   // Polling para capturas interactivas de Claude
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastSnapshotRef = useRef<string>("");  // Para detectar cambios
+  const [freeTextInput, setFreeTextInput] = useState("");  // Input para texto libre
 
   // Cargar chat history del localStorage al montar
   useEffect(() => {
@@ -356,7 +357,20 @@ export function ControlPanel() {
     number: number;
     text: string;
     isSelected: boolean;
+    isCheckbox: boolean;
+    isChecked: boolean;
+    isFreeText: boolean;
   }
+
+  // Tipos de menú
+  type MenuType = 'single' | 'multiple' | 'freetext';
+
+  // Detectar tipo de menú
+  const detectMenuType = (text: string): MenuType => {
+    if (text.includes('Space to toggle')) return 'multiple';
+    if (text.toLowerCase().includes('type something') || text.toLowerCase().includes('type here')) return 'freetext';
+    return 'single';
+  };
 
   // Parsear opciones del menú interactivo
   const parseMenuOptions = (text: string): MenuOption[] => {
@@ -365,13 +379,32 @@ export function ControlPanel() {
 
     for (const line of lines) {
       const trimmed = line.trim();
-      // Buscar patrón: "❯ 1. texto" o "  2. texto"
-      const match = trimmed.match(/^(❯)?\s*(\d+)\.\s*(.+)$/);
-      if (match) {
+
+      // Patrón checkbox: "☐ 1. texto" o "✔ 1. texto"
+      const checkboxMatch = trimmed.match(/^([☐✔])\s*(\d+)\.\s*(.+)$/);
+      if (checkboxMatch) {
         options.push({
-          number: parseInt(match[2]),
-          text: match[3].trim(),
-          isSelected: match[1] === '❯'
+          number: parseInt(checkboxMatch[2]),
+          text: checkboxMatch[3].trim(),
+          isSelected: false,
+          isCheckbox: true,
+          isChecked: checkboxMatch[1] === '✔',
+          isFreeText: checkboxMatch[3].toLowerCase().includes('type')
+        });
+        continue;
+      }
+
+      // Patrón selección: "❯ 1. texto" o "  2. texto"
+      const selectMatch = trimmed.match(/^(❯)?\s*(\d+)\.\s*(.+)$/);
+      if (selectMatch) {
+        const optionText = selectMatch[3].trim();
+        options.push({
+          number: parseInt(selectMatch[2]),
+          text: optionText,
+          isSelected: selectMatch[1] === '❯',
+          isCheckbox: false,
+          isChecked: false,
+          isFreeText: optionText.toLowerCase().includes('type')
         });
       }
     }
@@ -408,6 +441,53 @@ export function ControlPanel() {
     await executeCommand(`tmux send-keys -t ${sessionName}:0 Escape`);
     setStatus("✓ Menú cancelado");
     stopPolling();
+  };
+
+  // Navegar con flechas (arriba/abajo)
+  const sendArrow = async (direction: 'up' | 'down') => {
+    const key = direction === 'up' ? 'Up' : 'Down';
+    await executeCommand(`tmux send-keys -t ${sessionName}:0 ${key}`);
+    setStatus(`↕ Navegando ${direction === 'up' ? '↑' : '↓'}`);
+  };
+
+  // Toggle checkbox (Space)
+  const sendToggle = async () => {
+    await executeCommand(`tmux send-keys -t ${sessionName}:0 Space`);
+    setStatus("☐ Toggle opción");
+  };
+
+  // Enviar Enter (confirmar selección)
+  const sendEnter = async () => {
+    await executeCommand(`tmux send-keys -t ${sessionName}:0 C-m`);
+    setStatus("✓ Confirmado");
+    stopPolling();
+    lastSnapshotRef.current = "";
+
+    setTimeout(async () => {
+      const response = await captureClaudeResponse();
+      if (response) {
+        setChatHistory((prev) => [...prev, { role: "claude", content: response, timestamp: Date.now() }]);
+      }
+      startPolling();
+    }, 2000);
+  };
+
+  // Enviar texto libre
+  const sendFreeText = async (text: string) => {
+    if (!text.trim()) return;
+    const escaped = text.replace(/"/g, '\\"');
+    await executeCommand(`tmux send-keys -t ${sessionName}:0 "${escaped}" C-m`);
+    setStatus(`✓ Texto enviado: "${text}"`);
+    stopPolling();
+    lastSnapshotRef.current = "";
+
+    setTimeout(async () => {
+      const response = await captureClaudeResponse();
+      if (response) {
+        setChatHistory((prev) => [...prev, { role: "claude", content: response, timestamp: Date.now() }]);
+      }
+      startPolling();
+    }, 2000);
   };
 
   // Capturar ventana interactiva de Claude
@@ -1146,17 +1226,18 @@ export function ControlPanel() {
                       {msg.role === 'user' ? 'TÚ' : isInteractive ? '🎯 CLAUDE - SELECCIONA UNA OPCIÓN' : 'CLAUDE'}
                     </div>
 
-                    {/* Si es interactivo, mostrar botones */}
+                    {/* Si es interactivo, mostrar controles según tipo */}
                     {isInteractive && menuOptions.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {/* Opciones del menú */}
                         {menuOptions.map((opt) => (
                           <button
                             key={opt.number}
-                            onClick={() => sendMenuSelection(opt.number)}
+                            onClick={() => opt.isCheckbox ? sendToggle() : sendMenuSelection(opt.number)}
                             style={{
                               padding: '8px 12px',
-                              backgroundColor: opt.isSelected ? '#0e639c' : '#4a4a4a',
-                              border: opt.isSelected ? '2px solid #1177bb' : '1px solid #5a5a5a',
+                              backgroundColor: opt.isSelected ? '#0e639c' : opt.isChecked ? '#2d5a2d' : '#4a4a4a',
+                              border: opt.isSelected ? '2px solid #1177bb' : opt.isChecked ? '2px solid #4a9a4a' : '1px solid #5a5a5a',
                               borderRadius: '6px',
                               color: '#fff',
                               fontSize: '12px',
@@ -1165,9 +1246,115 @@ export function ControlPanel() {
                               transition: 'all 0.2s'
                             }}
                           >
-                            <strong>{opt.number}.</strong> {opt.text}
+                            {opt.isCheckbox ? (opt.isChecked ? '✔' : '☐') : '❯'} <strong>{opt.number}.</strong> {opt.text}
                           </button>
                         ))}
+
+                        {/* Controles de navegación (para todos los tipos) */}
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                          <button
+                            onClick={() => sendArrow('up')}
+                            style={{
+                              flex: 1,
+                              padding: '8px',
+                              backgroundColor: '#3a3a3a',
+                              border: '1px solid #555',
+                              borderRadius: '4px',
+                              color: '#ccc',
+                              fontSize: '14px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            onClick={() => sendArrow('down')}
+                            style={{
+                              flex: 1,
+                              padding: '8px',
+                              backgroundColor: '#3a3a3a',
+                              border: '1px solid #555',
+                              borderRadius: '4px',
+                              color: '#ccc',
+                              fontSize: '14px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ↓
+                          </button>
+                          {/* Toggle para checkboxes */}
+                          {detectMenuType(msg.content) === 'multiple' && (
+                            <button
+                              onClick={sendToggle}
+                              style={{
+                                flex: 1,
+                                padding: '8px',
+                                backgroundColor: '#3a5a3a',
+                                border: '1px solid #4a7a4a',
+                                borderRadius: '4px',
+                                color: '#98c998',
+                                fontSize: '11px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Space
+                            </button>
+                          )}
+                          <button
+                            onClick={sendEnter}
+                            style={{
+                              flex: 2,
+                              padding: '8px',
+                              backgroundColor: '#0e639c',
+                              border: '1px solid #1177bb',
+                              borderRadius: '4px',
+                              color: '#fff',
+                              fontSize: '11px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ↵ Enter
+                          </button>
+                        </div>
+
+                        {/* Input para texto libre (si hay opción de type) */}
+                        {menuOptions.some(opt => opt.isFreeText) && (
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                            <input
+                              type="text"
+                              value={freeTextInput}
+                              onChange={(e) => setFreeTextInput(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && sendFreeText(freeTextInput)}
+                              placeholder="Escribe tu respuesta..."
+                              style={{
+                                flex: 1,
+                                padding: '8px 10px',
+                                backgroundColor: '#2a2a2a',
+                                border: '1px solid #555',
+                                borderRadius: '4px',
+                                color: '#fff',
+                                fontSize: '12px',
+                                outline: 'none'
+                              }}
+                            />
+                            <button
+                              onClick={() => { sendFreeText(freeTextInput); setFreeTextInput(''); }}
+                              style={{
+                                padding: '8px 12px',
+                                backgroundColor: '#0e639c',
+                                border: '1px solid #1177bb',
+                                borderRadius: '4px',
+                                color: '#fff',
+                                fontSize: '11px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Enviar
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Cancelar */}
                         <button
                           onClick={sendMenuCancel}
                           style={{
