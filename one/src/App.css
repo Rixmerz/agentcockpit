@@ -544,6 +544,143 @@ body {
   color: #f14c4c;
 }
 
+/* Path Navigator */
+.navigator-section {
+  border-top: 1px solid var(--border);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+  flex: 0 0 auto;
+}
+
+.path-navigator {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+}
+
+.path-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.path-nav-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s;
+  flex-shrink: 0;
+}
+
+.path-nav-btn:hover {
+  background-color: var(--bg-hover);
+}
+
+.path-nav-current {
+  flex: 1;
+  font-family: 'Menlo', 'Monaco', monospace;
+  font-size: 11px;
+  padding: 6px 8px;
+  background-color: var(--bg-tertiary);
+  border-radius: 4px;
+  color: var(--success);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.path-nav-output {
+  flex: 1;
+  min-height: 60px;
+  max-height: 100px;
+  overflow-y: auto;
+  background-color: var(--bg-tertiary);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: 'Menlo', 'Monaco', monospace;
+  font-size: 11px;
+}
+
+.path-nav-output .output-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.path-nav-output .output-line.command {
+  color: var(--text-secondary);
+}
+
+.path-nav-output .output-line.output {
+  color: var(--text-primary);
+}
+
+.path-nav-output .output-line.error {
+  color: #f14c4c;
+}
+
+.path-nav-input {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'Menlo', 'Monaco', monospace;
+  font-size: 11px;
+}
+
+.path-nav-input .prompt {
+  color: var(--success);
+  margin-right: 6px;
+}
+
+.path-nav-input input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+}
+
+.path-nav-input input::placeholder {
+  color: var(--text-secondary);
+}
+
+.btn-create-project {
+  padding: 10px 12px;
+  background-color: var(--accent);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-create-project:hover {
+  background-color: var(--accent-hover);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 10px;
