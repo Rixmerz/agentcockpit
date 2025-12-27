@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { executeCommand } from "../services/tauriService";
+import React, { useState, useEffect, useRef } from "react";
+import { executeCommand, onClaudeEvents, ClaudeEvent } from "../services/tauriService";
 import styles from "./ControlPanel.module.css";
 
 /**
@@ -26,6 +26,58 @@ export function ControlPanel() {
   const [pathInput, setPathInput] = useState("");
   const [pathOutput, setPathOutput] = useState("");
   const [pathSuggestions, setPathSuggestions] = useState<string[]>([]);
+  const [claudeEvents, setClaudeEvents] = useState<ClaudeEvent[]>([]);
+  const [showClaudeMonitor, setShowClaudeMonitor] = useState(false);
+  // Chat history state - usando number para timestamp (mejor serialización)
+  const [chatHistory, setChatHistory] = useState<Array<{role: "user" | "claude", content: string, timestamp: number}>>([]);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
+
+  // Cargar chat history del localStorage al montar
+  useEffect(() => {
+    const saved = localStorage.getItem("chatHistory");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        console.log("📚 Chat cargado:", parsed.length, "mensajes");
+        setChatHistory(parsed);
+      } catch (e) {
+        console.error("Error loading chat:", e);
+      }
+    }
+  }, []);
+
+  // Guardar chat history en localStorage cuando cambie
+  useEffect(() => {
+    if (chatHistory.length > 0) {
+      console.log("💾 Guardando chat:", chatHistory.length, "mensajes");
+      localStorage.setItem("chatHistory", JSON.stringify(chatHistory));
+    }
+  }, [chatHistory]);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (chatMessagesRef.current) {
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    }
+  }, [chatHistory]);
+
+  // Listen for Claude events (solo para el monitor, NO para chat)
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+
+    onClaudeEvents((events) => {
+      setClaudeEvents((prev) => {
+        const updated = [...prev, ...events];
+        return updated.slice(-100);
+      });
+    }).then((unsub) => {
+      unsubscribe = unsub;
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   const MCP_DESKTOP_PATH = "~/Library/Application\\ Support/Claude/claude_desktop_config.json";
   const MCP_CODE_PATH = "~/.claude.json";
@@ -263,18 +315,89 @@ export function ControlPanel() {
     }
   };
 
+  // Detectar si una línea es basura de UI
+  const isJunkLine = (text: string): boolean => {
+    return text.includes('──') ||
+           text.includes('━━') ||
+           text.includes('? for shortcuts') ||
+           text.includes('esc to interrupt') ||
+           text.includes('ctrl+g') ||
+           text.includes('↵ send') ||
+           text.includes('[one-term]') ||
+           text.includes('/model') ||
+           text.length < 3;
+  };
+
+  // Capturar respuesta de Claude desde snapshot de tmux
+  const captureClaudeResponse = async (): Promise<string | null> => {
+    try {
+      const output = await executeCommand(`tmux capture-pane -t ${sessionName}:0 -p -S -50`);
+
+      // Buscar líneas con marcador ⏺ (respuesta Claude)
+      const lines = output.split('\n');
+      const responseLines: string[] = [];
+      let capturing = false;
+
+      // Recorrer desde abajo hacia arriba para encontrar la última respuesta
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        // Parar si llegamos al prompt del usuario (>)
+        if (trimmed.startsWith('>') && capturing) break;
+
+        // Empezar a capturar si encontramos marcador ⏺
+        if (trimmed.includes('⏺')) {
+          capturing = true;
+          const clean = trimmed.replace(/⏺/g, '').trim();
+          if (clean && !isJunkLine(clean)) {
+            responseLines.unshift(clean);
+          }
+        } else if (capturing && trimmed && !isJunkLine(trimmed)) {
+          // Continuar capturando líneas de respuesta
+          responseLines.unshift(trimmed);
+        }
+      }
+
+      const result = responseLines.join('\n').trim();
+      console.log("📥 Respuesta capturada:", result);
+      return result.length > 0 ? result : null;
+    } catch (error) {
+      console.error("Error capturando respuesta:", error);
+      return null;
+    }
+  };
+
   // Button: Send custom message + Enter + Enter
-  const sendMensaje = () => {
+  const sendMensaje = async () => {
     if (!mensaje.trim()) {
       setStatus("Escribe un mensaje primero");
       return;
     }
-    // Escape quotes in message
+    const userMessage = mensaje.trim();
+    console.log("📤 Enviando mensaje:", userMessage);
+
+    // 1. Agregar mensaje del usuario al chat inmediatamente
+    setChatHistory((prev) => [...prev, { role: "user", content: userMessage, timestamp: Date.now() }]);
+
+    // 2. Enviar a tmux
     const escapedMsg = mensaje.replace(/"/g, '\\"');
-    // Send message + Enter, then delay, then second Enter
-    runTmuxCommand(`tmux send-keys -t ${sessionName}:0 "${escapedMsg}" C-m && sleep 0.2 && tmux send-keys -t ${sessionName}:0 C-m`);
-    // Clear the message box
+    await executeCommand(`tmux send-keys -t ${sessionName}:0 "${escapedMsg}" C-m && sleep 0.2 && tmux send-keys -t ${sessionName}:0 C-m`);
+
+    // Clear input y mostrar feedback
     setMensaje("");
+    setStatus("⏳ Esperando respuesta...");
+
+    // 3. Esperar 3 segundos y capturar respuesta
+    setTimeout(async () => {
+      const response = await captureClaudeResponse();
+      if (response) {
+        setChatHistory((prev) => [...prev, { role: "claude", content: response, timestamp: Date.now() }]);
+        setStatus("✓ Respuesta recibida");
+      } else {
+        setStatus("✓ Mensaje enviado (sin respuesta detectada)");
+      }
+    }, 3000);
   };
 
   // Button: Send Escape + Shift+Tab
@@ -773,6 +896,83 @@ export function ControlPanel() {
         <button onClick={sendMensaje} className={styles.buttonPrimary}>
           Enviar Mensaje + Enter + Enter
         </button>
+      </div>
+
+      {/* Chat History Toggle */}
+      <div className={styles.section}>
+        <button
+          onClick={() => setShowClaudeMonitor(!showClaudeMonitor)}
+          className={showClaudeMonitor ? styles.buttonPrimary : styles.button}
+        >
+          {showClaudeMonitor ? "💬 Chat Activo" : "💬 Ver Chat"}
+        </button>
+        {showClaudeMonitor && (
+          <button
+            onClick={() => { setChatHistory([]); setClaudeEvents([]); localStorage.removeItem("chatHistory"); }}
+            className={styles.buttonSecondary}
+            style={{ marginTop: 8 }}
+          >
+            Limpiar Chat
+          </button>
+        )}
+      </div>
+
+      {/* Chat History View - Siempre visible con estilos inline */}
+      <div style={{
+        backgroundColor: '#1a1a1a',
+        border: '2px solid #007acc',
+        borderRadius: '8px',
+        marginTop: '16px',
+        padding: '0',
+        minHeight: '150px'
+      }}>
+        <div style={{
+          backgroundColor: '#252526',
+          padding: '10px 14px',
+          fontSize: '12px',
+          color: '#9d9d9d',
+          borderBottom: '1px solid #3e3e42'
+        }}>
+          💬 Conversación ({chatHistory.length} mensajes)
+        </div>
+        <div ref={chatMessagesRef} style={{
+          maxHeight: '300px',
+          overflowY: 'auto',
+          padding: '12px'
+        }}>
+          {chatHistory.length === 0 ? (
+            <div style={{ color: '#6d6d6d', textAlign: 'center', padding: '20px' }}>
+              Envía un mensaje para comenzar...
+            </div>
+          ) : (
+            chatHistory.map((msg, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex',
+                  justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                  marginBottom: '10px'
+                }}
+              >
+                <div style={{
+                  maxWidth: '85%',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  backgroundColor: msg.role === 'user' ? '#0e639c' : '#3c3c3c',
+                  color: '#fff'
+                }}>
+                  <div style={{ fontSize: '10px', fontWeight: 600, marginBottom: '4px', opacity: 0.7 }}>
+                    {msg.role === 'user' ? 'TÚ' : 'CLAUDE'}
+                  </div>
+                  <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                  <div style={{ fontSize: '9px', opacity: 0.5, marginTop: '6px', textAlign: 'right' }}>
+                    {new Date(msg.timestamp).toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Status */}

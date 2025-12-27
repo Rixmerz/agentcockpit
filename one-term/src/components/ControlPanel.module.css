@@ -444,6 +444,185 @@
   overflow-y: auto;
 }
 
+/* Chat Container */
+.chatContainer {
+  background-color: #1a1a1a;
+  border: 1px solid #3e3e42;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.chatHeader {
+  background-color: #252526;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #9d9d9d;
+  border-bottom: 1px solid #3e3e42;
+}
+
+.chatMessages {
+  max-height: 350px;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chatEmpty {
+  color: #6d6d6d;
+  font-size: 13px;
+  text-align: center;
+  padding: 30px;
+  font-style: italic;
+}
+
+.chatMessage {
+  display: flex;
+}
+
+.chatMessageUser {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.chatMessageClaude {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.chatBubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  position: relative;
+}
+
+.chatBubbleUser {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background-color: #0e639c;
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+}
+
+.chatBubbleClaude {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background-color: #3c3c3c;
+  color: #d4d4d4;
+  border-bottom-left-radius: 4px;
+}
+
+.chatRole {
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.chatContent {
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chatTime {
+  font-size: 9px;
+  opacity: 0.5;
+  margin-top: 6px;
+  text-align: right;
+}
+
+/* Keep old event styles for backwards compatibility */
+.claudeMonitor {
+  background-color: #1a1a1a;
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.claudeMonitorHeader {
+  background-color: #252526;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #9d9d9d;
+  border-bottom: 1px solid #3e3e42;
+  text-transform: uppercase;
+}
+
+.claudeEventsList {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.claudeEmpty {
+  color: #6d6d6d;
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+}
+
+.claudeEvent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 6px;
+  margin-bottom: 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  background-color: #252526;
+}
+
+.eventType {
+  flex-shrink: 0;
+}
+
+.eventContent {
+  color: #d4d4d4;
+  word-break: break-all;
+  flex: 1;
+}
+
+.eventFileRead {
+  border-left: 2px solid #4ec9b0;
+}
+
+.eventFileEdit {
+  border-left: 2px solid #dcdcaa;
+}
+
+.eventCommandExec {
+  border-left: 2px solid #ce9178;
+}
+
+.eventToolCall {
+  border-left: 2px solid #569cd6;
+}
+
+.eventToolResult {
+  border-left: 2px solid #6a9955;
+}
+
+.eventThinking {
+  border-left: 2px solid #c586c0;
+}
+
+.eventResponse {
+  border-left: 2px solid #9cdcfe;
+}
+
+.eventText {
+  border-left: 2px solid #6d6d6d;
+}
+
 .status {
   margin-top: auto;
   padding: 12px;
