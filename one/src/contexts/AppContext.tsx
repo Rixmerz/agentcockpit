@@ -174,15 +174,27 @@ export function AppProvider({ children }: AppProviderProps) {
 
   // Actions
   const addProject = useCallback((name: string, path: string) => {
-    const project: Project = {
-      id: generateId(),
-      name,
-      path,
-      terminals: [],
+    const projectId = generateId();
+    const terminalId = generateId();
+
+    // Create project with first terminal included
+    const terminal: Terminal = {
+      id: terminalId,
+      name: 'Terminal 1',
       createdAt: Date.now(),
     };
+
+    const project: Project = {
+      id: projectId,
+      name,
+      path,
+      terminals: [terminal],
+      createdAt: Date.now(),
+    };
+
     dispatch({ type: 'ADD_PROJECT', payload: project });
-    dispatch({ type: 'SET_ACTIVE_PROJECT', payload: project.id });
+    dispatch({ type: 'SET_ACTIVE_PROJECT', payload: projectId });
+    dispatch({ type: 'SET_ACTIVE_TERMINAL', payload: terminalId });
     scheduleSave();
   }, [scheduleSave]);
 

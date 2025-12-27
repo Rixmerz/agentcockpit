@@ -1,9 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { AppProvider, useApp, useSettings, useTerminalActions } from './contexts/AppContext';
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
-import { MiniTerminal } from './components/sidebar-left/MiniTerminal';
-import { openFolderDialog } from './services/fileSystemService';
+import { PathNavigator } from './components/sidebar-left/PathNavigator';
 import './App.css';
 
 // Loading screen component
@@ -23,18 +22,6 @@ function MainContent() {
   const { selectedModel, setModel, mcpDesktopEnabled, mcpDefaultEnabled, toggleMcpDesktop, toggleMcpDefault } = useSettings();
   const { writeToActiveTerminal, hasActiveTerminal } = useTerminalActions();
 
-  const [newProjectName, setNewProjectName] = useState('');
-  const [showNewProject, setShowNewProject] = useState(false);
-  const [selectedPath, setSelectedPath] = useState('/Users/juanpablodiaz');
-
-  const handleAddProject = useCallback(() => {
-    if (newProjectName.trim() && selectedPath) {
-      addProject(newProjectName.trim(), selectedPath);
-      setNewProjectName('');
-      setShowNewProject(false);
-    }
-  }, [newProjectName, selectedPath, addProject]);
-
   const handleAddTerminal = useCallback((projectId: string) => {
     const project = state.projects.find(p => p.id === projectId);
     if (project) {
@@ -43,20 +30,9 @@ function MainContent() {
     }
   }, [state.projects, addTerminal]);
 
-  const handleOpenFolder = useCallback(async () => {
-    const path = await openFolderDialog();
-    if (path) {
-      setSelectedPath(path);
-      // Extract folder name from path
-      const folderName = path.split('/').pop() || 'proyecto';
-      setNewProjectName(folderName);
-      setShowNewProject(true);
-    }
-  }, []);
-
-  const handleDirectorySelect = useCallback((path: string) => {
-    setSelectedPath(path);
-  }, []);
+  const handleCreateProject = useCallback((name: string, path: string) => {
+    addProject(name, path);
+  }, [addProject]);
 
   const handleUltrathink = useCallback(async () => {
     if (hasActiveTerminal) {
@@ -81,16 +57,11 @@ function MainContent() {
           removeTerminal(activeProject.id, activeTerminal.id);
         }
       }
-      // Cmd/Ctrl + O: Open folder
-      if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
-        e.preventDefault();
-        handleOpenFolder();
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeProject, activeTerminal, handleAddTerminal, removeTerminal, handleOpenFolder]);
+  }, [activeProject, activeTerminal, handleAddTerminal, removeTerminal]);
 
   // Show loading screen
   if (state.isLoading) {
@@ -103,31 +74,7 @@ function MainContent() {
       <aside className="sidebar-left">
         <div className="sidebar-header">
           <h2>Proyectos</h2>
-          <button
-            className="btn-add"
-            title="Agregar Proyecto"
-            onClick={() => setShowNewProject(!showNewProject)}
-          >
-            +
-          </button>
         </div>
-
-        {showNewProject && (
-          <div className="new-project-form">
-            <input
-              type="text"
-              placeholder="Nombre del proyecto"
-              value={newProjectName}
-              onChange={(e) => setNewProjectName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddProject()}
-              autoFocus
-            />
-            <div className="path-display" title={selectedPath}>
-              {selectedPath.replace('/Users/juanpablodiaz', '~')}
-            </div>
-            <button onClick={handleAddProject}>Crear</button>
-          </div>
-        )}
 
         <div className="project-tree">
           {state.projects.length === 0 ? (
@@ -185,15 +132,9 @@ function MainContent() {
           )}
         </div>
 
-        <div className="mini-terminal-section">
-          <div className="section-header">Navegador</div>
-          <MiniTerminal
-            initialPath="~"
-            onDirectorySelect={handleDirectorySelect}
-          />
-          <button className="btn-open-folder" onClick={handleOpenFolder}>
-            Abrir Carpeta
-          </button>
+        <div className="navigator-section">
+          <div className="section-header">Nuevo Proyecto</div>
+          <PathNavigator onCreateProject={handleCreateProject} />
         </div>
       </aside>
 
