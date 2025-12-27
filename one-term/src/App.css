@@ -29,3 +29,23 @@ body,
   height: 100%;
   background-color: #1e1e1e;
 }
+
+/* Split Layout 50/50 */
+.split-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.panel-left {
+  width: 50%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.panel-right {
+  width: 50%;
+  height: 100%;
+  overflow: hidden;
+  border-left: 1px solid #3e3e42;
+}
