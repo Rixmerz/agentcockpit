@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { McpPanel } from './McpPanel';
+import { McpPanel, type McpServer } from './McpPanel';
 import { SessionManager } from './SessionManager';
 import { ClaudeLauncher } from './ClaudeLauncher';
 import { createSession, updateSessionLastUsed, type ProjectSession } from '../../services/projectSessionService';
@@ -22,6 +22,8 @@ export function ActionsPanel({
   onWriteToTerminal,
 }: ActionsPanelProps) {
   const [selectedMcpServers, setSelectedMcpServers] = useState<string[]>([]);
+  const [mcpsToInject, setMcpsToInject] = useState<McpServer[]>([]);
+  const [mcpsToRemove, setMcpsToRemove] = useState<string[]>([]);
   const [selectedSession, setSelectedSession] = useState<ProjectSession | null>(null);
 
   const handleLaunch = useCallback(async (command: string) => {
@@ -57,6 +59,8 @@ export function ActionsPanel({
         selectedSession={selectedSession}
         selectedModel={selectedModel}
         hasActiveTerminal={hasActiveTerminal}
+        mcpsToInject={mcpsToInject}
+        mcpsToRemove={mcpsToRemove}
         onLaunch={handleLaunch}
         onModelChange={onModelChange}
       />
@@ -71,8 +75,11 @@ export function ActionsPanel({
 
       {/* MCP Panel */}
       <McpPanel
+        projectPath={projectPath}
         selectedServers={selectedMcpServers}
         onSelectionChange={setSelectedMcpServers}
+        onMcpsForInjection={setMcpsToInject}
+        onMcpsForRemoval={setMcpsToRemove}
       />
 
       {/* Quick Actions */}

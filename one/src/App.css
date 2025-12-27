@@ -1169,6 +1169,29 @@ body {
   text-align: center;
 }
 
+.mcp-check.remove {
+  color: #f14c4c;
+}
+
+.mcp-server-main.marked-remove {
+  background-color: rgba(241, 76, 76, 0.1);
+  border-left: 2px solid #f14c4c;
+}
+
+.mcp-server-main.marked-remove:hover {
+  background-color: rgba(241, 76, 76, 0.15);
+}
+
+.mcp-remove-label,
+.mcp-remove-count {
+  color: #f14c4c !important;
+}
+
+.mcp-remove-item {
+  background-color: rgba(241, 76, 76, 0.2) !important;
+  color: #f14c4c !important;
+}
+
 .mcp-server-actions {
   display: flex;
   gap: 2px;
@@ -1198,6 +1221,15 @@ body {
 }
 
 .mcp-action-btn.remove:hover {
+  color: #f14c4c;
+}
+
+.mcp-action-btn.mark-remove:hover {
+  color: #f14c4c;
+}
+
+.mcp-action-btn.mark-remove.active {
+  background-color: rgba(241, 76, 76, 0.2);
   color: #f14c4c;
 }
 
