@@ -3,6 +3,7 @@ import { AppProvider, useApp, useSettings, useTerminalActions } from './contexts
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
 import { PathNavigator } from './components/sidebar-left/PathNavigator';
+import { ActionsPanel } from './components/sidebar-right/ActionsPanel';
 import './App.css';
 
 // Loading screen component
@@ -19,7 +20,7 @@ function LoadingScreen() {
 
 function MainContent() {
   const { state, activeProject, activeTerminal, addProject, addTerminal, setActiveTerminal, removeTerminal, removeProject } = useApp();
-  const { selectedModel, setModel, mcpDesktopEnabled, mcpDefaultEnabled, toggleMcpDesktop, toggleMcpDefault } = useSettings();
+  const { selectedModel, setModel } = useSettings();
   const { writeToActiveTerminal, hasActiveTerminal } = useTerminalActions();
 
   const handleAddTerminal = useCallback((projectId: string) => {
@@ -33,12 +34,6 @@ function MainContent() {
   const handleCreateProject = useCallback((name: string, path: string) => {
     addProject(name, path);
   }, [addProject]);
-
-  const handleUltrathink = useCallback(async () => {
-    if (hasActiveTerminal) {
-      await writeToActiveTerminal('ultrathink\n');
-    }
-  }, [hasActiveTerminal, writeToActiveTerminal]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -169,50 +164,14 @@ function MainContent() {
 
       {/* Sidebar Right - Actions Panel */}
       <aside className="sidebar-right">
-        <div className="section">
-          <div className="section-header">Modelo</div>
-          <select
-            className="model-selector"
-            value={selectedModel}
-            onChange={(e) => setModel(e.target.value as 'haiku' | 'sonnet' | 'opus')}
-          >
-            <option value="haiku">Haiku</option>
-            <option value="sonnet">Sonnet</option>
-            <option value="opus">Opus</option>
-          </select>
-        </div>
-
-        <div className="section">
-          <div className="section-header">Acciones</div>
-          <button
-            className="btn-action"
-            onClick={handleUltrathink}
-            disabled={!hasActiveTerminal}
-            title={hasActiveTerminal ? 'Escribir ultrathink al terminal' : 'Selecciona un terminal primero'}
-          >
-            Ultrathink
-          </button>
-        </div>
-
-        <div className="section">
-          <div className="section-header">MCP Config</div>
-          <label className="toggle-label">
-            <input
-              type="checkbox"
-              checked={mcpDesktopEnabled}
-              onChange={toggleMcpDesktop}
-            />
-            <span>Desktop MCP</span>
-          </label>
-          <label className="toggle-label">
-            <input
-              type="checkbox"
-              checked={mcpDefaultEnabled}
-              onChange={toggleMcpDefault}
-            />
-            <span>Default CLI</span>
-          </label>
-        </div>
+        <ActionsPanel
+          projectPath={activeProject?.path || null}
+          terminalId={activeTerminal?.id || null}
+          hasActiveTerminal={hasActiveTerminal}
+          selectedModel={selectedModel}
+          onModelChange={(model) => setModel(model as 'haiku' | 'sonnet' | 'opus')}
+          onWriteToTerminal={writeToActiveTerminal}
+        />
       </aside>
     </div>
   );
