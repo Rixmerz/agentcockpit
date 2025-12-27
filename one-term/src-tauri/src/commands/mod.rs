@@ -4,6 +4,4 @@
 
 pub mod greet;
 pub mod shell;
-
-pub use greet::greet;
-pub use shell::execute_command;
+pub mod pty;
