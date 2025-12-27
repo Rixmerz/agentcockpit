@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback, useRef, useE
 import type { ReactNode } from 'react';
 import type { AppState, AppAction, Project, Terminal } from '../types';
 import { usePersistence } from '../hooks/usePersistence';
+import { ptyClose } from '../services/tauriService';
 
 // Initial state
 const initialState: AppState = {
@@ -116,12 +117,15 @@ interface AppContextType {
   addProject: (name: string, path: string) => void;
   removeProject: (id: string) => void;
   addTerminal: (projectId: string, name: string) => void;
-  removeTerminal: (projectId: string, terminalId: string) => void;
+  removeTerminal: (projectId: string, terminalId: string) => Promise<void>;
   setActiveTerminal: (projectId: string, terminalId: string) => void;
   // Terminal writer registry
   registerTerminalWriter: (terminalId: string, writer: TerminalWriter) => void;
   unregisterTerminalWriter: (terminalId: string) => void;
   writeToActiveTerminal: (data: string) => Promise<void>;
+  // PTY registry
+  registerPtyId: (terminalId: string, ptyId: number) => void;
+  unregisterPtyId: (terminalId: string) => void;
   // Persistence
   scheduleSave: () => void;
 }
@@ -138,6 +142,9 @@ export function AppProvider({ children }: AppProviderProps) {
 
   // Terminal writers registry
   const terminalWritersRef = useRef<Map<string, TerminalWriter>>(new Map());
+
+  // PTY ID registry (terminalId -> ptyId)
+  const ptyIdMapRef = useRef<Map<string, number>>(new Map());
 
   // State ref for persistence (to avoid stale closures)
   const stateRef = useRef(state);
@@ -214,7 +221,18 @@ export function AppProvider({ children }: AppProviderProps) {
     dispatch({ type: 'SET_ACTIVE_TERMINAL', payload: terminal.id });
   }, []);
 
-  const removeTerminal = useCallback((projectId: string, terminalId: string) => {
+  const removeTerminal = useCallback(async (projectId: string, terminalId: string) => {
+    // Close PTY before removing terminal
+    const ptyId = ptyIdMapRef.current.get(terminalId);
+    if (ptyId !== undefined) {
+      try {
+        await ptyClose(ptyId);
+        console.log(`PTY ${ptyId} closed for terminal ${terminalId}`);
+      } catch (err) {
+        console.error(`Failed to close PTY ${ptyId}:`, err);
+      }
+      ptyIdMapRef.current.delete(terminalId);
+    }
     dispatch({ type: 'REMOVE_TERMINAL', payload: { projectId, terminalId } });
   }, []);
 
@@ -230,6 +248,15 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const unregisterTerminalWriter = useCallback((terminalId: string) => {
     terminalWritersRef.current.delete(terminalId);
+  }, []);
+
+  // PTY registry functions
+  const registerPtyId = useCallback((terminalId: string, ptyId: number) => {
+    ptyIdMapRef.current.set(terminalId, ptyId);
+  }, []);
+
+  const unregisterPtyId = useCallback((terminalId: string) => {
+    ptyIdMapRef.current.delete(terminalId);
   }, []);
 
   const writeToActiveTerminal = useCallback(async (data: string) => {
@@ -258,6 +285,8 @@ export function AppProvider({ children }: AppProviderProps) {
     registerTerminalWriter,
     unregisterTerminalWriter,
     writeToActiveTerminal,
+    registerPtyId,
+    unregisterPtyId,
     scheduleSave,
   };
 
