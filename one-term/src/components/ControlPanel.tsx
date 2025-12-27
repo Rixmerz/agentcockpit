@@ -752,6 +752,16 @@ export function ControlPanel() {
     }
   };
 
+  const listWindows = async () => {
+    try {
+      setStatus("Listando ventanas...");
+      const output = await executeCommand(`tmux list-windows -t ${sessionName} 2>/dev/null || echo 'No hay ventanas'`);
+      setStatus(`Ventanas de ${sessionName}:\n${output.trim()}`);
+    } catch {
+      setStatus(`No hay ventanas en ${sessionName}`);
+    }
+  };
+
   // Load MCP config and list servers
   const loadMcpConfig = async (configPath: string, configName: string, showPanel = true) => {
     try {
@@ -958,6 +968,10 @@ export function ControlPanel() {
 
         <button onClick={listSessions} className={styles.buttonSecondary}>
           Listar Sesiones
+        </button>
+
+        <button onClick={listWindows} className={styles.buttonSecondary}>
+          Listar Ventanas
         </button>
 
         <button onClick={sendMcpList} className={styles.button}>
