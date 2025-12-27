@@ -8,24 +8,29 @@ use std::process::Command;
 ///
 /// # Arguments
 /// * `command` - The shell command to execute
+/// * `cwd` - Optional working directory
 ///
 /// # Returns
 /// Output of the command or error message
 #[tauri::command]
-pub fn execute_command(command: &str) -> Result<String, String> {
+pub fn execute_command(command: &str, cwd: Option<String>) -> Result<String, String> {
     // Platform-specific command execution
     #[cfg(target_os = "windows")]
-    let output = Command::new("cmd")
-        .args(&["/C", command])
-        .output();
+    let mut cmd = Command::new("cmd");
+    #[cfg(target_os = "windows")]
+    cmd.args(&["/C", command]);
 
     #[cfg(not(target_os = "windows"))]
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(command)
-        .output();
+    let mut cmd = Command::new("sh");
+    #[cfg(not(target_os = "windows"))]
+    cmd.arg("-c").arg(command);
 
-    match output {
+    // Set working directory if provided
+    if let Some(dir) = cwd {
+        cmd.current_dir(&dir);
+    }
+
+    match cmd.output() {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();

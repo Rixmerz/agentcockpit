@@ -1,26 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
 
 /**
  * Service for IPC communication between frontend (React) and backend (Rust/Tauri)
  * All Tauri command invocations go through here for centralized control
  */
 
-export interface IpcRequest<T = unknown> {
-  command: string;
-  payload?: T;
-}
-
-export interface IpcResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
 /**
  * Execute a Tauri command with typed payload and response
- * @param command - The Tauri command name to invoke
- * @param payload - Optional payload to send to backend
- * @returns Promise with response data
  */
 export async function invokeCommand<T, R = unknown>(
   command: string,
@@ -36,16 +23,59 @@ export async function invokeCommand<T, R = unknown>(
 }
 
 /**
- * Greet command example - calls Rust backend
+ * Execute shell command in backend (simple, non-interactive)
  */
-export async function greet(name: string): Promise<string> {
-  return invokeCommand("greet", { name });
+export async function executeCommand(command: string, cwd?: string): Promise<string> {
+  return invokeCommand("execute_command", { command, cwd });
+}
+
+// ============ PTY Functions ============
+
+/**
+ * Spawn a new PTY session
+ */
+export async function ptySpawn(cols: number, rows: number): Promise<void> {
+  return invokeCommand("pty_spawn", { cols, rows });
 }
 
 /**
- * Execute shell command in backend
- * Will be implemented in Rust backend
+ * Write data to PTY (user input)
  */
-export async function executeCommand(command: string): Promise<string> {
-  return invokeCommand("execute_command", { command });
+export async function ptyWrite(data: string): Promise<void> {
+  // Convert string to byte array
+  const encoder = new TextEncoder();
+  const bytes = Array.from(encoder.encode(data));
+  return invokeCommand("pty_write", { data: bytes });
+}
+
+/**
+ * Resize PTY
+ */
+export async function ptyResize(cols: number, rows: number): Promise<void> {
+  return invokeCommand("pty_resize", { cols, rows });
+}
+
+/**
+ * Check if PTY is active
+ */
+export async function ptyIsActive(): Promise<boolean> {
+  return invokeCommand("pty_is_active", {});
+}
+
+/**
+ * Close PTY session
+ */
+export async function ptyClose(): Promise<void> {
+  return invokeCommand("pty_close", {});
+}
+
+/**
+ * Listen for PTY output events
+ */
+export async function onPtyOutput(
+  callback: (data: Uint8Array) => void
+): Promise<UnlistenFn> {
+  return listen<number[]>("pty-output", (event) => {
+    callback(new Uint8Array(event.payload));
+  });
 }
