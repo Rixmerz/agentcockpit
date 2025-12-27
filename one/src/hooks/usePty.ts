@@ -27,12 +27,12 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
     optionsRef.current = options;
   }, [options]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount - only cleanup listeners, NOT the PTY
+  // PTY is closed explicitly when terminal is removed from project
   useEffect(() => {
     return () => {
-      if (ptyIdRef.current !== null) {
-        ptyClose(ptyIdRef.current).catch(console.error);
-      }
+      // Do NOT close PTY here - it should persist across tab switches
+      // Only cleanup event listeners
       unlistenOutputRef.current?.();
       unlistenCloseRef.current?.();
     };

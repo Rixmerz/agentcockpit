@@ -18,7 +18,7 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
   const fitAddonRef = useRef<FitAddon | null>(null);
   const initializedRef = useRef(false);
 
-  const { registerTerminalWriter, unregisterTerminalWriter } = useApp();
+  const { registerTerminalWriter, unregisterTerminalWriter, registerPtyId } = useApp();
 
   // PTY hook with callbacks
   const { spawn, write, resize } = usePty({
@@ -94,8 +94,10 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
     const shell = '/bin/zsh';
 
     spawn(shell, workingDir, cols, rows)
-      .then(() => {
-        console.log(`PTY spawned for terminal ${terminalId}`);
+      .then((ptyId) => {
+        console.log(`PTY ${ptyId} spawned for terminal ${terminalId}`);
+        // Register PTY ID so it can be closed when terminal is removed
+        registerPtyId(terminalId, ptyId);
       })
       .catch((err) => {
         console.error('Failed to spawn PTY:', err);
@@ -112,14 +114,12 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
       resize(cols, rows).catch(console.error);
     });
 
-    // Cleanup
+    // Cleanup - Do NOT dispose terminal, it persists across tab switches
+    // Terminal is only destroyed when removed from project
     return () => {
-      terminal.dispose();
-      terminalRef.current = null;
-      fitAddonRef.current = null;
-      initializedRef.current = false;
+      // Keep terminal alive - no cleanup needed
     };
-  }, [terminalId, workingDir, spawn, write, resize]);
+  }, [terminalId, workingDir, spawn, write, resize, registerPtyId]);
 
   // Handle window resize
   useEffect(() => {

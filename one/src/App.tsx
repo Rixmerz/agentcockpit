@@ -135,31 +135,41 @@ function MainContent() {
 
       {/* Main Content - Terminal View */}
       <main className="main-content">
+        {/* Header for active terminal */}
         {activeTerminal && activeProject ? (
-          <>
-            <TerminalHeader
-              name={activeTerminal.name}
-              projectName={activeProject.name}
-              onClose={() => removeTerminal(activeProject.id, activeTerminal.id)}
-            />
-            <div className="terminal-view">
-              <TerminalView
-                key={activeTerminal.id}
-                terminalId={activeTerminal.id}
-                workingDir={activeProject.path}
-              />
-            </div>
-          </>
+          <TerminalHeader
+            name={activeTerminal.name}
+            projectName={activeProject.name}
+            onClose={() => removeTerminal(activeProject.id, activeTerminal.id)}
+          />
         ) : (
-          <>
-            <div className="terminal-header">
-              <span className="terminal-name">Sin terminal activa</span>
-            </div>
-            <div className="terminal-view empty">
+          <div className="terminal-header">
+            <span className="terminal-name">Sin terminal activa</span>
+          </div>
+        )}
+
+        {/* Render ALL terminals, hide inactive ones with CSS */}
+        <div className="terminal-view">
+          {state.projects.flatMap(project =>
+            project.terminals.map(terminal => (
+              <div
+                key={terminal.id}
+                className={`terminal-wrapper ${state.activeTerminalId === terminal.id ? 'active' : 'hidden'}`}
+              >
+                <TerminalView
+                  terminalId={terminal.id}
+                  workingDir={project.path}
+                />
+              </div>
+            ))
+          )}
+          {/* Show placeholder when no terminals exist */}
+          {state.projects.every(p => p.terminals.length === 0) && (
+            <div className="terminal-placeholder">
               <p className="placeholder">Selecciona o crea una terminal</p>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </main>
 
       {/* Sidebar Right - Actions Panel */}
