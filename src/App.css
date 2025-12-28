@@ -35,8 +35,15 @@
     rgba(24, 24, 27, 0.5) 0%,
     rgba(24, 24, 27, 0.35) 100%
   );
-  overflow-y: auto;
+  overflow-y: scroll;
   overflow-x: hidden;
+  /* Always show scrollbar to prevent layout shift */
+  scrollbar-gutter: stable;
+  /* Smooth scrolling */
+  scroll-behavior: smooth;
+  /* GPU acceleration for smooth scrolling */
+  will-change: scroll-position;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Header Sections - Glass Effect */
@@ -87,7 +94,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: rgba(24, 24, 27, 0.15);
+  /* background set via inline style for dynamic opacity */
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
@@ -770,6 +777,29 @@ input::placeholder {
 .mcp-actions .btn-icon-sm.danger:hover {
   background: rgba(239, 68, 68, 0.35);
   border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* Warning button (yellow) - for remove from session */
+.mcp-actions .btn-icon-sm.warning {
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  color: var(--warning);
+}
+
+.mcp-actions .btn-icon-sm.warning:hover {
+  background: rgba(234, 179, 8, 0.3);
+  border-color: rgba(234, 179, 8, 0.45);
+}
+
+.mcp-actions .btn-icon-sm.warning-active {
+  background: rgba(234, 179, 8, 0.35);
+  border: 1px solid rgba(234, 179, 8, 0.5);
+  color: var(--warning);
+}
+
+.mcp-actions .btn-icon-sm.warning-active:hover {
+  background: rgba(234, 179, 8, 0.45);
+  border-color: rgba(234, 179, 8, 0.6);
 }
 
 /* MCP Section Title Button */
@@ -1665,8 +1695,27 @@ input[type="checkbox"] {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 300px;
-  overflow-y: auto;
+  max-height: 350px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+
+.mcp-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mcp-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mcp-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.mcp-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .mcp-message {
@@ -2016,6 +2065,108 @@ input[type="checkbox"] {
 .btn-primary:hover {
   background: var(--accent-hover);
   transform: translateY(-1px);
+}
+
+/* ============================================
+   AGENT TABS (Plugin System)
+   ============================================ */
+.agent-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(9, 9, 11, 0.3);
+}
+
+.agent-tab {
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: all var(--transition-fast);
+}
+
+.agent-tab:hover {
+  opacity: 0.8;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.agent-tab.active {
+  opacity: 1;
+  border-color: var(--plugin-color, var(--accent));
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.agent-tab-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.agent-tab-emoji {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Plugin content area */
+.plugin-content {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+/* Actions Panel - ensure it doesn't overflow */
+.actions-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+/* Sidebar scrollbar styling */
+.sidebar-right::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-right::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-right::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.sidebar-right::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Collapsible sections - prevent layout shift */
+.session-manager,
+.mcp-manager,
+.port-manager {
+  contain: layout;
+}
+
+.session-list,
+.port-list {
+  /* Smooth expand/collapse */
+  transition: max-height 0.2s ease-out, opacity 0.15s ease-out;
+  overflow: hidden;
+}
+
+/* MCP content needs scroll */
+.mcp-content {
+  transition: max-height 0.2s ease-out, opacity 0.15s ease-out;
 }
 
 /* ============================================
