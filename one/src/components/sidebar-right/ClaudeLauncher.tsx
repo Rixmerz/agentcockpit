@@ -6,33 +6,39 @@ import type { McpServer } from './McpPanel';
 interface ClaudeLauncherProps {
   projectPath: string | null;
   selectedSession: ProjectSession | null;
-  selectedModel: string;
   hasActiveTerminal: boolean;
   mcpsToInject: McpServer[];
   mcpsToRemove: string[];
   onLaunch: (command: string) => void;
-  onModelChange: (model: string) => void;
+  onWriteToTerminal: (data: string) => Promise<void>;
 }
 
 export function ClaudeLauncher({
   projectPath,
   selectedSession,
-  selectedModel,
   hasActiveTerminal,
   mcpsToInject,
   mcpsToRemove,
   onLaunch,
-  onModelChange,
+  onWriteToTerminal,
 }: ClaudeLauncherProps) {
   const [resumeMode, setResumeMode] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customArgs, setCustomArgs] = useState('');
 
+  // Send /model command to switch model in running Claude instance
+  // NOTE: Must send text and carriage return separately with delay
+  // PTY requires this pattern for proper command execution
+  const handleModelSwitch = useCallback(async (model: string) => {
+    await onWriteToTerminal(`/model ${model}`);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    await onWriteToTerminal('\r');
+  }, [onWriteToTerminal]);
+
   const handleLaunch = useCallback(async () => {
-    // Build Claude command
+    // Build Claude command (no model specified - uses default)
     const claudeCommand = buildClaudeCommand({
       sessionId: selectedSession?.id,
-      model: selectedModel,
       resume: resumeMode && !!selectedSession,
       additionalArgs: customArgs ? customArgs.split(' ').filter(Boolean) : undefined,
     });
@@ -66,12 +72,11 @@ export function ClaudeLauncher({
     const fullCommand = allCommands.join(' ; ');
     console.log('[Launcher] Full command:', fullCommand);
     onLaunch(fullCommand);
-  }, [mcpsToInject, mcpsToRemove, selectedSession, selectedModel, resumeMode, customArgs, onLaunch]);
+  }, [mcpsToInject, mcpsToRemove, selectedSession, resumeMode, customArgs, onLaunch]);
 
   // Build preview command (including MCP injections)
   const claudeCmd = buildClaudeCommand({
     sessionId: selectedSession?.id,
-    model: selectedModel,
     resume: resumeMode && !!selectedSession,
     additionalArgs: customArgs ? customArgs.split(' ').filter(Boolean) : undefined,
   });
@@ -93,16 +98,33 @@ export function ClaudeLauncher({
   return (
     <div className="claude-launcher">
       <div className="launcher-section">
-        <div className="section-header">Modelo</div>
-        <select
-          className="model-selector"
-          value={selectedModel}
-          onChange={(e) => onModelChange(e.target.value)}
-        >
-          <option value="haiku">Haiku (rápido)</option>
-          <option value="sonnet">Sonnet (balanceado)</option>
-          <option value="opus">Opus (potente)</option>
-        </select>
+        <div className="section-header">Cambiar Modelo</div>
+        <div className="model-buttons">
+          <button
+            className="model-btn"
+            onClick={() => handleModelSwitch('haiku')}
+            disabled={!hasActiveTerminal}
+            title="Enviar /model haiku"
+          >
+            Haiku
+          </button>
+          <button
+            className="model-btn"
+            onClick={() => handleModelSwitch('sonnet')}
+            disabled={!hasActiveTerminal}
+            title="Enviar /model sonnet"
+          >
+            Sonnet
+          </button>
+          <button
+            className="model-btn"
+            onClick={() => handleModelSwitch('opus')}
+            disabled={!hasActiveTerminal}
+            title="Enviar /model opus"
+          >
+            Opus
+          </button>
+        </div>
       </div>
 
       {selectedSession && (
