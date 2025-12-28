@@ -1,5 +1,5 @@
 use parking_lot::Mutex;
-use portable_pty::{native_pty_system, CommandBuilder, PtySize, MasterPty};
+use portable_pty::{native_pty_system, CommandBuilder, PtySize, MasterPty, Child};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::Arc;
@@ -9,6 +9,7 @@ use tauri::{AppHandle, Emitter, State};
 pub struct PtyInstance {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
+    child: Box<dyn Child + Send>,  // Track child process for cleanup
 }
 
 pub struct PtyManager {
@@ -50,7 +51,7 @@ impl PtyManager {
         cmd_builder.env("TERM", "xterm-256color");
         cmd_builder.env("COLORTERM", "truecolor");
 
-        let _child = pair.slave.spawn_command(cmd_builder).map_err(|e| e.to_string())?;
+        let child = pair.slave.spawn_command(cmd_builder).map_err(|e| e.to_string())?;
 
         let id = self.next_id;
         self.next_id += 1;
@@ -85,6 +86,7 @@ impl PtyManager {
         self.instances.insert(id, PtyInstance {
             master: pair.master,
             writer,
+            child,
         });
 
         Ok(id)
@@ -108,8 +110,48 @@ impl PtyManager {
     }
 
     pub fn close(&mut self, id: u32) -> Result<(), String> {
-        self.instances.remove(&id).ok_or("PTY not found")?;
-        Ok(())
+        if let Some(mut instance) = self.instances.remove(&id) {
+            // Kill process group (shell + all descendants like Claude)
+            #[cfg(unix)]
+            {
+                if let Some(pid) = instance.child.process_id() {
+                    unsafe {
+                        // Send SIGTERM first for graceful shutdown
+                        libc::kill(-(pid as i32), libc::SIGTERM);
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        // SIGKILL if still running
+                        libc::kill(-(pid as i32), libc::SIGKILL);
+                    }
+                }
+            }
+
+            #[cfg(windows)]
+            {
+                let _ = instance.child.kill();
+            }
+
+            // Wait for child to prevent zombies
+            let _ = instance.child.wait();
+            drop(instance);
+            Ok(())
+        } else {
+            Err("PTY not found".to_string())
+        }
+    }
+
+    /// Close all PTY instances - used during shutdown
+    pub fn close_all(&mut self) {
+        let ids: Vec<u32> = self.instances.keys().copied().collect();
+        for id in ids {
+            let _ = self.close(id);
+        }
+    }
+}
+
+impl Drop for PtyManager {
+    fn drop(&mut self) {
+        // Clean up all PTYs when manager is dropped
+        self.close_all();
     }
 }
 

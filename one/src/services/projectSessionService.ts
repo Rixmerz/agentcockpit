@@ -127,3 +127,48 @@ export async function updateMcpPreferences(
   config.mcpPreferences = preferences;
   await saveProjectConfig(projectPath, config);
 }
+
+/**
+ * Check if a session UUID is currently in use by a running Claude process
+ */
+export async function validateSessionNotInUse(
+  sessionId: string
+): Promise<boolean> {
+  try {
+    const result = await invoke<string>('execute_command', {
+      cmd: `ps aux | grep -i "claude.*${sessionId}" | grep -v grep`,
+      cwd: '/',
+    });
+    return result.trim().length === 0; // true if NOT in use
+  } catch {
+    return true; // error = assume not in use
+  }
+}
+
+/**
+ * Clean up stale sessions on app startup.
+ * Removes sessions whose UUIDs are still in use by zombie Claude processes.
+ */
+export async function cleanStaleSessionsOnStartup(
+  projectPath: string
+): Promise<void> {
+  const config = await getProjectConfig(projectPath);
+  const validSessions: ProjectSession[] = [];
+  let hasStale = false;
+
+  for (const session of config.sessions) {
+    const isValid = await validateSessionNotInUse(session.id);
+    if (isValid) {
+      validSessions.push(session);
+    } else {
+      console.warn(`[SessionCleanup] Removing stale session: ${session.id} (${session.name})`);
+      hasStale = true;
+    }
+  }
+
+  if (hasStale) {
+    config.sessions = validSessions;
+    await saveProjectConfig(projectPath, config);
+    console.log(`[SessionCleanup] Cleaned ${config.sessions.length - validSessions.length} stale sessions`);
+  }
+}

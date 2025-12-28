@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { AppState, AppAction, Project, Terminal } from '../types';
 import { usePersistence } from '../hooks/usePersistence';
 import { ptyClose } from '../services/tauriService';
+import { cleanStaleSessionsOnStartup } from '../services/projectSessionService';
 
 // Initial state
 const initialState: AppState = {
@@ -171,6 +172,17 @@ export function AppProvider({ children }: AppProviderProps) {
       mcpDefaultEnabled: stateRef.current.mcpDefaultEnabled,
     }), []),
   });
+
+  // Clean up stale sessions on startup for all loaded projects
+  useEffect(() => {
+    if (!state.isLoading && state.projects.length > 0) {
+      // Clean stale sessions for each project
+      state.projects.forEach(project => {
+        cleanStaleSessionsOnStartup(project.path)
+          .catch(err => console.error(`[SessionCleanup] Failed for ${project.name}:`, err));
+      });
+    }
+  }, [state.isLoading]); // Only run once when loading completes
 
   // Convenience getters
   const activeProject = state.projects.find(p => p.id === state.activeProjectId) || null;
