@@ -38,9 +38,10 @@ export function ClaudeLauncher({
 
   const handleLaunch = useCallback(async () => {
     // Build Claude command
+    // Always use --resume for existing sessions, --session-id is for new sessions only
     const claudeCommand = buildClaudeCommand({
       sessionId: selectedSession?.id,
-      resume: resumeMode && !!selectedSession,
+      resume: !!selectedSession,  // Existing sessions always use --resume
       additionalArgs: customArgs ? customArgs.split(' ').filter(Boolean) : undefined,
     });
 
@@ -70,12 +71,12 @@ export function ClaudeLauncher({
     const fullCommand = allCommands.join(' ; ');
     console.log('[Launcher] Full command:', fullCommand);
     onLaunch(fullCommand);
-  }, [mcpsToInject, mcpsToRemove, selectedSession, resumeMode, customArgs, onLaunch]);
+  }, [mcpsToInject, mcpsToRemove, selectedSession, customArgs, onLaunch]);
 
   // Build preview command
   const claudeCmd = buildClaudeCommand({
     sessionId: selectedSession?.id,
-    resume: resumeMode && !!selectedSession,
+    resume: !!selectedSession,  // Existing sessions always use --resume
     additionalArgs: customArgs ? customArgs.split(' ').filter(Boolean) : undefined,
   });
 
