@@ -23,7 +23,6 @@ export function ClaudeLauncher({
   onLaunch,
   onWriteToTerminal,
 }: ClaudeLauncherProps) {
-  const [resumeMode, setResumeMode] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customArgs, setCustomArgs] = useState('');
   const [activeModel, setActiveModel] = useState<string | null>(null);
@@ -118,22 +117,11 @@ export function ClaudeLauncher({
       </div>
 
       {selectedSession && (
-        <div className="flex flex-col gap-2 mt-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted">Sesión:</span>
-            <span className="font-mono text-blue-400" title={selectedSession.id} style={{ color: 'var(--accent)' }}>
-              {selectedSession.name}
-            </span>
-          </div>
-          <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={resumeMode}
-              onChange={(e) => setResumeMode(e.target.checked)}
-              className="accent-blue-500"
-            />
-            <span>Resumir sesión (--resume)</span>
-          </label>
+        <div className="flex items-center justify-between text-xs mt-2">
+          <span className="text-muted">Sesión:</span>
+          <span className="font-mono" title={selectedSession.id} style={{ color: 'var(--accent)' }}>
+            {selectedSession.name}
+          </span>
         </div>
       )}
 
