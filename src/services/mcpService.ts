@@ -279,37 +279,6 @@ export async function importAllDesktopToCode(): Promise<{ success: boolean; mess
   }
 }
 
-// ==================== Command Building ====================
-
-// Build claude command with options
-export function buildClaudeCommand(options: {
-  sessionId?: string;
-  model?: string;
-  resume?: boolean;
-  additionalArgs?: string[];
-}): string {
-  const args: string[] = ['claude'];
-
-  // Session handling
-  if (options.resume && options.sessionId) {
-    args.push('--resume', options.sessionId);
-  } else if (options.sessionId) {
-    args.push('--session-id', options.sessionId);
-  }
-
-  // Model
-  if (options.model) {
-    args.push('--model', options.model);
-  }
-
-  // Additional args
-  if (options.additionalArgs) {
-    args.push(...options.additionalArgs);
-  }
-
-  return args.join(' ');
-}
-
 // Get MCP server details
 export async function getMcpDetails(name: string): Promise<string> {
   try {

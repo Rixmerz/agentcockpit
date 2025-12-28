@@ -117,6 +117,7 @@ export function buildClaudeCommand(options: {
   model?: 'haiku' | 'sonnet' | 'opus';
   mcpDesktop?: boolean;
   mcpDefault?: boolean;
+  additionalArgs?: string[];
 }): string {
   const args: string[] = ['claude'];
 
@@ -139,6 +140,11 @@ export function buildClaudeCommand(options: {
 
   if (options.mcpDefault === false) {
     args.push('--no-mcp-default');
+  }
+
+  // Additional args
+  if (options.additionalArgs) {
+    args.push(...options.additionalArgs);
   }
 
   return args.join(' ');
