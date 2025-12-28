@@ -17,6 +17,7 @@ const initialState: AppState = {
   defaultIDE: undefined,
   backgroundImage: undefined,
   backgroundOpacity: 30, // Default 30%
+  terminalOpacity: 15, // Default 15% (semi-transparent)
   ptyInstances: new Map(),
   isLoading: true,
 };
@@ -113,6 +114,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_BACKGROUND_OPACITY':
       return { ...state, backgroundOpacity: action.payload };
 
+    case 'SET_TERMINAL_OPACITY':
+      return { ...state, terminalOpacity: action.payload };
+
     default:
       return state;
   }
@@ -188,6 +192,7 @@ export function AppProvider({ children }: AppProviderProps) {
       defaultIDE: stateRef.current.defaultIDE,
       backgroundImage: stateRef.current.backgroundImage,
       backgroundOpacity: stateRef.current.backgroundOpacity,
+      terminalOpacity: stateRef.current.terminalOpacity,
     }), []),
   });
 
@@ -393,6 +398,7 @@ export function useAppSettings() {
     defaultIDE: state.defaultIDE,
     backgroundImage: state.backgroundImage,
     backgroundOpacity: state.backgroundOpacity ?? 30,
+    terminalOpacity: state.terminalOpacity ?? 15,
 
     setDefaultIDE: (ide: 'cursor' | 'code' | 'antigravity' | undefined) => {
       dispatch({ type: 'SET_DEFAULT_IDE', payload: ide });
@@ -406,6 +412,11 @@ export function useAppSettings() {
 
     setBackgroundOpacity: (opacity: number) => {
       dispatch({ type: 'SET_BACKGROUND_OPACITY', payload: opacity });
+      scheduleSave();
+    },
+
+    setTerminalOpacity: (opacity: number) => {
+      dispatch({ type: 'SET_TERMINAL_OPACITY', payload: opacity });
       scheduleSave();
     },
   };

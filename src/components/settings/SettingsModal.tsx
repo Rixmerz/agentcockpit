@@ -13,31 +13,37 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     defaultIDE,
     backgroundImage,
     backgroundOpacity,
+    terminalOpacity,
     setDefaultIDE,
     setBackgroundImage,
     setBackgroundOpacity,
+    setTerminalOpacity,
   } = useAppSettings();
 
   const [localImage, setLocalImage] = useState(backgroundImage || '');
   const [localOpacity, setLocalOpacity] = useState(backgroundOpacity);
+  const [localTerminalOpacity, setLocalTerminalOpacity] = useState(terminalOpacity);
 
   // Sync local state when modal opens
   useEffect(() => {
     if (isOpen) {
       setLocalImage(backgroundImage || '');
       setLocalOpacity(backgroundOpacity);
+      setLocalTerminalOpacity(terminalOpacity);
     }
-  }, [isOpen, backgroundImage, backgroundOpacity]);
+  }, [isOpen, backgroundImage, backgroundOpacity, terminalOpacity]);
 
   const handleSave = () => {
     setBackgroundImage(localImage || undefined);
     setBackgroundOpacity(localOpacity);
+    setTerminalOpacity(localTerminalOpacity);
     onClose();
   };
 
   const handleCancel = () => {
     setLocalImage(backgroundImage || '');
     setLocalOpacity(backgroundOpacity);
+    setLocalTerminalOpacity(terminalOpacity);
     onClose();
   };
 
@@ -142,6 +148,25 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
             className="settings-slider"
           />
           <span className="settings-slider-value">{localOpacity}%</span>
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <h3 className="settings-section-title">Opacidad de Terminal</h3>
+        <p className="settings-section-desc">
+          Controla que tan oscuro o claro se ve el fondo de la terminal (0% = transparente, 100% = oscuro)
+        </p>
+
+        <div className="settings-slider-container">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={localTerminalOpacity}
+            onChange={(e) => setLocalTerminalOpacity(Number(e.target.value))}
+            className="settings-slider"
+          />
+          <span className="settings-slider-value">{localTerminalOpacity}%</span>
         </div>
       </div>
 

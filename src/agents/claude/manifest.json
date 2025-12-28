@@ -1,0 +1,59 @@
+{
+  "id": "claude",
+  "name": "Claude Code",
+  "version": "1.0.0",
+  "description": "Integration with Anthropic's Claude Code CLI",
+  "author": "AgentCockpit",
+  "icon": "/claude-logo.svg",
+  "color": "#D97757",
+  "cli": {
+    "command": "claude",
+    "installCheck": "which claude",
+    "installUrl": "https://claude.ai/download"
+  },
+  "configPaths": {
+    "desktop": "~/Library/Application Support/Claude/claude_desktop_config.json",
+    "user": "~/.claude.json",
+    "project": ".claude/"
+  },
+  "quickActions": [
+    {
+      "id": "ultrathink",
+      "label": "Ultrathink",
+      "icon": "Zap",
+      "command": "ultrathink",
+      "type": "multiline",
+      "tooltip": "Enviar 'ultrathink' para pensamiento profundo"
+    },
+    {
+      "id": "compact",
+      "label": "Compact",
+      "icon": "Archive",
+      "command": "/compact",
+      "type": "action",
+      "tooltip": "Compactar contexto"
+    }
+  ],
+  "models": [
+    {
+      "id": "haiku",
+      "name": "Haiku",
+      "description": "Fast and efficient"
+    },
+    {
+      "id": "sonnet",
+      "name": "Sonnet",
+      "description": "Balanced performance",
+      "default": true
+    },
+    {
+      "id": "opus",
+      "name": "Opus",
+      "description": "Most capable"
+    }
+  ],
+  "components": {
+    "launcher": true,
+    "mcpPanel": true
+  }
+}

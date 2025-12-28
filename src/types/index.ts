@@ -27,6 +27,7 @@ export interface AppConfig {
   defaultIDE?: 'cursor' | 'code' | 'antigravity';
   backgroundImage?: string;  // URL or local path
   backgroundOpacity?: number; // 0-100
+  terminalOpacity?: number; // 0-100, opacity of terminal container
 }
 
 // PTY instance managed by Rust backend
@@ -69,4 +70,5 @@ export type AppAction =
   // Global settings actions
   | { type: 'SET_DEFAULT_IDE'; payload: 'cursor' | 'code' | 'antigravity' | undefined }
   | { type: 'SET_BACKGROUND_IMAGE'; payload: string | undefined }
-  | { type: 'SET_BACKGROUND_OPACITY'; payload: number };
+  | { type: 'SET_BACKGROUND_OPACITY'; payload: number }
+  | { type: 'SET_TERMINAL_OPACITY'; payload: number };

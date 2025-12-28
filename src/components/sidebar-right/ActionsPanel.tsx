@@ -1,11 +1,19 @@
+/**
+ * Actions Panel
+ *
+ * Main sidebar-right container with plugin-based agent integration.
+ * Renders AgentTabs for plugin selection and active plugin components.
+ */
+
 import { useState, useCallback } from 'react';
-import { McpPanel, type McpServer } from './McpPanel';
+import { Settings } from 'lucide-react';
+import { usePlugins } from '../../plugins/context/PluginContext';
+import { AgentTabs } from '../../core/components/AgentTabs';
 import { SessionManager } from './SessionManager';
-import { ClaudeLauncher } from './ClaudeLauncher';
 import { PortMonitor } from './PortMonitor';
 import { SettingsModal } from '../settings/SettingsModal';
 import { createSession, updateSessionLastUsed, type ProjectSession } from '../../services/projectSessionService';
-import { Zap, Archive, Eraser, Ban, Settings } from 'lucide-react';
+import type { McpServerInfo } from '../../plugins/types/plugin';
 
 interface ActionsPanelProps {
   projectPath: string | null;
@@ -22,57 +30,57 @@ export function ActionsPanel({
   onWriteToTerminal,
   availableIDEs,
 }: ActionsPanelProps) {
-  const [selectedMcpServers, setSelectedMcpServers] = useState<string[]>([]);
-  const [mcpsToInject, setMcpsToInject] = useState<McpServer[]>([]);
-  const [mcpsToRemove, setMcpsToRemove] = useState<string[]>([]);
+  // Plugin context
+  const { installedPlugins, activePlugin, setActivePlugin } = usePlugins();
+
+  // Local state
   const [selectedSession, setSelectedSession] = useState<ProjectSession | null>(null);
+  const [mcpsToInject, setMcpsToInject] = useState<McpServerInfo[]>([]);
+  const [mcpsToRemove, setMcpsToRemove] = useState<string[]>([]);
+  const [selectedMcpServers, setSelectedMcpServers] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Garantiza que exista una sesión ANTES de construir comando
+  // Ensure session exists BEFORE building command
   const ensureSession = useCallback(async (): Promise<ProjectSession | null> => {
     if (!projectPath) return null;
 
-    // Retornar sesión existente si hay
+    // Return existing session if available
     if (selectedSession) {
       await updateSessionLastUsed(projectPath, selectedSession.id, terminalId || undefined);
       return selectedSession;
     }
 
-    // Auto-crear sesión nueva (wasPreExisting=false → usa --session-id)
+    // Auto-create new session (wasPreExisting=false → uses --session-id)
     const newSession = await createSession(projectPath);
     setSelectedSession(newSession);
     await updateSessionLastUsed(projectPath, newSession.id, terminalId || undefined);
     return newSession;
   }, [selectedSession, projectPath, terminalId]);
 
-  // Simplificado: solo escribe comando (sesión ya fue creada por ClaudeLauncher)
+  // Handle launch command from plugin
   const handleLaunch = useCallback(async (command: string) => {
     await onWriteToTerminal(command + '\n');
   }, [onWriteToTerminal]);
 
+  // Handle session creation
   const handleSessionCreated = useCallback((session: ProjectSession) => {
     setSelectedSession(session);
   }, []);
 
-  // Send command to terminal with proper PTY execution pattern
-  // Must send text and carriage return separately with delay
-  const handleQuickAction = useCallback(async (action: string) => {
-    await onWriteToTerminal(action);
-    await new Promise(resolve => setTimeout(resolve, 50));
-    await onWriteToTerminal('\r');
-  }, [onWriteToTerminal]);
+  // Handle MCP changes from plugin
+  const handleMcpsChange = useCallback((toInject: McpServerInfo[], toRemove: string[]) => {
+    setMcpsToInject(toInject);
+    setMcpsToRemove(toRemove);
+  }, []);
 
-  // Special handler for ultrathink: adds newline to pending input, then ultrathink, then sends all
-  const handleUltrathink = useCallback(async () => {
-    // Add newline to pending message (not execute, just new line in input)
-    await onWriteToTerminal('\n');
-    await new Promise(resolve => setTimeout(resolve, 50));
-    // Write ultrathink
-    await onWriteToTerminal('ultrathink');
-    await new Promise(resolve => setTimeout(resolve, 50));
-    // Send everything
-    await onWriteToTerminal('\r');
-  }, [onWriteToTerminal]);
+  // Legacy compatibility for McpPanel props
+  const handleMcpsForInjection = useCallback((mcps: McpServerInfo[]) => {
+    setMcpsToInject(mcps);
+  }, []);
+
+  const handleMcpsForRemoval = useCallback((names: string[]) => {
+    setMcpsToRemove(names);
+  }, []);
 
   return (
     <div className="actions-panel sidebar-right">
@@ -85,29 +93,77 @@ export function ActionsPanel({
 
       {/* Sidebar Right Header */}
       <div className="sidebar-right-header">
-        <h2>ACCIONES</h2>
+        <h2>AGENTES</h2>
         <button
           className="settings-btn"
           onClick={() => setShowSettings(true)}
-          title="Configuracion"
+          title="Configuración"
         >
           <Settings size={16} />
         </button>
       </div>
 
-      {/* Claude Launcher */}
-      <ClaudeLauncher
-        projectPath={projectPath}
-        selectedSession={selectedSession}
-        hasActiveTerminal={hasActiveTerminal}
-        mcpsToInject={mcpsToInject}
-        mcpsToRemove={mcpsToRemove}
-        ensureSession={ensureSession}
-        onLaunch={handleLaunch}
-        onWriteToTerminal={onWriteToTerminal}
+      {/* Agent Tabs */}
+      <AgentTabs
+        plugins={installedPlugins}
+        activePluginId={activePlugin?.manifest.id ?? null}
+        onSelect={setActivePlugin}
       />
 
-      {/* Session Manager */}
+      {/* Active Plugin Content */}
+      {activePlugin && (
+        <div className="plugin-content">
+          {/* Quick Actions */}
+          {activePlugin.QuickActions && (
+            <activePlugin.QuickActions
+              onWriteToTerminal={onWriteToTerminal}
+              disabled={!hasActiveTerminal}
+            />
+          )}
+
+          {/* Launcher */}
+          {activePlugin.Launcher && (
+            <activePlugin.Launcher
+              projectPath={projectPath}
+              session={selectedSession}
+              hasActiveTerminal={hasActiveTerminal}
+              mcpsToInject={mcpsToInject}
+              mcpsToRemove={mcpsToRemove}
+              ensureSession={ensureSession}
+              onLaunch={handleLaunch}
+              onWriteToTerminal={onWriteToTerminal}
+            />
+          )}
+
+          {/* MCP Panel */}
+          {activePlugin.McpPanel && (
+            <activePlugin.McpPanel
+              projectPath={projectPath}
+              onMcpsChange={handleMcpsChange}
+              // Legacy props for backwards compatibility
+              selectedServers={selectedMcpServers}
+              onSelectionChange={setSelectedMcpServers}
+              onMcpsForInjection={handleMcpsForInjection}
+              onMcpsForRemoval={handleMcpsForRemoval}
+            />
+          )}
+        </div>
+      )}
+
+      {/* No plugins installed */}
+      {installedPlugins.length === 0 && (
+        <div className="panel-section">
+          <div className="text-center text-sm text-muted p-4">
+            No hay agentes instalados.
+            <br />
+            <span className="text-xs opacity-60">
+              Instala Claude CLI: <code>npm install -g @anthropic-ai/claude-code</code>
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Core Components (always visible) */}
       <SessionManager
         projectPath={projectPath}
         selectedSession={selectedSession}
@@ -115,60 +171,7 @@ export function ActionsPanel({
         onSessionCreated={handleSessionCreated}
       />
 
-      {/* MCP Panel */}
-      <McpPanel
-        projectPath={projectPath}
-        selectedServers={selectedMcpServers}
-        onSelectionChange={setSelectedMcpServers}
-        onMcpsForInjection={setMcpsToInject}
-        onMcpsForRemoval={setMcpsToRemove}
-      />
-
-      {/* Port Monitor */}
       <PortMonitor />
-
-      {/* Quick Actions */}
-      <div className="panel-section">
-        <div className="box-title">Acciones Rápidas</div>
-        <div className="quick-actions-grid">
-          <button
-            className="action-card"
-            onClick={handleUltrathink}
-            disabled={!hasActiveTerminal}
-            title="Enviar 'ultrathink'"
-          >
-            <Zap size={18} className="text-yellow-500" style={{ color: 'var(--warning)' }} />
-            <span>Ultrathink</span>
-          </button>
-          <button
-            className="action-card"
-            onClick={() => handleQuickAction('/compact')}
-            disabled={!hasActiveTerminal}
-            title="Compactar contexto"
-          >
-            <Archive size={18} className="text-blue-500" style={{ color: 'var(--accent)' }} />
-            <span>Compact</span>
-          </button>
-          <button
-            className="action-card"
-            onClick={() => handleQuickAction('/clear')}
-            disabled={!hasActiveTerminal}
-            title="Limpiar conversación"
-          >
-            <Eraser size={18} />
-            <span>Clear</span>
-          </button>
-          <button
-            className="action-card"
-            onClick={() => handleQuickAction('\x03')}
-            disabled={!hasActiveTerminal}
-            title="Cancelar (Ctrl+C)"
-          >
-            <Ban size={18} className="text-red-500" style={{ color: 'var(--error)' }} />
-            <span>Cancel</span>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

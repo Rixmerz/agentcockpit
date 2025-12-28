@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { AppProvider, useApp, useTerminalActions, useAppSettings } from './contexts/AppContext';
+import { PluginProvider } from './plugins/context/PluginContext';
+import { claudePlugin } from './agents/claude';
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
 import { PathNavigator } from './components/sidebar-left/PathNavigator';
@@ -31,7 +33,7 @@ function LoadingScreen() {
 function MainContent() {
   const { state, activeProject, activeTerminal, addProject, addTerminal, setActiveTerminal, removeTerminal, removeProject } = useApp();
   const { writeToActiveTerminal, hasActiveTerminal } = useTerminalActions();
-  const { defaultIDE, backgroundImage, backgroundOpacity } = useAppSettings();
+  const { defaultIDE, backgroundImage, backgroundOpacity, terminalOpacity } = useAppSettings();
 
   // IDE Detection
   const [availableIDEs, setAvailableIDEs] = useState<string[]>([]);
@@ -241,7 +243,12 @@ function MainContent() {
 
       {/* Main Content - Terminal View */}
       <main className="main-content">
-        <div className="terminal-container">
+        <div
+          className="terminal-container"
+          style={{
+            backgroundColor: `rgba(24, 24, 27, ${terminalOpacity / 100})`,
+          }}
+        >
           {activeTerminal && activeProject ? (
             <TerminalHeader
               name={activeTerminal.name}
@@ -297,7 +304,9 @@ function MainContent() {
 function App() {
   return (
     <AppProvider>
-      <MainContent />
+      <PluginProvider initialPlugins={[claudePlugin]}>
+        <MainContent />
+      </PluginProvider>
     </AppProvider>
   );
 }
