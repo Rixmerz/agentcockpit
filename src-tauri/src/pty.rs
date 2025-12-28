@@ -51,6 +51,11 @@ impl PtyManager {
         cmd_builder.env("TERM", "xterm-256color");
         cmd_builder.env("COLORTERM", "truecolor");
 
+        // Note: Process group setup (setsid) is handled automatically by portable_pty
+        // when spawning the command. The slave PTY makes the child process a session
+        // leader as part of standard PTY operation. This ensures kill(-pid) works
+        // for the entire process tree.
+
         let child = pair.slave.spawn_command(cmd_builder).map_err(|e| e.to_string())?;
 
         let id = self.next_id;
@@ -118,9 +123,19 @@ impl PtyManager {
                     unsafe {
                         // Send SIGTERM first for graceful shutdown
                         libc::kill(-(pid as i32), libc::SIGTERM);
-                        std::thread::sleep(std::time::Duration::from_millis(100));
-                        // SIGKILL if still running
-                        libc::kill(-(pid as i32), libc::SIGKILL);
+
+                        // Wait longer for graceful shutdown (500ms instead of 100ms)
+                        // Gives Claude time to cleanup properly
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+
+                        // Check if process still exists before SIGKILL
+                        let still_alive = libc::kill(-(pid as i32), 0) == 0;
+
+                        if still_alive {
+                            // SIGKILL if still running
+                            libc::kill(-(pid as i32), libc::SIGKILL);
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                        }
                     }
                 }
             }

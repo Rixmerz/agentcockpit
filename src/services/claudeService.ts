@@ -113,13 +113,17 @@ export async function listClaudeSessions(): Promise<ClaudeSession[]> {
  */
 export function buildClaudeCommand(options: {
   sessionId?: string;
+  resume?: boolean;  // Use --resume for existing sessions, --session-id for new
   model?: 'haiku' | 'sonnet' | 'opus';
   mcpDesktop?: boolean;
   mcpDefault?: boolean;
 }): string {
   const args: string[] = ['claude'];
 
-  if (options.sessionId) {
+  // Session handling: --resume for existing sessions, --session-id for new
+  if (options.resume && options.sessionId) {
+    args.push('--resume', options.sessionId);
+  } else if (options.sessionId) {
     args.push('--session-id', options.sessionId);
   } else {
     args.push('--new-session');

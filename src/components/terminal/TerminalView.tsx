@@ -48,12 +48,12 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
     const terminal = new Terminal({
       cursorBlink: true,
       fontSize: 14,
-      fontFamily: "'Menlo', 'Monaco', 'Courier New', monospace",
+      fontFamily: "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
       theme: {
-        background: '#1e1e1e',
-        foreground: '#cccccc',
+        background: '#1a1a1a',
+        foreground: '#e4e4e7',
         cursor: '#ffffff',
-        cursorAccent: '#1e1e1e',
+        cursorAccent: '#1a1a1a',
         selectionBackground: '#264f78',
         black: '#000000',
         red: '#cd3131',
@@ -146,11 +146,10 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
   return (
     <div
       ref={containerRef}
-      className="terminal-container"
+      className="terminal-xterm"
       style={{
         width: '100%',
         height: '100%',
-        backgroundColor: '#1e1e1e',
       }}
     />
   );

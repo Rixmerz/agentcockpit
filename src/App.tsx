@@ -158,40 +158,42 @@ function MainContent() {
 
       {/* Main Content - Terminal View */}
       <main className="main-content">
-        {activeTerminal && activeProject ? (
-          <TerminalHeader
-            name={activeTerminal.name}
-            projectName={activeProject.name}
-            onClose={() => removeTerminal(activeProject.id, activeTerminal.id)}
-          />
-        ) : (
-          <div className="terminal-header justify-center">
-            <span className="terminal-name text-muted">No Active Terminal</span>
-          </div>
-        )}
-
-        <div className="terminal-view">
-          {state.projects.flatMap(project =>
-            project.terminals.map(terminal => (
-              <div
-                key={terminal.id}
-                className={`terminal-wrapper ${state.activeTerminalId === terminal.id ? 'active' : ''}`}
-              >
-                <TerminalView
-                  terminalId={terminal.id}
-                  workingDir={project.path}
-                />
-              </div>
-            ))
-          )}
-          {state.projects.every(p => p.terminals.length === 0) && (
-            <div className="terminal-placeholder">
-              <div className="flex flex-col items-center gap-4 opacity-50">
-                <TerminalSquare size={48} strokeWidth={1} />
-                <p>Selecciona o crea una terminal para comenzar</p>
-              </div>
+        <div className="terminal-container">
+          {activeTerminal && activeProject ? (
+            <TerminalHeader
+              name={activeTerminal.name}
+              projectName={activeProject.name}
+              onClose={() => removeTerminal(activeProject.id, activeTerminal.id)}
+            />
+          ) : (
+            <div className="terminal-header justify-center">
+              <span className="terminal-name text-muted">No Active Terminal</span>
             </div>
           )}
+
+          <div className="terminal-view">
+            {state.projects.flatMap(project =>
+              project.terminals.map(terminal => (
+                <div
+                  key={terminal.id}
+                  className={`terminal-wrapper ${state.activeTerminalId === terminal.id ? 'active' : ''}`}
+                >
+                  <TerminalView
+                    terminalId={terminal.id}
+                    workingDir={project.path}
+                  />
+                </div>
+              ))
+            )}
+            {state.projects.every(p => p.terminals.length === 0) && (
+              <div className="terminal-placeholder">
+                <div className="flex flex-col items-center gap-4 opacity-50">
+                  <TerminalSquare size={48} strokeWidth={1} />
+                  <p>Selecciona o crea una terminal para comenzar</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
