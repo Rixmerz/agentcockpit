@@ -8,8 +8,6 @@ interface ActionsPanelProps {
   projectPath: string | null;
   terminalId: string | null;
   hasActiveTerminal: boolean;
-  selectedModel: string;
-  onModelChange: (model: string) => void;
   onWriteToTerminal: (data: string) => Promise<void>;
 }
 
@@ -17,8 +15,6 @@ export function ActionsPanel({
   projectPath,
   terminalId,
   hasActiveTerminal,
-  selectedModel,
-  onModelChange,
   onWriteToTerminal,
 }: ActionsPanelProps) {
   const [selectedMcpServers, setSelectedMcpServers] = useState<string[]>([]);
@@ -30,7 +26,7 @@ export function ActionsPanel({
     // If no session selected, create one automatically
     let session = selectedSession;
     if (!session && projectPath) {
-      session = await createSession(projectPath, undefined, selectedModel);
+      session = await createSession(projectPath);
       setSelectedSession(session);
     }
 
@@ -41,14 +37,30 @@ export function ActionsPanel({
 
     // Write command to terminal
     await onWriteToTerminal(command + '\n');
-  }, [selectedSession, projectPath, selectedModel, terminalId, onWriteToTerminal]);
+  }, [selectedSession, projectPath, terminalId, onWriteToTerminal]);
 
   const handleSessionCreated = useCallback((session: ProjectSession) => {
     setSelectedSession(session);
   }, []);
 
+  // Send command to terminal with proper PTY execution pattern
+  // Must send text and carriage return separately with delay
   const handleQuickAction = useCallback(async (action: string) => {
-    await onWriteToTerminal(action + '\n');
+    await onWriteToTerminal(action);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    await onWriteToTerminal('\r');
+  }, [onWriteToTerminal]);
+
+  // Special handler for ultrathink: adds newline to pending input, then ultrathink, then sends all
+  const handleUltrathink = useCallback(async () => {
+    // Add newline to pending message (not execute, just new line in input)
+    await onWriteToTerminal('\n');
+    await new Promise(resolve => setTimeout(resolve, 50));
+    // Write ultrathink
+    await onWriteToTerminal('ultrathink');
+    await new Promise(resolve => setTimeout(resolve, 50));
+    // Send everything
+    await onWriteToTerminal('\r');
   }, [onWriteToTerminal]);
 
   return (
@@ -57,12 +69,11 @@ export function ActionsPanel({
       <ClaudeLauncher
         projectPath={projectPath}
         selectedSession={selectedSession}
-        selectedModel={selectedModel}
         hasActiveTerminal={hasActiveTerminal}
         mcpsToInject={mcpsToInject}
         mcpsToRemove={mcpsToRemove}
         onLaunch={handleLaunch}
-        onModelChange={onModelChange}
+        onWriteToTerminal={onWriteToTerminal}
       />
 
       {/* Session Manager */}
@@ -88,7 +99,7 @@ export function ActionsPanel({
         <div className="quick-actions-grid">
           <button
             className="quick-action-btn"
-            onClick={() => handleQuickAction('ultrathink')}
+            onClick={handleUltrathink}
             disabled={!hasActiveTerminal}
             title="Enviar 'ultrathink'"
           >

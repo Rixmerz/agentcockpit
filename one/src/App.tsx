@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { AppProvider, useApp, useSettings, useTerminalActions } from './contexts/AppContext';
+import { AppProvider, useApp, useTerminalActions } from './contexts/AppContext';
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
 import { PathNavigator } from './components/sidebar-left/PathNavigator';
@@ -20,7 +20,6 @@ function LoadingScreen() {
 
 function MainContent() {
   const { state, activeProject, activeTerminal, addProject, addTerminal, setActiveTerminal, removeTerminal, removeProject } = useApp();
-  const { selectedModel, setModel } = useSettings();
   const { writeToActiveTerminal, hasActiveTerminal } = useTerminalActions();
 
   const handleAddTerminal = useCallback((projectId: string) => {
@@ -178,8 +177,6 @@ function MainContent() {
           projectPath={activeProject?.path || null}
           terminalId={activeTerminal?.id || null}
           hasActiveTerminal={hasActiveTerminal}
-          selectedModel={selectedModel}
-          onModelChange={(model) => setModel(model as 'haiku' | 'sonnet' | 'opus')}
           onWriteToTerminal={writeToActiveTerminal}
         />
       </aside>

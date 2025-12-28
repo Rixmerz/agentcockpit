@@ -444,24 +444,36 @@ body {
   margin-bottom: 20px;
 }
 
-.model-selector {
-  width: 100%;
-  padding: 8px 12px;
+.model-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.model-btn {
+  flex: 1;
+  padding: 6px 8px;
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.model-selector:hover {
+.model-btn:hover:not(:disabled) {
+  background-color: var(--bg-hover);
   border-color: var(--accent);
 }
 
-.model-selector:focus {
-  outline: none;
-  border-color: var(--accent);
+.model-btn:active:not(:disabled) {
+  background-color: var(--accent);
+  color: white;
+}
+
+.model-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-action {
