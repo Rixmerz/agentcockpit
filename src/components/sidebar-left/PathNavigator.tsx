@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { openFolderDialog } from '../../services/fileSystemService';
+import { FolderOpen } from 'lucide-react';
 
 interface PathNavigatorProps {
   onCreateProject: (name: string, path: string) => void;
@@ -289,7 +290,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
           onClick={handleOpenDialog}
           title="Buscar carpeta..."
         >
-          📂
+          <FolderOpen size={14} />
         </button>
         <div className="path-nav-current" title={currentPath}>
           {displayPath}
@@ -323,7 +324,9 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
 
       {/* Create project button */}
       <button className="btn-create-project" onClick={handleCreateProject}>
-        Crear Proyecto en {displayPath.split('/').pop() || '~'}
+        <div className="flex items-center justify-center gap-2">
+          <span>Crear Proyecto {displayPath.split('/').pop() || '~'}</span>
+        </div>
       </button>
     </div>
   );
