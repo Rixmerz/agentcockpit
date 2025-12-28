@@ -4,6 +4,7 @@ use pty::PtyManager;
 use std::sync::Arc;
 use std::process::Command;
 use parking_lot::Mutex;
+use tauri::RunEvent;
 
 #[tauri::command]
 fn execute_command(cmd: String, cwd: String) -> Result<String, String> {
@@ -24,10 +25,12 @@ fn execute_command(cmd: String, cwd: String) -> Result<String, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let pty_manager = Arc::new(Mutex::new(PtyManager::new()));
+    let pty_manager_for_shutdown = pty_manager.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_shell::init())
         .manage(pty_manager)
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -46,6 +49,14 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_close,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(move |_app_handle, event| {
+            if let RunEvent::Exit = event {
+                // Clean up all PTY processes on app exit
+                log::info!("App shutting down - cleaning up PTY processes");
+                let mut manager = pty_manager_for_shutdown.lock();
+                manager.close_all();
+            }
+        });
 }
