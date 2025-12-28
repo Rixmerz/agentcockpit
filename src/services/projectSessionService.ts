@@ -7,6 +7,7 @@ export interface ProjectSession {
   lastUsed: number;
   model?: string;
   terminalId?: string;
+  wasPreExisting?: boolean;  // true = usar --resume, false = usar --session-id
 }
 
 export interface ProjectConfig {
@@ -50,7 +51,15 @@ async function writeProjectConfig(projectPath: string, config: ProjectConfig): P
 export async function getProjectConfig(projectPath: string): Promise<ProjectConfig> {
   const existing = await readProjectConfig(projectPath);
   if (existing) {
-    return existing;
+    // Marcar sesiones cargadas del JSON como pre-existentes (usar --resume)
+    const sessionsWithFlag = existing.sessions.map(session => ({
+      ...session,
+      wasPreExisting: true
+    }));
+    return {
+      ...existing,
+      sessions: sessionsWithFlag
+    };
   }
 
   // Return default config
@@ -82,6 +91,7 @@ export async function createSession(
     createdAt: Date.now(),
     lastUsed: Date.now(),
     model: model || config.defaultModel,
+    wasPreExisting: false,  // Sesiones nuevas NO usan --resume, usan --session-id
   };
 
   config.sessions.push(session);

@@ -28,22 +28,27 @@ export function ActionsPanel({
   const [selectedSession, setSelectedSession] = useState<ProjectSession | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
+  // Garantiza que exista una sesión ANTES de construir comando
+  const ensureSession = useCallback(async (): Promise<ProjectSession | null> => {
+    if (!projectPath) return null;
+
+    // Retornar sesión existente si hay
+    if (selectedSession) {
+      await updateSessionLastUsed(projectPath, selectedSession.id, terminalId || undefined);
+      return selectedSession;
+    }
+
+    // Auto-crear sesión nueva (wasPreExisting=false → usa --session-id)
+    const newSession = await createSession(projectPath);
+    setSelectedSession(newSession);
+    await updateSessionLastUsed(projectPath, newSession.id, terminalId || undefined);
+    return newSession;
+  }, [selectedSession, projectPath, terminalId]);
+
+  // Simplificado: solo escribe comando (sesión ya fue creada por ClaudeLauncher)
   const handleLaunch = useCallback(async (command: string) => {
-    // If no session selected, create one automatically
-    let session = selectedSession;
-    if (!session && projectPath) {
-      session = await createSession(projectPath);
-      setSelectedSession(session);
-    }
-
-    // Update session last used
-    if (session && projectPath) {
-      await updateSessionLastUsed(projectPath, session.id, terminalId || undefined);
-    }
-
-    // Write command to terminal
     await onWriteToTerminal(command + '\n');
-  }, [selectedSession, projectPath, terminalId, onWriteToTerminal]);
+  }, [onWriteToTerminal]);
 
   const handleSessionCreated = useCallback((session: ProjectSession) => {
     setSelectedSession(session);
@@ -97,6 +102,7 @@ export function ActionsPanel({
         hasActiveTerminal={hasActiveTerminal}
         mcpsToInject={mcpsToInject}
         mcpsToRemove={mcpsToRemove}
+        ensureSession={ensureSession}
         onLaunch={handleLaunch}
         onWriteToTerminal={onWriteToTerminal}
       />
