@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
-import { RefreshCw, Check, X, Import, Server, AlertCircle } from 'lucide-react';
+import { RefreshCw, Check, X, Import, Server, AlertCircle, Plus } from 'lucide-react';
 
 export interface McpServerConfig {
   command?: string;
@@ -75,11 +75,72 @@ export function McpPanel({ projectPath, selectedServers, onSelectionChange, onMc
   const [homePath, setHomePath] = useState<string>('');
   const [serversToRemove, setServersToRemove] = useState<string[]>([]);
   const [expanded, setExpanded] = useState(false);
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualJson, setManualJson] = useState('');
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   // Show temporary message
   const showMessage = useCallback((type: 'success' | 'error', text: string) => {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 3000);
+  }, []);
+
+  /**
+   * Parse and validate manual MCP JSON input
+   * Handles both formats:
+   * - { "mcpServers": { "name": { config } } }
+   * - { "name": { config } }
+   */
+  const parseManualMcpJson = useCallback((jsonText: string): {
+    name: string;
+    config: McpServerConfig;
+  } | null => {
+    try {
+      const parsed = JSON.parse(jsonText);
+
+      // Check if it's wrapped with mcpServers
+      let serversObj = parsed;
+      if (parsed.mcpServers && typeof parsed.mcpServers === 'object') {
+        serversObj = parsed.mcpServers;
+      }
+
+      // Extract first (and should be only) server
+      const entries = Object.entries(serversObj);
+      if (entries.length === 0) {
+        setJsonError('No se encontró ningún servidor MCP en el JSON');
+        return null;
+      }
+
+      if (entries.length > 1) {
+        setJsonError('Solo se puede agregar un servidor a la vez');
+        return null;
+      }
+
+      const [name, config] = entries[0];
+
+      // Validate config structure (at minimum should be an object)
+      if (typeof config !== 'object' || config === null) {
+        setJsonError('La configuración debe ser un objeto');
+        return null;
+      }
+
+      // Validate it has at least command or url
+      const configObj = config as Record<string, unknown>;
+      if (!configObj.command && !configObj.url) {
+        setJsonError('La configuración debe tener "command" o "url"');
+        return null;
+      }
+
+      setJsonError(null);
+      return { name: name as string, config: config as McpServerConfig };
+    } catch (e) {
+      if (e instanceof SyntaxError) {
+        setJsonError(`JSON inválido: ${e.message}`);
+      } else {
+        setJsonError('Error al procesar el JSON');
+      }
+      return null;
+    }
   }, []);
 
   // Load MCPs
@@ -141,6 +202,53 @@ export function McpPanel({ projectPath, selectedServers, onSelectionChange, onMc
   useEffect(() => {
     loadMcps();
   }, [loadMcps]);
+
+  // Add manual MCP from JSON
+  const handleAddManualMcp = useCallback(async () => {
+    const parsed = parseManualMcpJson(manualJson);
+    if (!parsed) return;
+
+    const { name, config } = parsed;
+
+    try {
+      const desktopPath = `${homePath}/Library/Application Support/Claude/claude_desktop_config.json`;
+      const existingConfig = await readJsonFile(desktopPath) as { mcpServers?: Record<string, McpServerConfig> } | null;
+
+      if (!existingConfig) {
+        showMessage('error', 'No se pudo leer el archivo de configuración');
+        return;
+      }
+
+      // Check if server already exists
+      if (existingConfig.mcpServers?.[name]) {
+        showMessage('error', `El servidor "${name}" ya existe`);
+        return;
+      }
+
+      // Add new server
+      const newConfig = {
+        ...existingConfig,
+        mcpServers: {
+          ...existingConfig.mcpServers,
+          [name]: config,
+        },
+      };
+
+      const success = await writeJsonFile(desktopPath, newConfig);
+      if (success) {
+        showMessage('success', `"${name}" agregado correctamente`);
+        setShowManualInput(false);
+        setManualJson('');
+        setJsonError(null);
+        loadMcps(); // Reload to show new MCP
+      } else {
+        showMessage('error', 'Error al guardar la configuración');
+      }
+    } catch (e) {
+      console.error('[MCP] Add manual error:', e);
+      showMessage('error', `Error: ${e}`);
+    }
+  }, [manualJson, parseManualMcpJson, homePath, loadMcps, showMessage]);
 
   // Single click: toggle inject (green)
   const handleSingleClick = useCallback((serverName: string) => {
@@ -312,7 +420,61 @@ export function McpPanel({ projectPath, selectedServers, onSelectionChange, onMc
           <div className="mcp-section">
             <div className="mcp-section-title">
               <span>Desktop ({desktopMcps.length})</span>
+              <button
+                className="btn-icon-sm"
+                onClick={() => setShowManualInput(!showManualInput)}
+                title="Agregar MCP manualmente"
+              >
+                <Plus size={12} />
+              </button>
             </div>
+
+            {showManualInput && (
+              <div className="manual-mcp-input">
+                <label className="manual-mcp-label">
+                  JSON de MCP Server
+                </label>
+                <textarea
+                  className="manual-mcp-textarea"
+                  value={manualJson}
+                  onChange={(e) => {
+                    setManualJson(e.target.value);
+                    if (jsonError) setJsonError(null);
+                  }}
+                  onBlur={() => {
+                    if (manualJson.trim()) {
+                      parseManualMcpJson(manualJson);
+                    }
+                  }}
+                  placeholder={`Ejemplo:\n{\n  "sequential": {\n    "command": "docker",\n    "args": ["run", "--rm", "-i", "mcp/sequentialthinking"]\n  }\n}`}
+                  rows={8}
+                />
+                {jsonError && (
+                  <div className="manual-mcp-error">
+                    {jsonError}
+                  </div>
+                )}
+                <div className="manual-mcp-actions">
+                  <button
+                    className="btn-secondary"
+                    onClick={() => {
+                      setShowManualInput(false);
+                      setManualJson('');
+                      setJsonError(null);
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={handleAddManualMcp}
+                    disabled={!manualJson.trim() || !!jsonError}
+                  >
+                    Agregar
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="mcp-list">
               {desktopMcps.length === 0 ? (
