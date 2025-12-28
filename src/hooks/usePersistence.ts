@@ -10,6 +10,10 @@ interface PersistedConfig {
   selectedModel: 'haiku' | 'sonnet' | 'opus';
   mcpDesktopEnabled: boolean;
   mcpDefaultEnabled: boolean;
+  // Global settings
+  defaultIDE?: 'cursor' | 'code' | 'antigravity';
+  backgroundImage?: string;
+  backgroundOpacity?: number;
 }
 
 const CONFIG_FILENAME = 'one-term-config.json';

@@ -1,16 +1,18 @@
-import { useCallback, useEffect } from 'react';
-import { AppProvider, useApp, useTerminalActions } from './contexts/AppContext';
+import { useCallback, useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { AppProvider, useApp, useTerminalActions, useAppSettings } from './contexts/AppContext';
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
 import { PathNavigator } from './components/sidebar-left/PathNavigator';
 import { ActionsPanel } from './components/sidebar-right/ActionsPanel';
-import { 
-  ChevronRight, 
-  ChevronDown, 
-  Plus, 
-  X, 
-  TerminalSquare, 
-  Folder 
+import {
+  ChevronRight,
+  ChevronDown,
+  Plus,
+  X,
+  TerminalSquare,
+  Folder,
+  ExternalLink
 } from 'lucide-react';
 import './App.css';
 
@@ -29,6 +31,59 @@ function LoadingScreen() {
 function MainContent() {
   const { state, activeProject, activeTerminal, addProject, addTerminal, setActiveTerminal, removeTerminal, removeProject } = useApp();
   const { writeToActiveTerminal, hasActiveTerminal } = useTerminalActions();
+  const { defaultIDE, backgroundImage, backgroundOpacity } = useAppSettings();
+
+  // IDE Detection
+  const [availableIDEs, setAvailableIDEs] = useState<string[]>([]);
+  const [selectedIDE, setSelectedIDE] = useState<string | null>(null);
+
+  // Detect installed IDEs on mount and respect defaultIDE setting
+  useEffect(() => {
+    const detectIDEs = async () => {
+      const ides = ['cursor', 'code', 'antigravity'];
+      const available: string[] = [];
+
+      for (const ide of ides) {
+        try {
+          await invoke<string>('execute_command', {
+            cmd: `which ${ide}`,
+            cwd: '/',
+          });
+          available.push(ide);
+        } catch {
+          // IDE not installed
+        }
+      }
+
+      setAvailableIDEs(available);
+
+      // Prioritize defaultIDE if set and available
+      if (defaultIDE && available.includes(defaultIDE)) {
+        setSelectedIDE(defaultIDE);
+      } else if (available.length > 0) {
+        setSelectedIDE(available[0]);
+      }
+    };
+
+    detectIDEs();
+  }, [defaultIDE]);
+
+  // Handler to open project in IDE
+  const handleOpenInIDE = useCallback(async (projectPath: string) => {
+    if (!selectedIDE) {
+      console.error('No IDE available');
+      return;
+    }
+
+    try {
+      await invoke<string>('execute_command', {
+        cmd: `${selectedIDE} "${projectPath}"`,
+        cwd: '/',
+      });
+    } catch (error) {
+      console.error(`Error opening ${selectedIDE}:`, error);
+    }
+  }, [selectedIDE]);
 
   const handleAddTerminal = useCallback((projectId: string) => {
     const project = state.projects.find(p => p.id === projectId);
@@ -70,7 +125,23 @@ function MainContent() {
   }
 
   return (
-    <div className="app">
+    <div
+      className="app"
+      style={{
+        backgroundImage: backgroundImage ? `url("${backgroundImage}")` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Background opacity overlay */}
+      {backgroundImage && (
+        <div
+          className="app-background-overlay"
+          style={{ opacity: 1 - backgroundOpacity / 100 }}
+        />
+      )}
+
       {/* Sidebar Left - Projects Tree */}
       <aside className="sidebar-left">
         <div className="sidebar-header">
@@ -107,6 +178,18 @@ function MainContent() {
                     >
                       <Plus size={14} />
                     </button>
+                    {availableIDEs.length > 0 && (
+                      <button
+                        className="btn-icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenInIDE(project.path);
+                        }}
+                        title={`Abrir en ${selectedIDE}`}
+                      >
+                        <ExternalLink size={14} />
+                      </button>
+                    )}
                     <button
                       className="btn-icon danger"
                       onClick={(e) => {
@@ -204,6 +287,7 @@ function MainContent() {
           terminalId={activeTerminal?.id || null}
           hasActiveTerminal={hasActiveTerminal}
           onWriteToTerminal={writeToActiveTerminal}
+          availableIDEs={availableIDEs}
         />
       </aside>
     </div>
