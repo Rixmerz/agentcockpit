@@ -23,6 +23,10 @@ export interface AppConfig {
   selectedModel: 'haiku' | 'sonnet' | 'opus';
   mcpDesktopEnabled: boolean;
   mcpDefaultEnabled: boolean;
+  // Global settings
+  defaultIDE?: 'cursor' | 'code' | 'antigravity';
+  backgroundImage?: string;  // URL or local path
+  backgroundOpacity?: number; // 0-100
 }
 
 // PTY instance managed by Rust backend
@@ -61,4 +65,8 @@ export type AppAction =
   | { type: 'SET_PTY_INSTANCE'; payload: PtyInstance }
   | { type: 'REMOVE_PTY_INSTANCE'; payload: string }
   | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'LOAD_CONFIG'; payload: AppConfig };
+  | { type: 'LOAD_CONFIG'; payload: AppConfig }
+  // Global settings actions
+  | { type: 'SET_DEFAULT_IDE'; payload: 'cursor' | 'code' | 'antigravity' | undefined }
+  | { type: 'SET_BACKGROUND_IMAGE'; payload: string | undefined }
+  | { type: 'SET_BACKGROUND_OPACITY'; payload: number };

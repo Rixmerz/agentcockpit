@@ -2,14 +2,17 @@ import { useState, useCallback } from 'react';
 import { McpPanel, type McpServer } from './McpPanel';
 import { SessionManager } from './SessionManager';
 import { ClaudeLauncher } from './ClaudeLauncher';
+import { PortMonitor } from './PortMonitor';
+import { SettingsModal } from '../settings/SettingsModal';
 import { createSession, updateSessionLastUsed, type ProjectSession } from '../../services/projectSessionService';
-import { Zap, Archive, Eraser, Ban } from 'lucide-react';
+import { Zap, Archive, Eraser, Ban, Settings } from 'lucide-react';
 
 interface ActionsPanelProps {
   projectPath: string | null;
   terminalId: string | null;
   hasActiveTerminal: boolean;
   onWriteToTerminal: (data: string) => Promise<void>;
+  availableIDEs: string[];
 }
 
 export function ActionsPanel({
@@ -17,11 +20,13 @@ export function ActionsPanel({
   terminalId,
   hasActiveTerminal,
   onWriteToTerminal,
+  availableIDEs,
 }: ActionsPanelProps) {
   const [selectedMcpServers, setSelectedMcpServers] = useState<string[]>([]);
   const [mcpsToInject, setMcpsToInject] = useState<McpServer[]>([]);
   const [mcpsToRemove, setMcpsToRemove] = useState<string[]>([]);
   const [selectedSession, setSelectedSession] = useState<ProjectSession | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleLaunch = useCallback(async (command: string) => {
     // If no session selected, create one automatically
@@ -66,6 +71,25 @@ export function ActionsPanel({
 
   return (
     <div className="actions-panel sidebar-right">
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        availableIDEs={availableIDEs}
+      />
+
+      {/* Sidebar Right Header */}
+      <div className="sidebar-right-header">
+        <h2>ACCIONES</h2>
+        <button
+          className="settings-btn"
+          onClick={() => setShowSettings(true)}
+          title="Configuracion"
+        >
+          <Settings size={16} />
+        </button>
+      </div>
+
       {/* Claude Launcher */}
       <ClaudeLauncher
         projectPath={projectPath}
@@ -93,6 +117,9 @@ export function ActionsPanel({
         onMcpsForInjection={setMcpsToInject}
         onMcpsForRemoval={setMcpsToRemove}
       />
+
+      {/* Port Monitor */}
+      <PortMonitor />
 
       {/* Quick Actions */}
       <div className="panel-section">

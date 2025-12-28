@@ -13,6 +13,10 @@ const initialState: AppState = {
   selectedModel: 'sonnet',
   mcpDesktopEnabled: false,
   mcpDefaultEnabled: true,
+  // Global settings
+  defaultIDE: undefined,
+  backgroundImage: undefined,
+  backgroundOpacity: 30, // Default 30%
   ptyInstances: new Map(),
   isLoading: true,
 };
@@ -99,6 +103,16 @@ function appReducer(state: AppState, action: AppAction): AppState {
         isLoading: false,
       };
 
+    // Global settings actions
+    case 'SET_DEFAULT_IDE':
+      return { ...state, defaultIDE: action.payload };
+
+    case 'SET_BACKGROUND_IMAGE':
+      return { ...state, backgroundImage: action.payload };
+
+    case 'SET_BACKGROUND_OPACITY':
+      return { ...state, backgroundOpacity: action.payload };
+
     default:
       return state;
   }
@@ -170,6 +184,10 @@ export function AppProvider({ children }: AppProviderProps) {
       selectedModel: stateRef.current.selectedModel,
       mcpDesktopEnabled: stateRef.current.mcpDesktopEnabled,
       mcpDefaultEnabled: stateRef.current.mcpDefaultEnabled,
+      // Global settings
+      defaultIDE: stateRef.current.defaultIDE,
+      backgroundImage: stateRef.current.backgroundImage,
+      backgroundOpacity: stateRef.current.backgroundOpacity,
     }), []),
   });
 
@@ -364,5 +382,31 @@ export function useTerminalActions() {
   return {
     writeToActiveTerminal,
     hasActiveTerminal: !!activeTerminal,
+  };
+}
+
+// Hook for global app settings (IDE, background, etc.)
+export function useAppSettings() {
+  const { state, dispatch, scheduleSave } = useApp();
+
+  return {
+    defaultIDE: state.defaultIDE,
+    backgroundImage: state.backgroundImage,
+    backgroundOpacity: state.backgroundOpacity ?? 30,
+
+    setDefaultIDE: (ide: 'cursor' | 'code' | 'antigravity' | undefined) => {
+      dispatch({ type: 'SET_DEFAULT_IDE', payload: ide });
+      scheduleSave();
+    },
+
+    setBackgroundImage: (image: string | undefined) => {
+      dispatch({ type: 'SET_BACKGROUND_IMAGE', payload: image });
+      scheduleSave();
+    },
+
+    setBackgroundOpacity: (opacity: number) => {
+      dispatch({ type: 'SET_BACKGROUND_OPACITY', payload: opacity });
+      scheduleSave();
+    },
   };
 }
