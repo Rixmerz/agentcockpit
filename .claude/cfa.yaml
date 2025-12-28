@@ -1,0 +1,12 @@
+version: "2.0"
+name: AgentCockpit
+description: >
+  Terminal manager for Claude Code - A Tauri desktop app with xterm.js
+  that provides a unified cockpit for managing multiple terminals,
+  Claude sessions, and MCP servers with a glassmorphism UI.
+languages:
+  - typescript
+  - rust
+  - css
+source_root: src
+created: 2025-12-28

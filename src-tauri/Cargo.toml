@@ -1,17 +1,17 @@
 [package]
-name = "app"
+name = "agentcockpit"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+description = "Your AI agent cockpit - Control Claude and other AI agents from a unified terminal interface"
+authors = ["Juan Pablo Diaz"]
+license = "MIT"
+repository = "https://github.com/agentcockpit/agentcockpit"
 edition = "2021"
 rust-version = "1.77.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "app_lib"
+name = "agentcockpit_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
