@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { buildClaudeCommand } from '../../services/mcpService';
+import { buildClaudeCommand } from '../../services/claudeService';
 import type { ProjectSession } from '../../services/projectSessionService';
 import type { McpServer } from './McpPanel';
 import { Rocket, ChevronRight, ChevronDown } from 'lucide-react';
@@ -10,6 +10,7 @@ interface ClaudeLauncherProps {
   hasActiveTerminal: boolean;
   mcpsToInject: McpServer[];
   mcpsToRemove: string[];
+  ensureSession: () => Promise<ProjectSession | null>;
   onLaunch: (command: string) => void;
   onWriteToTerminal: (data: string) => Promise<void>;
 }
@@ -20,6 +21,7 @@ export function ClaudeLauncher({
   hasActiveTerminal,
   mcpsToInject,
   mcpsToRemove,
+  ensureSession,
   onLaunch,
   onWriteToTerminal,
 }: ClaudeLauncherProps) {
@@ -36,11 +38,20 @@ export function ClaudeLauncher({
   }, [onWriteToTerminal]);
 
   const handleLaunch = useCallback(async () => {
-    // Build Claude command
-    // Always use --resume for existing sessions, --session-id is for new sessions only
+    // PASO 1: Garantizar sesión existe ANTES de construir comando
+    const session = await ensureSession();
+
+    if (!session) {
+      console.error('[Launcher] No session available');
+      return;
+    }
+
+    // PASO 2: Construir comando con sesión garantizada
+    // wasPreExisting=true → --resume (sesiones que ya existían)
+    // wasPreExisting=false → --session-id (sesiones recién creadas)
     const claudeCommand = buildClaudeCommand({
-      sessionId: selectedSession?.id,
-      resume: !!selectedSession,  // Existing sessions always use --resume
+      sessionId: session.id,
+      resume: session.wasPreExisting ?? false,
       additionalArgs: customArgs ? customArgs.split(' ').filter(Boolean) : undefined,
     });
 
@@ -70,12 +81,13 @@ export function ClaudeLauncher({
     const fullCommand = allCommands.join(' ; ');
     console.log('[Launcher] Full command:', fullCommand);
     onLaunch(fullCommand);
-  }, [mcpsToInject, mcpsToRemove, selectedSession, customArgs, onLaunch]);
+  }, [mcpsToInject, mcpsToRemove, ensureSession, customArgs, onLaunch]);
 
-  // Build preview command
+  // Build preview command (muestra comportamiento esperado)
+  const previewSession = selectedSession ?? { wasPreExisting: false };
   const claudeCmd = buildClaudeCommand({
-    sessionId: selectedSession?.id,
-    resume: !!selectedSession,  // Existing sessions always use --resume
+    sessionId: selectedSession?.id ?? '<auto-session>',
+    resume: (previewSession as ProjectSession).wasPreExisting ?? false,
     additionalArgs: customArgs ? customArgs.split(' ').filter(Boolean) : undefined,
   });
 
