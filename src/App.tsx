@@ -4,6 +4,14 @@ import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
 import { PathNavigator } from './components/sidebar-left/PathNavigator';
 import { ActionsPanel } from './components/sidebar-right/ActionsPanel';
+import { 
+  ChevronRight, 
+  ChevronDown, 
+  Plus, 
+  X, 
+  TerminalSquare, 
+  Folder 
+} from 'lucide-react';
 import './App.css';
 
 // Loading screen component
@@ -12,7 +20,7 @@ function LoadingScreen() {
     <div className="loading-screen">
       <div className="loading-content">
         <div className="loading-spinner" />
-        <span>Cargando...</span>
+        <span style={{ marginTop: '12px', fontSize: '13px' }}>Cargando...</span>
       </div>
     </div>
   );
@@ -57,7 +65,6 @@ function MainContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeProject, activeTerminal, handleAddTerminal, removeTerminal]);
 
-  // Show loading screen
   if (state.isLoading) {
     return <LoadingScreen />;
   }
@@ -67,38 +74,53 @@ function MainContent() {
       {/* Sidebar Left - Projects Tree */}
       <aside className="sidebar-left">
         <div className="sidebar-header">
-          <h2>Proyectos</h2>
+          <h2>EXPLORER</h2>
         </div>
 
         <div className="project-tree">
           {state.projects.length === 0 ? (
-            <p className="placeholder">Sin proyectos</p>
+            <div className="p-4 text-center">
+              <p className="placeholder">Sin proyectos</p>
+            </div>
           ) : (
             state.projects.map(project => (
               <div key={project.id} className="project-item">
                 <div
                   className={`project-header ${state.activeProjectId === project.id ? 'active' : ''}`}
                 >
-                  <span className="project-icon">▼</span>
-                  <span className="project-name" title={project.path}>{project.name}</span>
-                  <button
-                    className="btn-add-terminal"
-                    onClick={() => handleAddTerminal(project.id)}
-                    title="Nueva terminal (Cmd+N)"
-                  >
-                    +
-                  </button>
-                  <button
-                    className="btn-remove-project"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeProject(project.id);
-                    }}
-                    title="Eliminar proyecto"
-                  >
-                    ×
-                  </button>
+                  <span className="project-icon">
+                    {state.activeProjectId === project.id ? 
+                      <ChevronDown size={14} /> : 
+                      <ChevronRight size={14} />
+                    }
+                  </span>
+                  <div className="flex items-center gap-2 flex-1 overflow-hidden">
+                    <Folder size={14} className="text-blue-500" style={{ color: 'var(--accent)' }} />
+                    <span className="project-name" title={project.path}>{project.name}</span>
+                  </div>
+                  
+                  <div className="project-actions">
+                    <button
+                      className="btn-icon"
+                      onClick={() => handleAddTerminal(project.id)}
+                      title="Nueva terminal (Cmd+N)"
+                    >
+                      <Plus size={14} />
+                    </button>
+                    <button
+                      className="btn-icon danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeProject(project.id);
+                      }}
+                      title="Eliminar proyecto"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
                 </div>
+                
+                {/* Terminals list */}
                 <div className="terminal-list">
                   {project.terminals.map(terminal => (
                     <div
@@ -106,17 +128,17 @@ function MainContent() {
                       className={`terminal-item ${state.activeTerminalId === terminal.id ? 'active' : ''}`}
                       onClick={() => setActiveTerminal(project.id, terminal.id)}
                     >
-                      <span className="terminal-icon">▸</span>
+                      <TerminalSquare size={13} className="terminal-icon" />
                       <span>{terminal.name}</span>
                       <button
-                        className="btn-remove-terminal"
+                        className="btn-icon-sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           removeTerminal(project.id, terminal.id);
                         }}
                         title="Cerrar terminal (Cmd+W)"
                       >
-                        ×
+                        <X size={12} />
                       </button>
                     </div>
                   ))}
@@ -127,14 +149,15 @@ function MainContent() {
         </div>
 
         <div className="navigator-section">
-          <div className="section-header">Nuevo Proyecto</div>
+          <div className="section-header" style={{ height: '32px', border: 'none', paddingLeft: '8px' }}>
+            NUEVO PROYECTO
+          </div>
           <PathNavigator onCreateProject={handleCreateProject} />
         </div>
       </aside>
 
       {/* Main Content - Terminal View */}
       <main className="main-content">
-        {/* Header for active terminal */}
         {activeTerminal && activeProject ? (
           <TerminalHeader
             name={activeTerminal.name}
@@ -142,18 +165,17 @@ function MainContent() {
             onClose={() => removeTerminal(activeProject.id, activeTerminal.id)}
           />
         ) : (
-          <div className="terminal-header">
-            <span className="terminal-name">Sin terminal activa</span>
+          <div className="terminal-header justify-center">
+            <span className="terminal-name text-muted">No Active Terminal</span>
           </div>
         )}
 
-        {/* Render ALL terminals, hide inactive ones with CSS */}
         <div className="terminal-view">
           {state.projects.flatMap(project =>
             project.terminals.map(terminal => (
               <div
                 key={terminal.id}
-                className={`terminal-wrapper ${state.activeTerminalId === terminal.id ? 'active' : 'hidden'}`}
+                className={`terminal-wrapper ${state.activeTerminalId === terminal.id ? 'active' : ''}`}
               >
                 <TerminalView
                   terminalId={terminal.id}
@@ -162,10 +184,12 @@ function MainContent() {
               </div>
             ))
           )}
-          {/* Show placeholder when no terminals exist */}
           {state.projects.every(p => p.terminals.length === 0) && (
             <div className="terminal-placeholder">
-              <p className="placeholder">Selecciona o crea una terminal</p>
+              <div className="flex flex-col items-center gap-4 opacity-50">
+                <TerminalSquare size={48} strokeWidth={1} />
+                <p>Selecciona o crea una terminal para comenzar</p>
+              </div>
             </div>
           )}
         </div>

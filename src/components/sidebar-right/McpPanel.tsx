@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
+import { RefreshCw, Check, X, Import, Server, AlertCircle } from 'lucide-react';
 
 export interface McpServerConfig {
   command?: string;
@@ -28,14 +29,11 @@ interface McpPanelProps {
 // Read JSON file using cat command
 async function readJsonFile(path: string): Promise<unknown | null> {
   try {
-    console.log('[MCP] Reading file:', path);
     const result = await invoke<string>('execute_command', {
       cmd: `cat "${path}"`,
       cwd: '/',
     });
-    const parsed = JSON.parse(result);
-    console.log('[MCP] Parsed successfully');
-    return parsed;
+    return JSON.parse(result);
   } catch (e) {
     console.error('[MCP] Read error:', e);
     return null;
@@ -76,6 +74,7 @@ export function McpPanel({ projectPath, selectedServers, onSelectionChange, onMc
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [homePath, setHomePath] = useState<string>('');
   const [serversToRemove, setServersToRemove] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState(false);
 
   // Show temporary message
   const showMessage = useCallback((type: 'success' | 'error', text: string) => {
@@ -90,8 +89,6 @@ export function McpPanel({ projectPath, selectedServers, onSelectionChange, onMc
 
     try {
       const home = await homeDir();
-      console.log('[MCP] Home directory:', home);
-
       if (!home) {
         setError('No home directory');
         setIsLoading(false);
@@ -101,7 +98,6 @@ export function McpPanel({ projectPath, selectedServers, onSelectionChange, onMc
       // Normalize home path (remove trailing slash if present)
       const normalizedHome = home.endsWith('/') ? home.slice(0, -1) : home;
       setHomePath(normalizedHome);
-      console.log('[MCP] Normalized home:', normalizedHome);
 
       const desktopPath = `${normalizedHome}/Library/Application Support/Claude/claude_desktop_config.json`;
       const codePath = `${normalizedHome}/.claude.json`;
@@ -114,7 +110,6 @@ export function McpPanel({ projectPath, selectedServers, onSelectionChange, onMc
           for (const [name, config] of Object.entries(desktopConfig.mcpServers)) {
             desktopServers.push({ name, source: 'desktop', config });
           }
-          console.log('[MCP] Desktop MCPs loaded:', desktopServers.length);
         }
       } catch (e) {
         console.error('[MCP] Desktop load error:', e);
@@ -128,7 +123,6 @@ export function McpPanel({ projectPath, selectedServers, onSelectionChange, onMc
           for (const [name, config] of Object.entries(codeConfig.mcpServers)) {
             codeServers.push({ name, source: 'code', config });
           }
-          console.log('[MCP] Code MCPs loaded:', codeServers.length);
         }
       } catch (e) {
         console.error('[MCP] Code load error:', e);
@@ -260,144 +254,160 @@ export function McpPanel({ projectPath, selectedServers, onSelectionChange, onMc
 
   if (isLoading) {
     return (
-      <div className="mcp-panel">
-        <div className="mcp-panel-header">
-          <span className="mcp-panel-title">MCP Servers</span>
+      <div className="panel-section">
+        <div className="box-title">MCP Servers</div>
+        <div className="flex items-center justify-center p-4 text-xs text-muted">
+          <RefreshCw size={14} className="animate-spin mr-2" />
+          Cargando...
         </div>
-        <div className="mcp-loading">Cargando...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="mcp-panel">
-        <div className="mcp-panel-header">
-          <span className="mcp-panel-title">MCP Servers</span>
+      <div className="panel-section">
+        <div className="box-title">MCP Servers</div>
+        <div className="p-4 bg-red-900/20 text-red-400 rounded text-xs flex items-center gap-2" style={{ color: 'var(--error)' }}>
+          <AlertCircle size={14} />
+          {error}
         </div>
-        <div className="mcp-error">Error: {error}</div>
       </div>
     );
   }
 
+  const totalMcps = desktopMcps.length + codeMcps.length;
+
   return (
-    <div className="mcp-panel">
-      <div className="mcp-panel-header">
-        <span className="mcp-panel-title">MCP Servers</span>
+    <div className="mcp-manager">
+      <div
+        className="mcp-header"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="mcp-title">
+          MCP Servers ({totalMcps})
+        </span>
         <button
           className="mcp-refresh-btn"
-          onClick={loadMcps}
+          onClick={(e) => {
+            e.stopPropagation();
+            loadMcps();
+          }}
           title="Recargar"
         >
-          ↻
+          <RefreshCw size={12} />
         </button>
+        <span className="mcp-expand-icon">{expanded ? '▼' : '▶'}</span>
       </div>
 
-      {/* Message */}
-      {message && (
-        <div className={`mcp-message ${message.type}`}>
-          {message.text}
-        </div>
-      )}
+      {expanded && (
+        <div className="mcp-content">
+          {message && (
+            <div className={`mcp-message ${message.type}`}>
+              {message.text}
+            </div>
+          )}
 
-      {/* Desktop Section */}
-      <div className="mcp-section">
-        <div className="mcp-section-header">
-          <span className="mcp-section-title">Desktop ({desktopMcps.length})</span>
-        </div>
-        <div className="mcp-server-list">
-          {desktopMcps.length === 0 ? (
-            <div className="mcp-empty">Sin MCPs</div>
-          ) : (
-            desktopMcps.map(server => {
-              const isSelected = selectedServers.includes(server.name);
-              const isMarkedForRemoval = serversToRemove.includes(server.name);
-              const isInCode = codeMcps.some(c => c.name === server.name);
-              return (
-                <div key={`desktop-${server.name}`} className="mcp-server-item">
-                  <div
-                    className={`mcp-server-main ${isSelected ? 'selected' : ''} ${isMarkedForRemoval ? 'marked-remove' : ''}`}
-                    onClick={() => handleSingleClick(server.name)}
-                    title="Click: inyectar MCP"
-                  >
-                    <span className="mcp-server-name">{server.name}</span>
-                    <span className={`mcp-check ${isSelected ? 'checked' : ''} ${isMarkedForRemoval ? 'remove' : ''}`}>
-                      {isMarkedForRemoval ? '✗' : isSelected ? '✓' : ''}
-                    </span>
-                  </div>
-                  <div className="mcp-server-actions">
-                    <button
-                      className={`mcp-action-btn mark-remove ${isMarkedForRemoval ? 'active' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDoubleClick(server.name);
-                      }}
-                      title="Marcar para remover del proyecto"
-                    >
-                      −
-                    </button>
-                    {!isInCode && (
+          {/* Desktop Section */}
+          <div className="mcp-section">
+            <div className="mcp-section-title">
+              <span>Desktop ({desktopMcps.length})</span>
+            </div>
+
+            <div className="mcp-list">
+              {desktopMcps.length === 0 ? (
+                <div className="mcp-empty">Sin MCPs</div>
+              ) : (
+                desktopMcps.map(server => {
+                  const isSelected = selectedServers.includes(server.name);
+                  const isMarkedForRemoval = serversToRemove.includes(server.name);
+                  const isInCode = codeMcps.some(c => c.name === server.name);
+                  return (
+                    <div key={`desktop-${server.name}`} className="mcp-item group">
+                      <div
+                        className="mcp-item-content"
+                        onClick={() => handleSingleClick(server.name)}
+                        title="Click: inyectar | Doble click: remover"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          handleDoubleClick(server.name);
+                        }}
+                      >
+                        <Server size={14} style={{ color: isMarkedForRemoval ? 'var(--error)' : isSelected ? 'var(--success)' : 'var(--text-muted)' }} />
+                        <span className={`mcp-name ${isMarkedForRemoval ? 'line-through opacity-70' : ''}`}>
+                          {server.name}
+                        </span>
+                        {isSelected && !isMarkedForRemoval && <Check size={12} style={{ color: 'var(--success)' }} />}
+                        {isMarkedForRemoval && <X size={12} style={{ color: 'var(--error)' }} />}
+                      </div>
+
+                      <div className="mcp-actions">
+                        {!isInCode && (
+                          <button
+                            className="btn-icon-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleImportToCode(server);
+                            }}
+                            title="Importar a Code"
+                          >
+                            <Import size={12} />
+                          </button>
+                        )}
+                        <button
+                          className="btn-icon-sm danger"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveDesktop(server.name);
+                          }}
+                          title="Eliminar de Desktop"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Code Section */}
+          <div className="mcp-section">
+            <div className="mcp-section-title">
+              <span>Code ({codeMcps.length})</span>
+              <span className="mcp-section-badge">default</span>
+            </div>
+
+            <div className="mcp-list">
+              {codeMcps.length === 0 ? (
+                <div className="mcp-empty">Sin MCPs</div>
+              ) : (
+                codeMcps.map(server => (
+                  <div key={`code-${server.name}`} className="mcp-item group">
+                    <div className="mcp-item-content">
+                      <Server size={14} style={{ color: 'var(--accent)' }} />
+                      <span className="mcp-name">{server.name}</span>
+                    </div>
+                    <div className="mcp-actions">
                       <button
-                        className="mcp-action-btn import"
+                        className="btn-icon-sm danger"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleImportToCode(server);
+                          handleRemoveCode(server.name);
                         }}
-                        title="Importar a Code"
+                        title="Eliminar de Code"
                       >
-                        →C
+                        <X size={12} />
                       </button>
-                    )}
-                    <button
-                      className="mcp-action-btn remove"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveDesktop(server.name);
-                      }}
-                      title="Eliminar de Desktop"
-                    >
-                      ×
-                    </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })
-          )}
+                ))
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Code Section - No checkboxes, MCPs go by default */}
-      <div className="mcp-section">
-        <div className="mcp-section-header">
-          <span className="mcp-section-title">Code ({codeMcps.length})</span>
-          <span className="mcp-section-hint">van por defecto</span>
-        </div>
-        <div className="mcp-server-list">
-          {codeMcps.length === 0 ? (
-            <div className="mcp-empty">Sin MCPs</div>
-          ) : (
-            codeMcps.map(server => (
-              <div key={`code-${server.name}`} className="mcp-server-item">
-                <div className="mcp-server-main">
-                  <span className="mcp-server-name">{server.name}</span>
-                </div>
-                <div className="mcp-server-actions">
-                  <button
-                    className="mcp-action-btn remove"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveCode(server.name);
-                    }}
-                    title="Eliminar"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

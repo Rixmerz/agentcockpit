@@ -3,6 +3,7 @@ import { McpPanel, type McpServer } from './McpPanel';
 import { SessionManager } from './SessionManager';
 import { ClaudeLauncher } from './ClaudeLauncher';
 import { createSession, updateSessionLastUsed, type ProjectSession } from '../../services/projectSessionService';
+import { Zap, Archive, Eraser, Ban } from 'lucide-react';
 
 interface ActionsPanelProps {
   projectPath: string | null;
@@ -64,7 +65,7 @@ export function ActionsPanel({
   }, [onWriteToTerminal]);
 
   return (
-    <div className="actions-panel">
+    <div className="actions-panel sidebar-right">
       {/* Claude Launcher */}
       <ClaudeLauncher
         projectPath={projectPath}
@@ -94,40 +95,44 @@ export function ActionsPanel({
       />
 
       {/* Quick Actions */}
-      <div className="quick-actions">
-        <div className="section-header">Acciones Rápidas</div>
+      <div className="panel-section">
+        <div className="box-title">Acciones Rápidas</div>
         <div className="quick-actions-grid">
           <button
-            className="quick-action-btn"
+            className="action-card"
             onClick={handleUltrathink}
             disabled={!hasActiveTerminal}
             title="Enviar 'ultrathink'"
           >
-            🧠 Ultrathink
+            <Zap size={18} className="text-yellow-500" style={{ color: 'var(--warning)' }} />
+            <span>Ultrathink</span>
           </button>
           <button
-            className="quick-action-btn"
+            className="action-card"
             onClick={() => handleQuickAction('/compact')}
             disabled={!hasActiveTerminal}
             title="Compactar contexto"
           >
-            📦 Compact
+            <Archive size={18} className="text-blue-500" style={{ color: 'var(--accent)' }} />
+            <span>Compact</span>
           </button>
           <button
-            className="quick-action-btn"
+            className="action-card"
             onClick={() => handleQuickAction('/clear')}
             disabled={!hasActiveTerminal}
             title="Limpiar conversación"
           >
-            🧹 Clear
+            <Eraser size={18} />
+            <span>Clear</span>
           </button>
           <button
-            className="quick-action-btn"
+            className="action-card"
             onClick={() => handleQuickAction('\x03')}
             disabled={!hasActiveTerminal}
             title="Cancelar (Ctrl+C)"
           >
-            ⛔ Cancel
+            <Ban size={18} className="text-red-500" style={{ color: 'var(--error)' }} />
+            <span>Cancel</span>
           </button>
         </div>
       </div>
