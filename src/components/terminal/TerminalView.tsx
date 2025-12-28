@@ -49,8 +49,9 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
       cursorBlink: true,
       fontSize: 14,
       fontFamily: "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
+      allowTransparency: true,
       theme: {
-        background: '#1a1a1a',
+        background: 'transparent',
         foreground: '#e4e4e7',
         cursor: '#ffffff',
         cursorAccent: '#1a1a1a',
