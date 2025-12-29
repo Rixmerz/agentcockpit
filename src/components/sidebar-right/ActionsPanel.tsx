@@ -5,7 +5,7 @@
  * Renders AgentTabs for plugin selection and active plugin components.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Settings, Github } from 'lucide-react';
 import { usePlugins } from '../../plugins/context/PluginContext';
 import { AgentTabs } from '../../core/components/AgentTabs';
@@ -46,8 +46,20 @@ export function ActionsPanel({
   const [showGitHubLogin, setShowGitHubLogin] = useState(false);
   const [gitHubUser, setGitHubUser] = useState<GitHubUser | null>(null);
 
-  // GitHub login status is now loaded lazily when user clicks GitHub button
-  // Removed automatic getCurrentUser() call to prevent freeze in bundled app
+  // Load GitHub user on mount (non-blocking)
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUser()
+      .then(user => {
+        if (!cancelled && user) {
+          setGitHubUser(user);
+        }
+      })
+      .catch(err => {
+        console.warn('[ActionsPanel] Failed to load GitHub user on mount:', err);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   // Ensure session exists BEFORE building command
   const ensureSession = useCallback(async (): Promise<ProjectSession | null> => {
