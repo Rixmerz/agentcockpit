@@ -68,7 +68,7 @@ async function acquireLock(projectPath: string): Promise<() => void> {
   };
 }
 
-// Metadata file operations
+// Metadata file operations using execute_command with timeout (TCC-safe with Info.plist)
 async function ensureMetadataDir(projectPath: string): Promise<void> {
   const dirPath = `${projectPath}/${METADATA_DIR}`;
   try {
@@ -121,7 +121,7 @@ async function writeMetadata(projectPath: string, metadata: SnapshotMetadata): P
   const filePath = `${projectPath}/${METADATA_DIR}/${METADATA_FILE}`;
   const content = JSON.stringify(metadata, null, 2);
 
-  // Base64 encode to handle special characters
+  // Base64 encode to handle special characters in shell
   const base64 = btoa(unescape(encodeURIComponent(content)));
 
   try {
@@ -168,9 +168,53 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
       return null;
     }
 
-    // Skip if no uncommitted changes
-    if (!status.hasUncommittedChanges) {
-      console.log('[Snapshot] Skipping - no uncommitted changes');
+    // Directories that should NOT count as "real changes" for snapshots
+    // These are tool/IDE metadata that change frequently during normal usage
+    const EXCLUDED_DIRS = [
+      '.agentcockpit', // AgentCockpit snapshot metadata
+      '.claude',       // Claude Code config, memory, sessions
+      '.cursor',       // Cursor IDE settings
+      '.vscode',       // VS Code settings
+      '.idea',         // JetBrains IDEs
+      '.git',          // Git internals (shouldn't appear but safety check)
+    ];
+
+    // Match excluded dirs at start OR anywhere in path (for subdirectory projects)
+    // Examples that should match:
+    //   ".agentcockpit/snapshots.json" (dir at root)
+    //   "landing-fresh/.agentcockpit/snapshots.json" (project in subdirectory)
+    //   "src/.claude/memory.db" (nested)
+    const isExcludedPath = (f: string) =>
+      EXCLUDED_DIRS.some(dir => {
+        // Normalize path separators for cross-platform
+        const normalized = f.replace(/\\/g, '/');
+        // Match: starts with "dir/" OR contains "/dir/"
+        return normalized.startsWith(dir + '/') || normalized.includes('/' + dir + '/');
+      });
+
+    // Filter to get only real code changes
+    const realChanges = {
+      untracked: status.untrackedFiles.filter(f => !isExcludedPath(f)),
+      modified: status.modifiedFiles.filter(f => !isExcludedPath(f)),
+      staged: status.stagedFiles.filter(f => !isExcludedPath(f)),
+    };
+
+    const excludedCount =
+      (status.untrackedFiles.length - realChanges.untracked.length) +
+      (status.modifiedFiles.length - realChanges.modified.length) +
+      (status.stagedFiles.length - realChanges.staged.length);
+
+    const hasRealChanges =
+      realChanges.untracked.length > 0 ||
+      realChanges.modified.length > 0 ||
+      realChanges.staged.length > 0;
+
+    // Debug log showing real vs excluded changes
+    console.log(`[Snapshot] Changes: real=${realChanges.untracked.length + realChanges.modified.length + realChanges.staged.length}, excluded=${excludedCount}`);
+
+    // Skip if no real uncommitted changes (tool/IDE files don't count)
+    if (!hasRealChanges) {
+      console.log('[Snapshot] Skipping - only tool/IDE metadata changed, no real code changes');
       return null;
     }
 

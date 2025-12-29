@@ -1,9 +1,9 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { ptySpawn, ptyWrite, ptyResize, ptyClose, onPtyOutput, onPtyClose } from '../services/tauriService';
 import type { UnlistenFn } from '@tauri-apps/api/event';
-// DISABLED: Snapshots cause TCC permission cascade in bundled macOS app
-// import { createSnapshot } from '../services/snapshotService';
-// import { snapshotEvents } from '../core/utils/eventBus';
+// Re-enabled: Snapshots now use Tauri FS APIs (no TCC permission cascade)
+import { createSnapshot } from '../services/snapshotService';
+import { snapshotEvents } from '../core/utils/eventBus';
 
 interface UsePtyOptions {
   onData?: (data: string) => void;
@@ -25,8 +25,8 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
   const unlistenOutputRef = useRef<UnlistenFn | null>(null);
   const unlistenCloseRef = useRef<UnlistenFn | null>(null);
   const optionsRef = useRef(options);
-  // DISABLED: Snapshots cause TCC permission cascade
-  // const isCreatingSnapshotRef = useRef(false);
+  // Re-enabled: Snapshots now use Tauri FS APIs (no TCC permission cascade)
+  const isCreatingSnapshotRef = useRef(false);
 
   // Keep options ref updated
   useEffect(() => {
@@ -80,12 +80,7 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
     // CRITICAL: Send input to terminal IMMEDIATELY - never block on snapshot
     await ptyWrite(ptyIdRef.current, data);
 
-    // DISABLED: Snapshots cause TCC permission cascade in bundled macOS app
-    // TODO: Re-enable when using Tauri FS APIs instead of execute_command
-    // The snapshot feature triggers multiple execute_command calls that
-    // cause macOS to request permissions for Documents, Desktop, Downloads, etc.
-    // This overwhelms TCC and crashes the app.
-    /*
+    // Snapshot creation on Enter (using Tauri FS APIs - no TCC permission cascade)
     const isEnterPressed = data.includes('\r') || data.includes('\n');
     const projectPath = projectPathRef.current;
 
@@ -111,7 +106,6 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
           isCreatingSnapshotRef.current = false;
         });
     }
-    */
   }, []);
 
   const resize = useCallback(async (cols: number, rows: number): Promise<void> => {

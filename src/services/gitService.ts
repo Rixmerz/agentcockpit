@@ -7,9 +7,14 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { withTimeout, TimeoutError } from '../core/utils/promiseTimeout';
+import { backgroundPtyService } from './backgroundPtyService';
 
 // Timeout for execute_command operations (prevents infinite hangs in bundled app)
 const INVOKE_TIMEOUT_MS = 5000;
+
+// Flag to enable background PTY for snapshot git commands
+// Set to false to revert to execute_command behavior (for debugging)
+const USE_BACKGROUND_PTY = true;
 
 // Types
 export interface GitCommit {
@@ -33,7 +38,23 @@ export interface GitStatus {
 }
 
 // Execute git command in project directory with timeout
+// For snapshot commands (add, commit, tag), uses background PTY to avoid TCC cascade
 async function execGit(projectPath: string, args: string): Promise<string> {
+  // Detect snapshot-related git commands that should use background PTY
+  // These are fire-and-forget commands where we don't need output
+  const isSnapshotCommand =
+    args.startsWith('add -A') ||
+    args.startsWith('commit -m') ||
+    args.startsWith('tag snapshot-');
+
+  if (USE_BACKGROUND_PTY && isSnapshotCommand) {
+    // Execute via background PTY (fire-and-forget, no return value)
+    // This prevents TCC permission cascade in bundled macOS app
+    await backgroundPtyService.execGit(projectPath, args);
+    return ''; // Empty string, callers don't use return value for these commands
+  }
+
+  // For other git commands (status, diff, log, etc.), use execute_command with timeout
   try {
     const result = await withTimeout(
       invoke<string>('execute_command', {
@@ -208,12 +229,14 @@ out/
 # IDE
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 .DS_Store
 
-# AgentCockpit
-.one-term/
+# AI Tools
+.agentcockpit/
+.claude/
 `;
 
   try {
