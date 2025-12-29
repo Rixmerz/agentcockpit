@@ -27,15 +27,37 @@ export const claudePlugin: AgentPlugin = {
 
   // Validate CLI installation
   validateInstallation: async () => {
+    // Check specific paths where claude CLI is typically installed
+    const paths = [
+      '/usr/local/bin/claude',
+      '/opt/homebrew/bin/claude',
+      '/usr/bin/claude',
+    ];
+
+    for (const path of paths) {
+      try {
+        const result = await invoke<string>('execute_command', {
+          cmd: `test -x "${path}" && echo "found"`,
+          cwd: '/',
+        });
+        if (result.trim() === 'found') return true;
+      } catch {
+        // Not in this path
+      }
+    }
+
+    // Also check via simple which (no login shell)
     try {
-      await invoke<string>('execute_command', {
-        cmd: 'which claude',
+      const result = await invoke<string>('execute_command', {
+        cmd: 'which claude 2>/dev/null',
         cwd: '/',
       });
-      return true;
+      if (result.trim()) return true;
     } catch {
-      return false;
+      // Not found
     }
+
+    return false;
   },
 
   // Lifecycle hooks

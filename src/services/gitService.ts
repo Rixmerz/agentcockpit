@@ -6,6 +6,10 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { withTimeout, TimeoutError } from '../core/utils/promiseTimeout';
+
+// Timeout for execute_command operations (prevents infinite hangs in bundled app)
+const INVOKE_TIMEOUT_MS = 5000;
 
 // Types
 export interface GitCommit {
@@ -28,15 +32,23 @@ export interface GitStatus {
   isMerging: boolean;
 }
 
-// Execute git command in project directory
+// Execute git command in project directory with timeout
 async function execGit(projectPath: string, args: string): Promise<string> {
   try {
-    const result = await invoke<string>('execute_command', {
-      cmd: `git ${args}`,
-      cwd: projectPath,
-    });
+    const result = await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `git ${args}`,
+        cwd: projectPath,
+      }),
+      INVOKE_TIMEOUT_MS,
+      `git ${args.substring(0, 50)}`
+    );
     return result.trim();
   } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error(`[GitService] Timeout: ${error.message}`);
+      throw new Error(`Git timeout: ${args.substring(0, 50)}`);
+    }
     const errorStr = String(error);
     // Re-throw with more context
     throw new Error(`Git error: ${errorStr}`);
@@ -57,10 +69,14 @@ async function execGitSafe(projectPath: string, args: string): Promise<string | 
  */
 export async function isGitInstalled(): Promise<boolean> {
   try {
-    await invoke<string>('execute_command', {
-      cmd: 'which git',
-      cwd: '/',
-    });
+    await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: 'which git',
+        cwd: '/',
+      }),
+      INVOKE_TIMEOUT_MS,
+      'which git'
+    );
     return true;
   } catch {
     return false;
@@ -123,17 +139,25 @@ export async function getGitStatus(projectPath: string): Promise<GitStatus> {
 
   try {
     // Check if rebase is in progress (either rebase-merge or rebase-apply dir exists)
-    const rebaseCheck = await invoke<string>('execute_command', {
-      cmd: 'test -d .git/rebase-merge -o -d .git/rebase-apply && echo "yes" || echo "no"',
-      cwd: projectPath,
-    });
+    const rebaseCheck = await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: 'test -d .git/rebase-merge -o -d .git/rebase-apply && echo "yes" || echo "no"',
+        cwd: projectPath,
+      }),
+      INVOKE_TIMEOUT_MS,
+      'check rebase status'
+    );
     isRebasing = rebaseCheck.trim() === 'yes';
 
     // Check if merge is in progress (MERGE_HEAD file exists)
-    const mergeCheck = await invoke<string>('execute_command', {
-      cmd: 'test -f .git/MERGE_HEAD && echo "yes" || echo "no"',
-      cwd: projectPath,
-    });
+    const mergeCheck = await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: 'test -f .git/MERGE_HEAD && echo "yes" || echo "no"',
+        cwd: projectPath,
+      }),
+      INVOKE_TIMEOUT_MS,
+      'check merge status'
+    );
     isMerging = mergeCheck.trim() === 'yes';
   } catch {
     // Ignore errors, assume no operation in progress
@@ -193,15 +217,22 @@ out/
 `;
 
   try {
-    await invoke<string>('execute_command', {
-      cmd: `cat > .gitignore << 'EOF'
+    await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `cat > .gitignore << 'EOF'
 ${gitignoreContent}
 EOF`,
-      cwd: projectPath,
-    });
-  } catch {
-    // .gitignore creation failed, not critical
-    console.warn('[GitService] Failed to create .gitignore');
+        cwd: projectPath,
+      }),
+      INVOKE_TIMEOUT_MS,
+      'create .gitignore'
+    );
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.warn('[GitService] .gitignore creation timed out');
+    } else {
+      console.warn('[GitService] Failed to create .gitignore');
+    }
   }
 }
 
@@ -397,10 +428,15 @@ export async function cloneRepository(url: string, targetPath: string, token?: s
     cloneUrl = url.replace('https://github.com/', `https://${token}@github.com/`);
   }
 
-  await invoke<string>('execute_command', {
-    cmd: `git clone "${cloneUrl}" "${targetPath}"`,
-    cwd: '/',
-  });
+  // Clone can take longer - use 30s timeout
+  await withTimeout(
+    invoke<string>('execute_command', {
+      cmd: `git clone "${cloneUrl}" "${targetPath}"`,
+      cwd: '/',
+    }),
+    30000,
+    `git clone ${url}`
+  );
 }
 
 /**

@@ -51,6 +51,16 @@ impl PtyManager {
         cmd_builder.env("TERM", "xterm-256color");
         cmd_builder.env("COLORTERM", "truecolor");
 
+        // Ensure common binary paths are in PATH for bundled app
+        // The bundled macOS app doesn't inherit shell PATH, so we add common locations
+        let current_path = std::env::var("PATH").unwrap_or_default();
+        let extended_path = format!(
+            "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:{}/.local/bin:{}",
+            std::env::var("HOME").unwrap_or_default(),
+            current_path
+        );
+        cmd_builder.env("PATH", &extended_path);
+
         // Note: Process group setup (setsid) is handled automatically by portable_pty
         // when spawning the command. The slave PTY makes the child process a session
         // leader as part of standard PTY operation. This ensures kill(-pid) works
