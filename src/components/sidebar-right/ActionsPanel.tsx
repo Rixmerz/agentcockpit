@@ -5,14 +5,17 @@
  * Renders AgentTabs for plugin selection and active plugin components.
  */
 
-import { useState, useCallback } from 'react';
-import { Settings } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { Settings, Github } from 'lucide-react';
 import { usePlugins } from '../../plugins/context/PluginContext';
 import { AgentTabs } from '../../core/components/AgentTabs';
 import { SessionManager } from './SessionManager';
 import { PortMonitor } from './PortMonitor';
+import { GitSettings } from './GitSettings';
 import { SettingsModal } from '../settings/SettingsModal';
+import { GitHubLoginModal } from '../sidebar-left/GitHubLoginModal';
 import { createSession, updateSessionLastUsed, type ProjectSession } from '../../services/projectSessionService';
+import { getCurrentUser, type GitHubUser } from '../../services/githubService';
 import type { McpServerInfo } from '../../plugins/types/plugin';
 
 interface ActionsPanelProps {
@@ -39,6 +42,15 @@ export function ActionsPanel({
   const [mcpsToRemove, setMcpsToRemove] = useState<string[]>([]);
   const [selectedMcpServers, setSelectedMcpServers] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [showGitHubLogin, setShowGitHubLogin] = useState(false);
+  const [gitHubUser, setGitHubUser] = useState<GitHubUser | null>(null);
+
+  // Check GitHub login status on mount
+  useEffect(() => {
+    getCurrentUser().then(user => {
+      if (user) setGitHubUser(user);
+    });
+  }, []);
 
   // Ensure session exists BEFORE building command
   const ensureSession = useCallback(async (): Promise<ProjectSession | null> => {
@@ -91,16 +103,42 @@ export function ActionsPanel({
         availableIDEs={availableIDEs}
       />
 
+      {/* GitHub Login Modal */}
+      <GitHubLoginModal
+        isOpen={showGitHubLogin}
+        onClose={() => setShowGitHubLogin(false)}
+        onLogin={(user) => setGitHubUser(user)}
+      />
+
       {/* Sidebar Right Header */}
       <div className="sidebar-right-header">
         <h2>AGENTES</h2>
-        <button
-          className="settings-btn"
-          onClick={() => setShowSettings(true)}
-          title="Configuración"
-        >
-          <Settings size={16} />
-        </button>
+        <div className="header-actions">
+          {/* GitHub Button / Avatar */}
+          <button
+            className={`github-btn ${gitHubUser ? 'logged-in' : ''}`}
+            onClick={() => setShowGitHubLogin(true)}
+            title={gitHubUser ? `@${gitHubUser.login}` : 'Iniciar sesión con GitHub'}
+          >
+            {gitHubUser ? (
+              <img
+                src={gitHubUser.avatar_url}
+                alt={gitHubUser.login}
+                className="github-avatar-btn"
+              />
+            ) : (
+              <Github size={16} />
+            )}
+          </button>
+          {/* Settings Button */}
+          <button
+            className="settings-btn"
+            onClick={() => setShowSettings(true)}
+            title="Configuración"
+          >
+            <Settings size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Agent Tabs */}
@@ -172,6 +210,8 @@ export function ActionsPanel({
       />
 
       <PortMonitor />
+
+      <GitSettings projectPath={projectPath} />
     </div>
   );
 }

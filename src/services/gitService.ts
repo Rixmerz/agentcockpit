@@ -1,0 +1,395 @@
+/**
+ * Git Service
+ *
+ * Wrapper for git commands executed via Tauri backend.
+ * Foundation for snapshot and repository management features.
+ */
+
+import { invoke } from '@tauri-apps/api/core';
+
+// Types
+export interface GitCommit {
+  hash: string;
+  shortHash: string;
+  message: string;
+  author: string;
+  date: string;
+  timestamp: number;
+}
+
+export interface GitStatus {
+  isRepository: boolean;
+  branch: string | null;
+  hasUncommittedChanges: boolean;
+  untrackedFiles: string[];
+  modifiedFiles: string[];
+  stagedFiles: string[];
+  isRebasing: boolean;
+  isMerging: boolean;
+}
+
+// Execute git command in project directory
+async function execGit(projectPath: string, args: string): Promise<string> {
+  try {
+    const result = await invoke<string>('execute_command', {
+      cmd: `git ${args}`,
+      cwd: projectPath,
+    });
+    return result.trim();
+  } catch (error) {
+    const errorStr = String(error);
+    // Re-throw with more context
+    throw new Error(`Git error: ${errorStr}`);
+  }
+}
+
+// Execute git command, return null on error instead of throwing
+async function execGitSafe(projectPath: string, args: string): Promise<string | null> {
+  try {
+    return await execGit(projectPath, args);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if git is installed on the system
+ */
+export async function isGitInstalled(): Promise<boolean> {
+  try {
+    await invoke<string>('execute_command', {
+      cmd: 'which git',
+      cwd: '/',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if path is a git repository
+ */
+export async function isGitRepository(projectPath: string): Promise<boolean> {
+  const result = await execGitSafe(projectPath, 'rev-parse --is-inside-work-tree');
+  return result === 'true';
+}
+
+/**
+ * Get full git status of repository
+ */
+export async function getGitStatus(projectPath: string): Promise<GitStatus> {
+  const isRepo = await isGitRepository(projectPath);
+
+  if (!isRepo) {
+    return {
+      isRepository: false,
+      branch: null,
+      hasUncommittedChanges: false,
+      untrackedFiles: [],
+      modifiedFiles: [],
+      stagedFiles: [],
+      isRebasing: false,
+      isMerging: false,
+    };
+  }
+
+  // Get current branch
+  const branch = await execGitSafe(projectPath, 'rev-parse --abbrev-ref HEAD');
+
+  // Get porcelain status
+  const statusOutput = await execGitSafe(projectPath, 'status --porcelain') || '';
+
+  const untrackedFiles: string[] = [];
+  const modifiedFiles: string[] = [];
+  const stagedFiles: string[] = [];
+
+  for (const line of statusOutput.split('\n').filter(Boolean)) {
+    const status = line.substring(0, 2);
+    const file = line.substring(3);
+
+    if (status === '??') {
+      untrackedFiles.push(file);
+    } else if (status.startsWith(' ')) {
+      modifiedFiles.push(file);
+    } else if (!status.startsWith(' ')) {
+      stagedFiles.push(file);
+    }
+  }
+
+  // Check rebase/merge state
+  const isRebasing = (await execGitSafe(projectPath, 'rev-parse --git-path rebase-merge'))?.includes('rebase-merge') || false;
+  const isMerging = (await execGitSafe(projectPath, 'rev-parse --git-path MERGE_HEAD'))?.includes('MERGE_HEAD') || false;
+
+  return {
+    isRepository: true,
+    branch,
+    hasUncommittedChanges: untrackedFiles.length > 0 || modifiedFiles.length > 0 || stagedFiles.length > 0,
+    untrackedFiles,
+    modifiedFiles,
+    stagedFiles,
+    isRebasing,
+    isMerging,
+  };
+}
+
+/**
+ * Get list of uncommitted changes (simplified)
+ */
+export async function getUncommittedChanges(projectPath: string): Promise<string[]> {
+  const status = await getGitStatus(projectPath);
+  return [...status.untrackedFiles, ...status.modifiedFiles, ...status.stagedFiles];
+}
+
+/**
+ * Initialize a new git repository
+ */
+export async function initRepository(projectPath: string): Promise<void> {
+  await execGit(projectPath, 'init');
+
+  // Create initial .gitignore if it doesn't exist
+  const gitignoreContent = `# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# AgentCockpit
+.one-term/
+`;
+
+  try {
+    await invoke<string>('execute_command', {
+      cmd: `cat > .gitignore << 'EOF'
+${gitignoreContent}
+EOF`,
+      cwd: projectPath,
+    });
+  } catch {
+    // .gitignore creation failed, not critical
+    console.warn('[GitService] Failed to create .gitignore');
+  }
+}
+
+/**
+ * Check if remote exists
+ */
+export async function hasRemote(projectPath: string, remoteName: string = 'origin'): Promise<boolean> {
+  const result = await execGitSafe(projectPath, `remote get-url ${remoteName}`);
+  return result !== null;
+}
+
+/**
+ * Get remote URL
+ */
+export async function getRemoteUrl(projectPath: string, remoteName: string = 'origin'): Promise<string | null> {
+  return await execGitSafe(projectPath, `remote get-url ${remoteName}`);
+}
+
+/**
+ * List all remotes with their URLs
+ */
+export async function listRemotes(projectPath: string): Promise<Array<{ name: string; url: string }>> {
+  const result = await execGitSafe(projectPath, 'remote -v');
+  if (!result) return [];
+
+  const remotes: Array<{ name: string; url: string }> = [];
+  const seen = new Set<string>();
+
+  const lines = result.split('\n').filter(Boolean);
+  for (const line of lines) {
+    // Format: "origin\thttps://github.com/user/repo.git (fetch)"
+    const match = line.match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)/);
+    if (match && !seen.has(match[1])) {
+      seen.add(match[1]);
+      remotes.push({
+        name: match[1],
+        url: match[2],
+      });
+    }
+  }
+
+  return remotes;
+}
+
+/**
+ * Add a new remote
+ */
+export async function addRemote(projectPath: string, remoteName: string, url: string): Promise<void> {
+  await execGit(projectPath, `remote add ${remoteName} ${url}`);
+}
+
+/**
+ * Set remote URL (update existing or add new)
+ */
+export async function setRemoteUrl(projectPath: string, url: string, remoteName: string = 'origin'): Promise<void> {
+  const exists = await hasRemote(projectPath, remoteName);
+
+  if (exists) {
+    await execGit(projectPath, `remote set-url ${remoteName} ${url}`);
+  } else {
+    await addRemote(projectPath, remoteName, url);
+  }
+}
+
+/**
+ * Stage all changes
+ */
+export async function stageAll(projectPath: string): Promise<void> {
+  await execGit(projectPath, 'add -A');
+}
+
+/**
+ * Create a commit with message
+ * Returns the commit hash
+ */
+export async function createCommit(projectPath: string, message: string): Promise<string> {
+  // Stage all changes first
+  await stageAll(projectPath);
+
+  // Check if there's anything to commit
+  const status = await getGitStatus(projectPath);
+  if (!status.hasUncommittedChanges && status.stagedFiles.length === 0) {
+    // Nothing to commit, get current HEAD
+    const head = await execGitSafe(projectPath, 'rev-parse HEAD');
+    if (head) return head;
+
+    // No commits yet, create initial commit
+    await execGit(projectPath, `commit --allow-empty -m "${message.replace(/"/g, '\\"')}"`);
+  } else {
+    // Create commit
+    await execGit(projectPath, `commit -m "${message.replace(/"/g, '\\"')}"`);
+  }
+
+  // Get the commit hash
+  const hash = await execGit(projectPath, 'rev-parse HEAD');
+  return hash;
+}
+
+/**
+ * Create a git tag
+ */
+export async function createTag(projectPath: string, tagName: string, commitHash?: string): Promise<void> {
+  if (commitHash) {
+    await execGit(projectPath, `tag ${tagName} ${commitHash}`);
+  } else {
+    await execGit(projectPath, `tag ${tagName}`);
+  }
+}
+
+/**
+ * Delete a git tag
+ */
+export async function deleteTag(projectPath: string, tagName: string): Promise<void> {
+  await execGitSafe(projectPath, `tag -d ${tagName}`);
+}
+
+/**
+ * List all tags matching pattern
+ */
+export async function listTags(projectPath: string, pattern?: string): Promise<string[]> {
+  const args = pattern ? `tag -l "${pattern}"` : 'tag -l';
+  const result = await execGitSafe(projectPath, args);
+  if (!result) return [];
+  return result.split('\n').filter(Boolean);
+}
+
+/**
+ * Get commit hash for a tag
+ */
+export async function getTagCommit(projectPath: string, tagName: string): Promise<string | null> {
+  return await execGitSafe(projectPath, `rev-list -n 1 ${tagName}`);
+}
+
+/**
+ * List commits (most recent first)
+ */
+export async function listCommits(projectPath: string, limit: number = 50): Promise<GitCommit[]> {
+  const format = '%H|%h|%s|%an|%ai|%at';
+  const result = await execGitSafe(projectPath, `log --format="${format}" -n ${limit}`);
+
+  if (!result) return [];
+
+  return result.split('\n').filter(Boolean).map(line => {
+    const [hash, shortHash, message, author, date, timestamp] = line.split('|');
+    return {
+      hash,
+      shortHash,
+      message,
+      author,
+      date,
+      timestamp: parseInt(timestamp, 10) * 1000,
+    };
+  });
+}
+
+/**
+ * Checkout to a specific commit (detached HEAD)
+ */
+export async function checkoutCommit(projectPath: string, commitHash: string): Promise<void> {
+  await execGit(projectPath, `checkout ${commitHash}`);
+}
+
+/**
+ * Hard reset to a specific commit (destructive)
+ */
+export async function resetHard(projectPath: string, commitHash: string): Promise<void> {
+  await execGit(projectPath, `reset --hard ${commitHash}`);
+}
+
+/**
+ * Stash current changes
+ */
+export async function stash(projectPath: string, message?: string): Promise<void> {
+  const args = message ? `stash push -m "${message.replace(/"/g, '\\"')}"` : 'stash';
+  await execGit(projectPath, args);
+}
+
+/**
+ * Pop stashed changes
+ */
+export async function stashPop(projectPath: string): Promise<void> {
+  await execGit(projectPath, 'stash pop');
+}
+
+/**
+ * Clone a repository
+ */
+export async function cloneRepository(url: string, targetPath: string, token?: string): Promise<void> {
+  let cloneUrl = url;
+
+  // If token provided, inject into URL for HTTPS
+  if (token && url.startsWith('https://github.com/')) {
+    cloneUrl = url.replace('https://github.com/', `https://${token}@github.com/`);
+  }
+
+  await invoke<string>('execute_command', {
+    cmd: `git clone "${cloneUrl}" "${targetPath}"`,
+    cwd: '/',
+  });
+}
+
+/**
+ * Get files changed in a commit
+ */
+export async function getCommitFiles(projectPath: string, commitHash: string): Promise<string[]> {
+  const result = await execGitSafe(projectPath, `diff-tree --no-commit-id --name-only -r ${commitHash}`);
+  if (!result) return [];
+  return result.split('\n').filter(Boolean);
+}
