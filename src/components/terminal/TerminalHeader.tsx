@@ -1,10 +1,13 @@
+import { SnapshotSelector } from './SnapshotSelector';
+
 interface TerminalHeaderProps {
   name: string;
   projectName?: string;
+  projectPath?: string;
   onClose?: () => void;
 }
 
-export function TerminalHeader({ name, projectName, onClose }: TerminalHeaderProps) {
+export function TerminalHeader({ name, projectName, projectPath, onClose }: TerminalHeaderProps) {
   return (
     <div className="terminal-header">
       <div className="terminal-info">
@@ -13,6 +16,12 @@ export function TerminalHeader({ name, projectName, onClose }: TerminalHeaderPro
         )}
         <span className="terminal-name">{name}</span>
       </div>
+
+      {/* Snapshot Selector - only show if projectPath is available */}
+      {projectPath && (
+        <SnapshotSelector projectPath={projectPath} />
+      )}
+
       {onClose && (
         <button
           className="btn-close"
