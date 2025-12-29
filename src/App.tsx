@@ -7,6 +7,7 @@ import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
 import { ProjectOpener } from './components/sidebar-left/ProjectOpener';
 import { GitHubLoginModal } from './components/sidebar-left/GitHubLoginModal';
+import { SnapshotPanel } from './components/sidebar-left/SnapshotPanel';
 import { ActionsPanel } from './components/sidebar-right/ActionsPanel';
 import {
   ChevronRight,
@@ -236,6 +237,11 @@ function MainContent() {
                     </div>
                   ))}
                 </div>
+
+                {/* Snapshots for active project */}
+                {activeProject?.id === project.id && (
+                  <SnapshotPanel projectPath={project.path} />
+                )}
               </div>
             ))
           )}
@@ -271,7 +277,6 @@ function MainContent() {
             <TerminalHeader
               name={activeTerminal.name}
               projectName={activeProject.name}
-              projectPath={activeProject.path}
               onClose={() => removeTerminal(activeProject.id, activeTerminal.id)}
             />
           ) : (

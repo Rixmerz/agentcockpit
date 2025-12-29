@@ -298,7 +298,12 @@
 .terminal-xterm {
   width: 100%;
   height: 100%;
+  overflow: hidden;
   background: transparent !important;
+}
+
+.terminal-xterm .xterm {
+  height: 100%;
 }
 
 /* Ensure xterm fills container properly and is transparent */
@@ -1080,6 +1085,104 @@ input::placeholder {
   background: rgba(59, 130, 246, 0.15);
   color: var(--accent);
   border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* --- SNAPSHOT PANEL (Left Sidebar) --- */
+.snapshot-panel {
+  padding: 8px 12px;
+  border-top: 1px solid var(--glass-border);
+  margin-top: 4px;
+}
+
+.snapshot-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.snapshot-panel-loading,
+.snapshot-panel-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px;
+}
+
+.snapshot-panel-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--error);
+  padding: 6px 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.snapshot-panel-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.snapshot-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(9, 9, 11, 0.5);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.snapshot-panel-item:hover:not(:disabled) {
+  background: rgba(39, 39, 42, 0.6);
+  border-color: rgba(63, 63, 70, 0.8);
+  color: var(--text-primary);
+}
+
+.snapshot-panel-item.current {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: var(--accent);
+}
+
+.snapshot-panel-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.snapshot-panel-item .snapshot-version {
+  font-weight: 600;
+}
+
+.snapshot-panel-item .snapshot-time {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.snapshot-panel-item .snapshot-current-icon {
+  color: var(--success);
+}
+
+.snapshot-panel-item .snapshot-restore-icon {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.snapshot-panel-item:hover .snapshot-restore-icon {
+  opacity: 1;
 }
 
 /* --- PROJECT OPENER - Tabbed Interface --- */
@@ -2585,13 +2688,13 @@ input[type="checkbox"] {
   top: calc(100% + 6px);
   right: 0;
   min-width: 180px;
-  background: rgba(24, 24, 27, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-border);
+  background: rgb(24, 24, 27);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(63, 63, 70, 0.8);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  z-index: 100;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
   animation: dropdownFadeIn 0.15s ease-out;
 }
 
