@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Identificacion de la app -->
+  <key>CFBundleIdentifier</key>
+  <string>dev.agentcockpit.app</string>
+
+  <key>CFBundleName</key>
+  <string>AgentCockpit</string>
+
+  <key>CFBundleDisplayName</key>
+  <string>AgentCockpit</string>
+
+  <!-- CRITICAL: NSUsageDescription para evitar cascade de permisos TCC -->
+
+  <!-- Explicar por que necesitamos acceso al home directory -->
+  <key>NSHomeDirectoryUsageDescription</key>
+  <string>AgentCockpit needs to access your home directory to store authentication tokens and project configurations securely.</string>
+
+  <!-- Explicar acceso a Documents (proyectos pueden estar ahi) -->
+  <key>NSDocumentsFolderUsageDescription</key>
+  <string>AgentCockpit needs to access your Documents folder to manage git snapshots and terminal sessions for your development projects.</string>
+
+  <!-- Explicar acceso a Downloads (proyectos pueden estar ahi) -->
+  <key>NSDownloadsFolderUsageDescription</key>
+  <string>AgentCockpit needs to access your Downloads folder to manage projects you may have downloaded.</string>
+
+  <!-- Explicar acceso a Desktop (proyectos pueden estar ahi) -->
+  <key>NSDesktopFolderUsageDescription</key>
+  <string>AgentCockpit needs to access your Desktop to manage development projects located there.</string>
+
+  <!-- Configuracion de High Resolution -->
+  <key>NSHighResolutionCapable</key>
+  <true/>
+
+  <!-- Minimum system version -->
+  <key>LSMinimumSystemVersion</key>
+  <string>10.15</string>
+</dict>
+</plist>

@@ -1,8 +1,9 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { ptySpawn, ptyWrite, ptyResize, ptyClose, onPtyOutput, onPtyClose } from '../services/tauriService';
 import type { UnlistenFn } from '@tauri-apps/api/event';
-import { createSnapshot } from '../services/snapshotService';
-import { snapshotEvents } from '../core/utils/eventBus';
+// DISABLED: Snapshots cause TCC permission cascade in bundled macOS app
+// import { createSnapshot } from '../services/snapshotService';
+// import { snapshotEvents } from '../core/utils/eventBus';
 
 interface UsePtyOptions {
   onData?: (data: string) => void;
@@ -24,7 +25,8 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
   const unlistenOutputRef = useRef<UnlistenFn | null>(null);
   const unlistenCloseRef = useRef<UnlistenFn | null>(null);
   const optionsRef = useRef(options);
-  const isCreatingSnapshotRef = useRef(false);
+  // DISABLED: Snapshots cause TCC permission cascade
+  // const isCreatingSnapshotRef = useRef(false);
 
   // Keep options ref updated
   useEffect(() => {
@@ -75,40 +77,41 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
       throw new Error('PTY not spawned');
     }
 
-    // Detect Enter key (\r or \n) and create snapshot before sending
-    // Only create snapshot if projectPath is available and not already creating one
+    // CRITICAL: Send input to terminal IMMEDIATELY - never block on snapshot
+    await ptyWrite(ptyIdRef.current, data);
+
+    // DISABLED: Snapshots cause TCC permission cascade in bundled macOS app
+    // TODO: Re-enable when using Tauri FS APIs instead of execute_command
+    // The snapshot feature triggers multiple execute_command calls that
+    // cause macOS to request permissions for Documents, Desktop, Downloads, etc.
+    // This overwhelms TCC and crashes the app.
+    /*
     const isEnterPressed = data.includes('\r') || data.includes('\n');
     const projectPath = projectPathRef.current;
 
     if (isEnterPressed && projectPath && !isCreatingSnapshotRef.current) {
       isCreatingSnapshotRef.current = true;
-      console.log('[usePty] Enter detected, creating snapshot for:', projectPath);
 
-      try {
-        const snapshot = await createSnapshot(projectPath);
-        console.log('[usePty] Snapshot result:', snapshot);
-
-        if (snapshot) {
-          // Emit event for UI components to update
-          snapshotEvents.emit('created', {
-            version: snapshot.version,
-            projectPath,
-            commitHash: snapshot.commitHash,
-            timestamp: snapshot.timestamp,
-          });
-          console.log('[usePty] Snapshot V' + snapshot.version + ' created successfully');
-        } else {
-          console.log('[usePty] No snapshot created (no changes or skipped)');
-        }
-      } catch (err) {
-        // Log error but don't block the write operation
-        console.error('[usePty] Snapshot creation failed:', err);
-      } finally {
-        isCreatingSnapshotRef.current = false;
-      }
+      createSnapshot(projectPath)
+        .then(snapshot => {
+          if (snapshot) {
+            snapshotEvents.emit('created', {
+              version: snapshot.version,
+              projectPath,
+              commitHash: snapshot.commitHash,
+              timestamp: snapshot.timestamp,
+            });
+            console.log('[usePty] Snapshot V' + snapshot.version + ' created');
+          }
+        })
+        .catch(err => {
+          console.error('[usePty] Snapshot failed:', err);
+        })
+        .finally(() => {
+          isCreatingSnapshotRef.current = false;
+        });
     }
-
-    await ptyWrite(ptyIdRef.current, data);
+    */
   }, []);
 
   const resize = useCallback(async (cols: number, rows: number): Promise<void> => {

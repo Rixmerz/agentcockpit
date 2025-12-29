@@ -6,6 +6,11 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { withTimeout, TimeoutError } from '../core/utils/promiseTimeout';
+
+// Timeout for execute_command operations (prevents infinite hangs in bundled app)
+const GITHUB_TIMEOUT_MS = 5000;
+const CLONE_TIMEOUT_MS = 30000; // Cloning can take longer
 
 // Constants
 const GITHUB_DEVICE_CODE_URL = 'https://github.com/login/device/code';
@@ -68,11 +73,23 @@ export class GitHubAuthError extends Error {
  * Get the home directory path
  */
 async function getHomeDir(): Promise<string> {
-  const result = await invoke<string>('execute_command', {
-    cmd: 'echo $HOME',
-    cwd: '/',
-  });
-  return result.trim();
+  try {
+    const result = await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: 'echo $HOME',
+        cwd: '/',
+      }),
+      GITHUB_TIMEOUT_MS,
+      'echo $HOME'
+    );
+    return result.trim();
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[GitHub] Timeout getting HOME dir:', error.message);
+    }
+    // Fallback for bundled app - use /tmp as safe default
+    return '/tmp';
+  }
 }
 
 /**
@@ -84,10 +101,14 @@ export async function startDeviceFlow(clientId?: string): Promise<DeviceCodeResp
   const cmd = `curl -s -X POST "${GITHUB_DEVICE_CODE_URL}" -H "Accept: application/json" -d "client_id=${id}" -d "scope=repo,read:user"`;
 
   try {
-    const response = await invoke<string>('execute_command', {
-      cmd,
-      cwd: '/',
-    });
+    const response = await withTimeout(
+      invoke<string>('execute_command', {
+        cmd,
+        cwd: '/',
+      }),
+      GITHUB_TIMEOUT_MS,
+      'GitHub device flow start'
+    );
 
     const data = JSON.parse(response);
 
@@ -103,6 +124,10 @@ export async function startDeviceFlow(clientId?: string): Promise<DeviceCodeResp
       interval: data.interval,
     };
   } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[GitHub] Timeout starting device flow:', error.message);
+      throw new GitHubAuthError('Device flow timed out', 'TIMEOUT');
+    }
     if (error instanceof GitHubAuthError) throw error;
     throw new GitHubAuthError(
       `Failed to start device flow: ${error}`,
@@ -127,10 +152,14 @@ export async function pollForToken(
   return new Promise((resolve, reject) => {
     const poll = async () => {
       try {
-        const response = await invoke<string>('execute_command', {
-          cmd: `curl -s -X POST "${GITHUB_ACCESS_TOKEN_URL}" -H "Accept: application/json" -d "client_id=${id}" -d "device_code=${deviceCode}" -d "grant_type=urn:ietf:params:oauth:grant-type:device_code"`,
-          cwd: '/',
-        });
+        const response = await withTimeout(
+          invoke<string>('execute_command', {
+            cmd: `curl -s -X POST "${GITHUB_ACCESS_TOKEN_URL}" -H "Accept: application/json" -d "client_id=${id}" -d "device_code=${deviceCode}" -d "grant_type=urn:ietf:params:oauth:grant-type:device_code"`,
+            cwd: '/',
+          }),
+          GITHUB_TIMEOUT_MS,
+          'GitHub poll token'
+        );
 
         const data = JSON.parse(response);
 
@@ -167,6 +196,11 @@ export async function pollForToken(
           }
         }
       } catch (error) {
+        if (error instanceof TimeoutError) {
+          console.warn('[GitHub] Timeout polling for token, retrying...');
+          setTimeout(poll, pollInterval);
+          return;
+        }
         reject(new GitHubAuthError(`Polling failed: ${error}`, 'POLL_FAILED'));
       }
     };
@@ -184,18 +218,33 @@ async function saveToken(token: string): Promise<void> {
   const tokenPath = `${home}/${TOKEN_FILE}`;
   const dir = `${home}/.agentcockpit`;
 
-  // Create directory if needed
-  await invoke<string>('execute_command', {
-    cmd: `mkdir -p "${dir}" && chmod 700 "${dir}"`,
-    cwd: '/',
-  });
+  try {
+    // Create directory if needed
+    await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `mkdir -p "${dir}" && chmod 700 "${dir}"`,
+        cwd: '/',
+      }),
+      GITHUB_TIMEOUT_MS,
+      'mkdir token dir'
+    );
 
-  // Save token with restricted permissions (use btoa for browser compatibility)
-  const encodedToken = btoa(token);
-  await invoke<string>('execute_command', {
-    cmd: `echo "${encodedToken}" > "${tokenPath}" && chmod 600 "${tokenPath}"`,
-    cwd: '/',
-  });
+    // Save token with restricted permissions (use btoa for browser compatibility)
+    const encodedToken = btoa(token);
+    await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `echo "${encodedToken}" > "${tokenPath}" && chmod 600 "${tokenPath}"`,
+        cwd: '/',
+      }),
+      GITHUB_TIMEOUT_MS,
+      'save GitHub token'
+    );
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[GitHub] Timeout saving token:', error.message);
+    }
+    throw new Error('Failed to save GitHub token');
+  }
 }
 
 /**
@@ -206,17 +255,24 @@ export async function loadToken(): Promise<string | null> {
     const home = await getHomeDir();
     const tokenPath = `${home}/${TOKEN_FILE}`;
 
-    const encoded = await invoke<string>('execute_command', {
-      cmd: `cat "${tokenPath}" 2>/dev/null || echo ""`,
-      cwd: '/',
-    });
+    const encoded = await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `cat "${tokenPath}" 2>/dev/null || echo ""`,
+        cwd: '/',
+      }),
+      GITHUB_TIMEOUT_MS,
+      'cat GitHub token'
+    );
 
     const trimmed = encoded.trim();
     if (!trimmed) return null;
 
     // Use atob for browser compatibility
     return atob(trimmed);
-  } catch {
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[GitHub] Timeout loading token:', error.message);
+    }
     return null;
   }
 }
@@ -225,13 +281,24 @@ export async function loadToken(): Promise<string | null> {
  * Delete saved token (logout)
  */
 export async function deleteToken(): Promise<void> {
-  const home = await getHomeDir();
-  const tokenPath = `${home}/${TOKEN_FILE}`;
+  try {
+    const home = await getHomeDir();
+    const tokenPath = `${home}/${TOKEN_FILE}`;
 
-  await invoke<string>('execute_command', {
-    cmd: `rm -f "${tokenPath}"`,
-    cwd: '/',
-  });
+    await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `rm -f "${tokenPath}"`,
+        cwd: '/',
+      }),
+      GITHUB_TIMEOUT_MS,
+      'delete GitHub token'
+    );
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.warn('[GitHub] Timeout deleting token:', error.message);
+    }
+    // Not critical if delete fails
+  }
 }
 
 /**
@@ -239,10 +306,14 @@ export async function deleteToken(): Promise<void> {
  */
 export async function validateToken(token: string): Promise<GitHubUser | null> {
   try {
-    const response = await invoke<string>('execute_command', {
-      cmd: `curl -s -H "Authorization: Bearer ${token}" -H "Accept: application/vnd.github+json" "${GITHUB_API_URL}/user"`,
-      cwd: '/',
-    });
+    const response = await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `curl -s -H "Authorization: Bearer ${token}" -H "Accept: application/vnd.github+json" "${GITHUB_API_URL}/user"`,
+        cwd: '/',
+      }),
+      GITHUB_TIMEOUT_MS,
+      'validate GitHub token'
+    );
 
     const data = JSON.parse(response);
 
@@ -261,7 +332,10 @@ export async function validateToken(token: string): Promise<GitHubUser | null> {
     }
 
     return null;
-  } catch {
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[GitHub] Timeout validating token:', error.message);
+    }
     return null;
   }
 }
@@ -296,10 +370,14 @@ export async function listRepositories(
   const { visibility = 'all', sort = 'updated', per_page = 30, page = 1 } = options || {};
 
   try {
-    const response = await invoke<string>('execute_command', {
-      cmd: `curl -s -H "Authorization: Bearer ${accessToken}" -H "Accept: application/vnd.github+json" "${GITHUB_API_URL}/user/repos?visibility=${visibility}&sort=${sort}&per_page=${per_page}&page=${page}"`,
-      cwd: '/',
-    });
+    const response = await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `curl -s -H "Authorization: Bearer ${accessToken}" -H "Accept: application/vnd.github+json" "${GITHUB_API_URL}/user/repos?visibility=${visibility}&sort=${sort}&per_page=${per_page}&page=${page}"`,
+        cwd: '/',
+      }),
+      GITHUB_TIMEOUT_MS,
+      'list GitHub repos'
+    );
 
     const data = JSON.parse(response);
 
@@ -319,6 +397,10 @@ export async function listRepositories(
       updated_at: repo.updated_at,
     }));
   } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[GitHub] Timeout listing repos:', error.message);
+      throw new GitHubAuthError('List repos timed out', 'TIMEOUT');
+    }
     if (error instanceof GitHubAuthError) throw error;
     throw new GitHubAuthError(`Failed to list repositories: ${error}`, 'LIST_REPOS_FAILED');
   }
@@ -346,11 +428,19 @@ export async function cloneRepository(
   }
 
   try {
-    await invoke<string>('execute_command', {
-      cmd: `git clone "${cloneUrl}" "${targetPath}"`,
-      cwd: '/',
-    });
+    await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `git clone "${cloneUrl}" "${targetPath}"`,
+        cwd: '/',
+      }),
+      CLONE_TIMEOUT_MS, // Clone can take longer
+      `git clone ${repoUrl}`
+    );
   } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[GitHub] Timeout cloning repo:', error.message);
+      throw new GitHubAuthError('Clone timed out', 'TIMEOUT');
+    }
     throw new GitHubAuthError(`Clone failed: ${error}`, 'CLONE_FAILED');
   }
 }
@@ -371,10 +461,14 @@ export async function searchRepositories(
 
   try {
     const encodedQuery = encodeURIComponent(query);
-    const response = await invoke<string>('execute_command', {
-      cmd: `curl -s ${authHeader} -H "Accept: application/vnd.github+json" "${GITHUB_API_URL}/search/repositories?q=${encodedQuery}&per_page=${per_page}"`,
-      cwd: '/',
-    });
+    const response = await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `curl -s ${authHeader} -H "Accept: application/vnd.github+json" "${GITHUB_API_URL}/search/repositories?q=${encodedQuery}&per_page=${per_page}"`,
+        cwd: '/',
+      }),
+      GITHUB_TIMEOUT_MS,
+      'search GitHub repos'
+    );
 
     const data = JSON.parse(response);
 
@@ -394,6 +488,10 @@ export async function searchRepositories(
       updated_at: repo.updated_at,
     }));
   } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[GitHub] Timeout searching repos:', error.message);
+      throw new GitHubAuthError('Search timed out', 'TIMEOUT');
+    }
     if (error instanceof GitHubAuthError) throw error;
     throw new GitHubAuthError(`Search failed: ${error}`, 'SEARCH_FAILED');
   }

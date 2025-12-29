@@ -6,6 +6,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { withTimeout, TimeoutError } from '../core/utils/promiseTimeout';
 import {
   isGitRepository,
   initRepository,
@@ -24,6 +25,7 @@ const SNAPSHOT_TAG_PREFIX = 'snapshot-v';
 const METADATA_DIR = '.agentcockpit';
 const METADATA_FILE = 'snapshots.json';
 const MAX_SNAPSHOTS = 50;
+const INVOKE_TIMEOUT_MS = 5000;
 // Reserved for future use: const LOCK_FILE = 'snapshot.lock';
 
 // Types
@@ -70,12 +72,19 @@ async function acquireLock(projectPath: string): Promise<() => void> {
 async function ensureMetadataDir(projectPath: string): Promise<void> {
   const dirPath = `${projectPath}/${METADATA_DIR}`;
   try {
-    await invoke<string>('execute_command', {
-      cmd: `mkdir -p "${dirPath}"`,
-      cwd: projectPath,
-    });
-  } catch {
-    // Directory might already exist
+    await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `mkdir -p "${dirPath}"`,
+        cwd: projectPath,
+      }),
+      INVOKE_TIMEOUT_MS,
+      'mkdir metadata dir'
+    );
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[Snapshot] Timeout creating metadata dir:', error.message);
+    }
+    // Directory might already exist - don't throw
   }
 }
 
@@ -83,13 +92,20 @@ async function readMetadata(projectPath: string): Promise<SnapshotMetadata> {
   const filePath = `${projectPath}/${METADATA_DIR}/${METADATA_FILE}`;
 
   try {
-    const content = await invoke<string>('execute_command', {
-      cmd: `cat "${filePath}"`,
-      cwd: projectPath,
-    });
+    const content = await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `cat "${filePath}"`,
+        cwd: projectPath,
+      }),
+      INVOKE_TIMEOUT_MS,
+      'read metadata file'
+    );
 
     return JSON.parse(content) as SnapshotMetadata;
-  } catch {
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[Snapshot] Timeout reading metadata:', error.message);
+    }
     // File doesn't exist or is invalid, return default
     return {
       snapshots: [],
@@ -108,10 +124,22 @@ async function writeMetadata(projectPath: string, metadata: SnapshotMetadata): P
   // Base64 encode to handle special characters
   const base64 = btoa(unescape(encodeURIComponent(content)));
 
-  await invoke<string>('execute_command', {
-    cmd: `echo "${base64}" | base64 -d > "${filePath}"`,
-    cwd: projectPath,
-  });
+  try {
+    await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `echo "${base64}" | base64 -d > "${filePath}"`,
+        cwd: projectPath,
+      }),
+      INVOKE_TIMEOUT_MS,
+      'write metadata file'
+    );
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[Snapshot] Timeout writing metadata:', error.message);
+      throw new Error('Snapshot metadata save timed out');
+    }
+    throw error;
+  }
 }
 
 /**
@@ -217,10 +245,14 @@ async function getTagInfo(projectPath: string, tagName: string): Promise<{
     if (!commitHash) return null;
 
     // Get commit timestamp and message
-    const logOutput = await invoke<string>('execute_command', {
-      cmd: `git log -1 --format="%at|%s" ${commitHash}`,
-      cwd: projectPath,
-    });
+    const logOutput = await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `git log -1 --format="%at|%s" ${commitHash}`,
+        cwd: projectPath,
+      }),
+      INVOKE_TIMEOUT_MS,
+      'git log for tag info'
+    );
 
     const [timestampStr, message] = logOutput.trim().split('|');
     const timestamp = parseInt(timestampStr, 10) * 1000;
@@ -234,7 +266,10 @@ async function getTagInfo(projectPath: string, tagName: string): Promise<{
       message: message || `Snapshot ${tagName}`,
       filesChanged,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      console.error('[Snapshot] Timeout getting tag info:', error.message);
+    }
     return null;
   }
 }

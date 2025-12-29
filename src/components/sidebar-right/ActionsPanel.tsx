@@ -5,7 +5,7 @@
  * Renders AgentTabs for plugin selection and active plugin components.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Settings, Github } from 'lucide-react';
 import { usePlugins } from '../../plugins/context/PluginContext';
 import { AgentTabs } from '../../core/components/AgentTabs';
@@ -38,6 +38,7 @@ export function ActionsPanel({
 
   // Local state
   const [selectedSession, setSelectedSession] = useState<ProjectSession | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [mcpsToInject, setMcpsToInject] = useState<McpServerInfo[]>([]);
   const [mcpsToRemove, setMcpsToRemove] = useState<string[]>([]);
   const [selectedMcpServers, setSelectedMcpServers] = useState<string[]>([]);
@@ -45,28 +46,52 @@ export function ActionsPanel({
   const [showGitHubLogin, setShowGitHubLogin] = useState(false);
   const [gitHubUser, setGitHubUser] = useState<GitHubUser | null>(null);
 
-  // Check GitHub login status on mount
-  useEffect(() => {
-    getCurrentUser().then(user => {
-      if (user) setGitHubUser(user);
-    });
-  }, []);
+  // GitHub login status is now loaded lazily when user clicks GitHub button
+  // Removed automatic getCurrentUser() call to prevent freeze in bundled app
 
   // Ensure session exists BEFORE building command
   const ensureSession = useCallback(async (): Promise<ProjectSession | null> => {
-    if (!projectPath) return null;
+    console.log('[ActionsPanel] ensureSession called', {
+      projectPath,
+      hasSession: !!selectedSession
+    });
+
+    if (!projectPath) {
+      console.log('[ActionsPanel] No projectPath, returning null');
+      return null;
+    }
 
     // Return existing session if available
     if (selectedSession) {
-      await updateSessionLastUsed(projectPath, selectedSession.id, terminalId || undefined);
+      console.log('[ActionsPanel] Using existing session:', selectedSession.id);
+      try {
+        await updateSessionLastUsed(projectPath, selectedSession.id, terminalId || undefined);
+      } catch (error) {
+        console.warn('[ActionsPanel] Failed to update session lastUsed:', error);
+        // Non-fatal, continue with session
+      }
       return selectedSession;
     }
 
     // Auto-create new session (wasPreExisting=false → uses --session-id)
-    const newSession = await createSession(projectPath);
-    setSelectedSession(newSession);
-    await updateSessionLastUsed(projectPath, newSession.id, terminalId || undefined);
-    return newSession;
+    console.log('[ActionsPanel] Creating new session for project:', projectPath);
+    try {
+      const newSession = await createSession(projectPath);
+      console.log('[ActionsPanel] New session created:', newSession.id);
+      setSelectedSession(newSession);
+      setSessionError(null);
+      try {
+        await updateSessionLastUsed(projectPath, newSession.id, terminalId || undefined);
+      } catch (error) {
+        console.warn('[ActionsPanel] Failed to update new session lastUsed:', error);
+      }
+      return newSession;
+    } catch (error) {
+      console.error('[ActionsPanel] Failed to create session:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido al crear sesión';
+      setSessionError(errorMsg);
+      return null;
+    }
   }, [selectedSession, projectPath, terminalId]);
 
   // Handle launch command from plugin
@@ -117,7 +142,18 @@ export function ActionsPanel({
           {/* GitHub Button / Avatar */}
           <button
             className={`github-btn ${gitHubUser ? 'logged-in' : ''}`}
-            onClick={() => setShowGitHubLogin(true)}
+            onClick={async () => {
+              // Lazy load user status when button is clicked
+              if (!gitHubUser) {
+                try {
+                  const user = await getCurrentUser();
+                  if (user) setGitHubUser(user);
+                } catch (err) {
+                  console.warn('[ActionsPanel] Failed to get GitHub user:', err);
+                }
+              }
+              setShowGitHubLogin(true);
+            }}
             title={gitHubUser ? `@${gitHubUser.login}` : 'Iniciar sesión con GitHub'}
           >
             {gitHubUser ? (
@@ -140,6 +176,42 @@ export function ActionsPanel({
           </button>
         </div>
       </div>
+
+      {/* Session Error Display */}
+      {sessionError && (
+        <div className="session-error" style={{
+          padding: '12px',
+          margin: '8px',
+          borderRadius: '6px',
+          backgroundColor: 'rgba(239, 68, 68, 0.15)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          color: '#ef4444'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+            <span style={{ fontSize: '14px' }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: '12px', marginBottom: '4px' }}>Error de Sesión</div>
+              <div style={{ fontSize: '11px', opacity: 0.9 }}>{sessionError}</div>
+              <button
+                style={{
+                  fontSize: '11px',
+                  textDecoration: 'underline',
+                  marginTop: '8px',
+                  opacity: 0.7,
+                  background: 'none',
+                  border: 'none',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  padding: 0
+                }}
+                onClick={() => setSessionError(null)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Agent Tabs */}
       <AgentTabs

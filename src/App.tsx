@@ -47,15 +47,72 @@ function MainContent() {
       const ides = ['cursor', 'code', 'antigravity'];
       const available: string[] = [];
 
+      // Specific paths to check (no login shell to avoid triggering macOS permissions)
+      const pathsToCheck = [
+        '/usr/local/bin',
+        '/opt/homebrew/bin',
+        '/usr/bin',
+      ];
+
+      // IDE-specific custom paths
+      const customPaths: Record<string, string[]> = {
+        antigravity: ['$HOME/.antigravity/antigravity/bin'],
+      };
+
       for (const ide of ides) {
-        try {
-          await invoke<string>('execute_command', {
-            cmd: `which ${ide}`,
-            cwd: '/',
-          });
+        let found = false;
+
+        // Check specific paths first
+        for (const basePath of pathsToCheck) {
+          try {
+            const result = await invoke<string>('execute_command', {
+              cmd: `test -x "${basePath}/${ide}" && echo "found"`,
+              cwd: '/',
+            });
+            if (result.trim() === 'found') {
+              found = true;
+              break;
+            }
+          } catch {
+            // Not in this path
+          }
+        }
+
+        // Check IDE-specific custom paths (resolve $HOME)
+        if (!found && customPaths[ide]) {
+          for (const customPath of customPaths[ide]) {
+            try {
+              const result = await invoke<string>('execute_command', {
+                cmd: `test -x "${customPath}/${ide}" && echo "found"`,
+                cwd: '/',
+              });
+              if (result.trim() === 'found') {
+                found = true;
+                break;
+              }
+            } catch {
+              // Not in this path
+            }
+          }
+        }
+
+        // Fallback to simple which (no login shell)
+        if (!found) {
+          try {
+            const result = await invoke<string>('execute_command', {
+              cmd: `which ${ide} 2>/dev/null`,
+              cwd: '/',
+            });
+            if (result.trim()) {
+              found = true;
+            }
+          } catch {
+            // Not found
+          }
+        }
+
+        if (found) {
           available.push(ide);
-        } catch {
-          // IDE not installed
         }
       }
 
