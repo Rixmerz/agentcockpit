@@ -21,7 +21,7 @@ import {
 
 // Constants
 const SNAPSHOT_TAG_PREFIX = 'snapshot-v';
-const METADATA_DIR = '.one-term';
+const METADATA_DIR = '.agentcockpit';
 const METADATA_FILE = 'snapshots.json';
 const MAX_SNAPSHOTS = 50;
 // Reserved for future use: const LOCK_FILE = 'snapshot.lock';
@@ -140,6 +140,12 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
       return null;
     }
 
+    // Skip if no uncommitted changes
+    if (!status.hasUncommittedChanges) {
+      console.log('[Snapshot] Skipping - no uncommitted changes');
+      return null;
+    }
+
     // Read current metadata
     const metadata = await readMetadata(projectPath);
     const version = metadata.nextVersion;
@@ -198,7 +204,44 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
 }
 
 /**
+ * Get commit info for a tag (timestamp, message, files changed)
+ */
+async function getTagInfo(projectPath: string, tagName: string): Promise<{
+  commitHash: string;
+  timestamp: number;
+  message: string;
+  filesChanged: string[];
+} | null> {
+  try {
+    const commitHash = await getTagCommit(projectPath, tagName);
+    if (!commitHash) return null;
+
+    // Get commit timestamp and message
+    const logOutput = await invoke<string>('execute_command', {
+      cmd: `git log -1 --format="%at|%s" ${commitHash}`,
+      cwd: projectPath,
+    });
+
+    const [timestampStr, message] = logOutput.trim().split('|');
+    const timestamp = parseInt(timestampStr, 10) * 1000;
+
+    // Get files changed
+    const filesChanged = await getCommitFiles(projectPath, commitHash);
+
+    return {
+      commitHash,
+      timestamp,
+      message: message || `Snapshot ${tagName}`,
+      filesChanged,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * List all available snapshots for a project
+ * Discovers existing git tags and syncs with metadata
  */
 export async function listSnapshots(projectPath: string): Promise<Snapshot[]> {
   const isRepo = await isGitRepository(projectPath);
@@ -208,24 +251,63 @@ export async function listSnapshots(projectPath: string): Promise<Snapshot[]> {
 
   const metadata = await readMetadata(projectPath);
 
-  // Validate snapshots still exist (tags might have been deleted externally)
-  const validSnapshots: Snapshot[] = [];
+  // Get all snapshot tags from git
   const tags = await listTags(projectPath, `${SNAPSHOT_TAG_PREFIX}*`);
-  const tagSet = new Set(tags);
 
+  // Create a map of existing snapshots by tag
+  const existingByTag = new Map<string, Snapshot>();
   for (const snapshot of metadata.snapshots) {
-    if (tagSet.has(snapshot.tag)) {
-      validSnapshots.push(snapshot);
+    existingByTag.set(snapshot.tag, snapshot);
+  }
+
+  // Build final list: keep valid existing + discover new from git
+  const allSnapshots: Snapshot[] = [];
+  let highestVersion = 0;
+
+  for (const tag of tags) {
+    // Extract version number from tag (snapshot-v1 -> 1)
+    const versionMatch = tag.match(/^snapshot-v(\d+)$/);
+    if (!versionMatch) continue;
+
+    const version = parseInt(versionMatch[1], 10);
+    highestVersion = Math.max(highestVersion, version);
+
+    // Check if we already have this snapshot in metadata
+    const existing = existingByTag.get(tag);
+    if (existing) {
+      allSnapshots.push(existing);
+    } else {
+      // Discover from git - this is a snapshot we don't have in metadata
+      const tagInfo = await getTagInfo(projectPath, tag);
+      if (tagInfo) {
+        const discoveredSnapshot: Snapshot = {
+          version,
+          commitHash: tagInfo.commitHash,
+          tag,
+          timestamp: tagInfo.timestamp,
+          message: tagInfo.message,
+          filesChanged: tagInfo.filesChanged,
+        };
+        allSnapshots.push(discoveredSnapshot);
+        console.log(`[Snapshot] Discovered existing V${version} from git tag`);
+      }
     }
   }
 
-  // Update metadata if some were removed
-  if (validSnapshots.length !== metadata.snapshots.length) {
-    metadata.snapshots = validSnapshots;
+  // Sort by version
+  allSnapshots.sort((a, b) => a.version - b.version);
+
+  // Update metadata with discovered snapshots
+  const needsUpdate = allSnapshots.length !== metadata.snapshots.length ||
+    allSnapshots.some((s, i) => metadata.snapshots[i]?.tag !== s.tag);
+
+  if (needsUpdate) {
+    metadata.snapshots = allSnapshots;
+    metadata.nextVersion = highestVersion + 1;
     await writeMetadata(projectPath, metadata);
   }
 
-  return validSnapshots;
+  return allSnapshots;
 }
 
 /**

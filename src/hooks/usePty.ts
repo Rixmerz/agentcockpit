@@ -82,9 +82,11 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
 
     if (isEnterPressed && projectPath && !isCreatingSnapshotRef.current) {
       isCreatingSnapshotRef.current = true;
+      console.log('[usePty] Enter detected, creating snapshot for:', projectPath);
 
       try {
         const snapshot = await createSnapshot(projectPath);
+        console.log('[usePty] Snapshot result:', snapshot);
 
         if (snapshot) {
           // Emit event for UI components to update
@@ -94,6 +96,9 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
             commitHash: snapshot.commitHash,
             timestamp: snapshot.timestamp,
           });
+          console.log('[usePty] Snapshot V' + snapshot.version + ' created successfully');
+        } else {
+          console.log('[usePty] No snapshot created (no changes or skipped)');
         }
       } catch (err) {
         // Log error but don't block the write operation

@@ -84,7 +84,11 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
 
     // Open terminal in container
     terminal.open(containerRef.current);
+
+    // Initial fit with delay to ensure container has final dimensions
     fitAddon.fit();
+    setTimeout(() => fitAddon.fit(), 100);
+    setTimeout(() => fitAddon.fit(), 300);
 
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
@@ -124,10 +128,20 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
 
   // Handle window resize
   useEffect(() => {
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+
     const handleResize = () => {
-      if (fitAddonRef.current && terminalRef.current) {
-        fitAddonRef.current.fit();
-      }
+      // Debounce resize to prevent excessive calls
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+
+      resizeTimeout = setTimeout(() => {
+        if (fitAddonRef.current && terminalRef.current) {
+          fitAddonRef.current.fit();
+          // Also notify PTY of new dimensions
+          const { cols, rows } = terminalRef.current;
+          resize(cols, rows).catch(console.error);
+        }
+      }, 50);
     };
 
     window.addEventListener('resize', handleResize);
@@ -141,8 +155,9 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
     return () => {
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
+      if (resizeTimeout) clearTimeout(resizeTimeout);
     };
-  }, []);
+  }, [resize]);
 
   return (
     <div

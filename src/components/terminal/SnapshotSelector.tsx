@@ -170,11 +170,7 @@ export function SnapshotSelector({ projectPath }: SnapshotSelectorProps) {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [isOpen]);
 
-  // Don't render if no snapshots
-  if (snapshots.length === 0 && !isLoading) {
-    return null;
-  }
-
+  // Always show - even with 0 snapshots to indicate the feature exists
   return (
     <div className="snapshot-selector">
       {/* Trigger button */}

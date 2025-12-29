@@ -117,9 +117,27 @@ export async function getGitStatus(projectPath: string): Promise<GitStatus> {
     }
   }
 
-  // Check rebase/merge state
-  const isRebasing = (await execGitSafe(projectPath, 'rev-parse --git-path rebase-merge'))?.includes('rebase-merge') || false;
-  const isMerging = (await execGitSafe(projectPath, 'rev-parse --git-path MERGE_HEAD'))?.includes('MERGE_HEAD') || false;
+  // Check rebase/merge state by checking if the files/dirs actually exist
+  let isRebasing = false;
+  let isMerging = false;
+
+  try {
+    // Check if rebase is in progress (either rebase-merge or rebase-apply dir exists)
+    const rebaseCheck = await invoke<string>('execute_command', {
+      cmd: 'test -d .git/rebase-merge -o -d .git/rebase-apply && echo "yes" || echo "no"',
+      cwd: projectPath,
+    });
+    isRebasing = rebaseCheck.trim() === 'yes';
+
+    // Check if merge is in progress (MERGE_HEAD file exists)
+    const mergeCheck = await invoke<string>('execute_command', {
+      cmd: 'test -f .git/MERGE_HEAD && echo "yes" || echo "no"',
+      cwd: projectPath,
+    });
+    isMerging = mergeCheck.trim() === 'yes';
+  } catch {
+    // Ignore errors, assume no operation in progress
+  }
 
   return {
     isRepository: true,

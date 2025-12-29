@@ -11,7 +11,7 @@ import { invoke } from '@tauri-apps/api/core';
 const GITHUB_DEVICE_CODE_URL = 'https://github.com/login/device/code';
 const GITHUB_ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_API_URL = 'https://api.github.com';
-const TOKEN_FILE = '.one-term/github-token';
+const TOKEN_FILE = '.agentcockpit/github-token';
 
 // GitHub OAuth App Client ID (public, safe to include)
 // Users should register their own OAuth App at https://github.com/settings/applications/new
@@ -83,15 +83,12 @@ export async function startDeviceFlow(clientId?: string): Promise<DeviceCodeResp
   const id = clientId || GITHUB_CLIENT_ID;
   const cmd = `curl -s -X POST "${GITHUB_DEVICE_CODE_URL}" -H "Accept: application/json" -d "client_id=${id}" -d "scope=repo,read:user"`;
 
-  console.log('[GitHub] Starting device flow with command:', cmd);
-
   try {
     const response = await invoke<string>('execute_command', {
       cmd,
       cwd: '/',
     });
 
-    console.log('[GitHub] Response:', response);
     const data = JSON.parse(response);
 
     if (data.error) {
@@ -106,7 +103,6 @@ export async function startDeviceFlow(clientId?: string): Promise<DeviceCodeResp
       interval: data.interval,
     };
   } catch (error) {
-    console.error('[GitHub] Error:', error);
     if (error instanceof GitHubAuthError) throw error;
     throw new GitHubAuthError(
       `Failed to start device flow: ${error}`,
@@ -186,7 +182,7 @@ export async function pollForToken(
 async function saveToken(token: string): Promise<void> {
   const home = await getHomeDir();
   const tokenPath = `${home}/${TOKEN_FILE}`;
-  const dir = `${home}/.one-term`;
+  const dir = `${home}/.agentcockpit`;
 
   // Create directory if needed
   await invoke<string>('execute_command', {
