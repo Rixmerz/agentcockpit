@@ -37,15 +37,27 @@ export function ClaudeLauncher({
   }, [onWriteToTerminal]);
 
   const handleLaunch = useCallback(async () => {
+    console.log('[ClaudeLauncher] Launch button clicked');
+    console.log('[ClaudeLauncher] State:', {
+      projectPath,
+      hasActiveTerminal,
+      mcpsToInject: mcpsToInject.length,
+      mcpsToRemove: mcpsToRemove.length,
+      customArgs
+    });
+
     // STEP 1: Ensure session exists BEFORE building command
+    console.log('[ClaudeLauncher] Step 1: Ensuring session...');
     const currentSession = await ensureSession();
+    console.log('[ClaudeLauncher] Session ensured:', currentSession?.id ?? 'NULL');
 
     if (!currentSession) {
-      console.error('[ClaudeLauncher] No session available');
+      console.error('[ClaudeLauncher] No session available - aborting launch');
       return;
     }
 
     // STEP 2: Build command with guaranteed session
+    console.log('[ClaudeLauncher] Step 2: Building command...');
     // wasPreExisting=true → --resume (existing sessions)
     // wasPreExisting=false → --session-id (newly created sessions)
     const claudeCommand = buildClaudeCommand({
@@ -53,11 +65,13 @@ export function ClaudeLauncher({
       resume: currentSession.wasPreExisting ?? false,
       additionalArgs: customArgs ? customArgs.split(' ').filter(Boolean) : undefined,
     });
+    console.log('[ClaudeLauncher] Claude command built:', claudeCommand);
 
     const allCommands: string[] = [];
 
     // First: remove MCPs marked for removal
     if (mcpsToRemove.length > 0) {
+      console.log('[ClaudeLauncher] Adding MCP remove commands:', mcpsToRemove);
       const removeCommands = mcpsToRemove.map(name =>
         wrapCommandSafe(`claude mcp remove "${name}"`)
       );
@@ -66,6 +80,7 @@ export function ClaudeLauncher({
 
     // Second: inject MCPs
     if (mcpsToInject.length > 0) {
+      console.log('[ClaudeLauncher] Adding MCP inject commands:', mcpsToInject.map(m => m.name));
       const injectCommands = mcpsToInject.map(mcp => {
         const escapedJson = escapeJsonForShell(mcp.config);
         return wrapCommandSafe(`claude mcp add-json "${mcp.name}" '${escapedJson}' -s user`);
@@ -78,8 +93,10 @@ export function ClaudeLauncher({
 
     const fullCommand = joinCommandsSequential(allCommands);
     console.log('[ClaudeLauncher] Full command:', fullCommand);
+    console.log('[ClaudeLauncher] Executing onLaunch callback...');
     onLaunch(fullCommand);
-  }, [mcpsToInject, mcpsToRemove, ensureSession, customArgs, onLaunch]);
+    console.log('[ClaudeLauncher] Launch complete');
+  }, [projectPath, hasActiveTerminal, mcpsToInject, mcpsToRemove, ensureSession, customArgs, onLaunch]);
 
   // Build preview command
   const previewSession = session ?? { wasPreExisting: false };
