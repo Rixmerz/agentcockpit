@@ -1,6 +1,8 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { ptySpawn, ptyWrite, ptyResize, ptyClose, onPtyOutput, onPtyClose } from '../services/tauriService';
 import type { UnlistenFn } from '@tauri-apps/api/event';
+import { createSnapshot } from '../services/snapshotService';
+import { snapshotEvents } from '../core/utils/eventBus';
 
 interface UsePtyOptions {
   onData?: (data: string) => void;
@@ -18,9 +20,11 @@ interface UsePtyReturn {
 
 export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
   const ptyIdRef = useRef<number | null>(null);
+  const projectPathRef = useRef<string | null>(null);
   const unlistenOutputRef = useRef<UnlistenFn | null>(null);
   const unlistenCloseRef = useRef<UnlistenFn | null>(null);
   const optionsRef = useRef(options);
+  const isCreatingSnapshotRef = useRef(false);
 
   // Keep options ref updated
   useEffect(() => {
@@ -46,6 +50,9 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
       unlistenCloseRef.current?.();
     }
 
+    // Store project path for snapshot creation
+    projectPathRef.current = cwd;
+
     // Spawn new PTY
     const id = await ptySpawn(cmd, cwd, cols, rows);
     ptyIdRef.current = id;
@@ -67,6 +74,35 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
     if (ptyIdRef.current === null) {
       throw new Error('PTY not spawned');
     }
+
+    // Detect Enter key (\r or \n) and create snapshot before sending
+    // Only create snapshot if projectPath is available and not already creating one
+    const isEnterPressed = data.includes('\r') || data.includes('\n');
+    const projectPath = projectPathRef.current;
+
+    if (isEnterPressed && projectPath && !isCreatingSnapshotRef.current) {
+      isCreatingSnapshotRef.current = true;
+
+      try {
+        const snapshot = await createSnapshot(projectPath);
+
+        if (snapshot) {
+          // Emit event for UI components to update
+          snapshotEvents.emit('created', {
+            version: snapshot.version,
+            projectPath,
+            commitHash: snapshot.commitHash,
+            timestamp: snapshot.timestamp,
+          });
+        }
+      } catch (err) {
+        // Log error but don't block the write operation
+        console.error('[usePty] Snapshot creation failed:', err);
+      } finally {
+        isCreatingSnapshotRef.current = false;
+      }
+    }
+
     await ptyWrite(ptyIdRef.current, data);
   }, []);
 

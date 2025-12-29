@@ -28,3 +28,12 @@ src-tauri/target/
 
 # Old projects (removed from repo)
 one-term/
+
+# CFA - Context First Architecture
+# Keep: cfa.yaml, map.md, decisions/*.md (valuable for devs)
+# Ignore: session-specific and generated files
+.claude/settings.local.json
+.claude/.onboarding_status
+.claude/memory.db
+.claude/knowledge_graph.db
+.claude/tasks/

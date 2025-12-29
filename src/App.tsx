@@ -5,7 +5,8 @@ import { PluginProvider } from './plugins/context/PluginContext';
 import { claudePlugin } from './agents/claude';
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
-import { PathNavigator } from './components/sidebar-left/PathNavigator';
+import { ProjectOpener } from './components/sidebar-left/ProjectOpener';
+import { GitHubLoginModal } from './components/sidebar-left/GitHubLoginModal';
 import { ActionsPanel } from './components/sidebar-right/ActionsPanel';
 import {
   ChevronRight,
@@ -98,6 +99,13 @@ function MainContent() {
   const handleCreateProject = useCallback((name: string, path: string) => {
     addProject(name, path);
   }, [addProject]);
+
+  // GitHub login modal state
+  const [showGitHubLogin, setShowGitHubLogin] = useState(false);
+
+  const handleNeedLogin = useCallback(() => {
+    setShowGitHubLogin(true);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -235,10 +243,20 @@ function MainContent() {
 
         <div className="navigator-section">
           <div className="section-header" style={{ height: '32px', border: 'none', paddingLeft: '8px' }}>
-            NUEVO PROYECTO
+            ABRIR PROYECTO
           </div>
-          <PathNavigator onCreateProject={handleCreateProject} />
+          <ProjectOpener
+            onCreateProject={handleCreateProject}
+            onNeedLogin={handleNeedLogin}
+          />
         </div>
+
+        {/* GitHub Login Modal */}
+        <GitHubLoginModal
+          isOpen={showGitHubLogin}
+          onClose={() => setShowGitHubLogin(false)}
+          onLogin={() => setShowGitHubLogin(false)}
+        />
       </aside>
 
       {/* Main Content - Terminal View */}
@@ -253,6 +271,7 @@ function MainContent() {
             <TerminalHeader
               name={activeTerminal.name}
               projectName={activeProject.name}
+              projectPath={activeProject.path}
               onClose={() => removeTerminal(activeProject.id, activeTerminal.id)}
             />
           ) : (
