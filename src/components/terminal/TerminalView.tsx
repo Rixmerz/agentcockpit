@@ -50,6 +50,9 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
       fontSize: 14,
       fontFamily: "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
       allowTransparency: true,
+      scrollback: 10000,        // Increased buffer for more history
+      convertEol: true,         // Convert \n to \r\n for consistent line breaks
+      scrollOnUserInput: true,  // Auto-scroll when user types
       theme: {
         background: 'transparent',
         foreground: '#e4e4e7',
