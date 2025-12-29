@@ -10,6 +10,7 @@
 - **Session Management**: Gestion de sesiones por agente
 - **MCP Integration**: Inyeccion dinamica de servidores MCP
 - **Glassmorphism UI**: Interfaz moderna con efectos de vidrio
+- **Automatic Snapshots**: Git snapshots automaticos antes de cada interaccion con el agente
 
 ## Architecture Overview
 
@@ -93,7 +94,10 @@ src/
 │   ├── tauriService.ts
 │   ├── projectSessionService.ts
 │   ├── fileSystemService.ts
-│   └── mcpService.ts
+│   ├── mcpService.ts
+│   ├── snapshotService.ts         # Automatic git snapshots
+│   ├── gitService.ts              # Git operations wrapper
+│   └── backgroundPtyService.ts    # Invisible PTY for git commands
 │
 └── App.tsx                        # Root with PluginProvider
 ```
@@ -159,6 +163,8 @@ See `docs/PLUGINS.md` for complete guide.
 - ✅ Reusable terminal utilities
 - ✅ Type-safe plugin contracts
 - ✅ AgentTabs UI
+- ✅ Automatic git snapshots (with subdirectory support)
+- ✅ Background PTY for TCC-safe git operations
 - ⏳ Gemini plugin (planned)
 - ⏳ External plugin loading (planned)
 
@@ -173,6 +179,12 @@ See `docs/PLUGINS.md` for complete guide.
 4. **MCP injection order**: Commands built as: remove MCPs → add MCPs → launch agent (sequential with `;`)
 
 5. **CSS variables**: Plugins can use `--plugin-color` for brand-specific styling in tabs
+
+6. **Snapshot path filtering**: When project is in a git subdirectory, paths come prefixed (e.g., `subdir/.agentcockpit/`). Filter uses `includes()` not `startsWith()` to handle this.
+
+7. **Background PTY for snapshots**: Git commands (add, commit, tag) use invisible PTY to avoid TCC permission cascade on macOS. Regular git queries use `execute_command`.
+
+8. **Excluded snapshot paths**: `.agentcockpit/`, `.claude/`, `.cursor/`, `.vscode/`, `.idea/` are excluded from "real changes" detection to prevent spurious snapshots.
 
 ## Key Decisions
 
