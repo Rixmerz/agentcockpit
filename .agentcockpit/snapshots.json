@@ -193,8 +193,19 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 20,
+      "commitHash": "8e0553a3c7edd6e9b49072932b8b5b91f4713da9",
+      "tag": "snapshot-v20",
+      "timestamp": 1767074030756,
+      "message": "Snapshot V20",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json",
+        "src/agents/claude/components/McpPanel.tsx"
+      ]
     }
   ],
-  "nextVersion": 20,
-  "currentVersion": 19
+  "nextVersion": 21,
+  "currentVersion": 20
 }
