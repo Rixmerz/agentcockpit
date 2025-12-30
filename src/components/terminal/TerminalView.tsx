@@ -50,9 +50,16 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
       fontSize: 14,
       fontFamily: "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
       allowTransparency: true,
-      scrollback: 10000,        // Increased buffer for more history
-      convertEol: true,         // Convert \n to \r\n for consistent line breaks
-      scrollOnUserInput: true,  // Auto-scroll when user types
+      scrollback: 10000,
+      // Options from VS Code for better ANSI sequence handling
+      scrollOnEraseInDisplay: true,  // Critical for Claude Code spinner
+      drawBoldTextInBrightColors: true,
+      rescaleOverlappingGlyphs: true,
+      windowOptions: {
+        getWinSizePixels: true,
+        getCellSizePixels: true,
+        getWinSizeChars: true,
+      },
       theme: {
         background: 'transparent',
         foreground: '#e4e4e7',
