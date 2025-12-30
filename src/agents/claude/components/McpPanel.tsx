@@ -324,20 +324,35 @@ export function McpPanel({
     }
   }, [homePath, selectedServers, onSelectionChange, loadMcps, showMessage]);
 
-  // Remove Code MCP using CLI
+  // Remove Code MCP by editing ~/.claude.json directly
   const handleRemoveCode = useCallback(async (name: string) => {
     try {
-      await invoke<string>('execute_command', {
-        cmd: `claude mcp remove "${name}" -s user 2>&1`,
-        cwd: '/',
-      });
-      showMessage('success', `"${name}" eliminado de Code`);
-      loadMcps();
+      const claudeJsonPath = `${homePath}/.claude.json`;
+      const config = await readJsonFile(claudeJsonPath) as { mcpServers?: Record<string, McpServerConfig> } | null;
+
+      if (!config?.mcpServers?.[name]) {
+        showMessage('error', `"${name}" no encontrado en Code`);
+        return;
+      }
+
+      const { [name]: _, ...remainingServers } = config.mcpServers;
+      const newConfig = { ...config, mcpServers: remainingServers };
+
+      const success = await writeJsonFile(claudeJsonPath, newConfig);
+      if (success) {
+        showMessage('success', `"${name}" eliminado de Code`);
+        if (selectedServers.includes(name)) {
+          onSelectionChange(selectedServers.filter(s => s !== name));
+        }
+        loadMcps();
+      } else {
+        showMessage('error', 'Error al escribir archivo de configuración');
+      }
     } catch (e) {
       console.error('[MCP] Remove Code error:', e);
       showMessage('error', `Error: ${e}`);
     }
-  }, [loadMcps, showMessage]);
+  }, [homePath, selectedServers, onSelectionChange, loadMcps, showMessage]);
 
   // Open config file in IDE
   const handleOpenConfigInIDE = useCallback(async (configType: 'desktop' | 'code') => {
