@@ -70,8 +70,18 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 8,
+      "commitHash": "b64405047cc2c49e6ee13b8fb11f328195e56549",
+      "tag": "snapshot-v8",
+      "timestamp": 1767065553014,
+      "message": "Snapshot V8",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 8,
-  "currentVersion": 7
+  "nextVersion": 9,
+  "currentVersion": 8
 }
