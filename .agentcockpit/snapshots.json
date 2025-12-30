@@ -301,8 +301,18 @@
         "one-term-project.json",
         "src/components/terminal/TerminalView.tsx"
       ]
+    },
+    {
+      "version": 30,
+      "commitHash": "da2cbe8e8d79d59281368368cad6efc9c12179e5",
+      "tag": "snapshot-v30",
+      "timestamp": 1767075468289,
+      "message": "Snapshot V30",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 30,
-  "currentVersion": 29
+  "nextVersion": 31,
+  "currentVersion": 30
 }
