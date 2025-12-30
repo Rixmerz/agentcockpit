@@ -277,8 +277,20 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 28,
+      "commitHash": "8c51c002a1fcc7f6653c8bae14c06b25ef3096d7",
+      "tag": "snapshot-v28",
+      "timestamp": 1767075398486,
+      "message": "Snapshot V28",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json",
+        "package.json",
+        "pnpm-lock.yaml"
+      ]
     }
   ],
-  "nextVersion": 28,
-  "currentVersion": 27
+  "nextVersion": 29,
+  "currentVersion": 28
 }
