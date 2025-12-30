@@ -14,11 +14,70 @@ interface TerminalViewProps {
 }
 
 // Minimum interval between terminal flushes (ms)
-// 32ms = ~30fps, good balance between smoothness and performance
-const MIN_FLUSH_INTERVAL_MS = 32;
+// 50ms = ~20fps, gives more time for complete ANSI sequences to arrive
+const MIN_FLUSH_INTERVAL_MS = 50;
 
 // Maximum pending buffer size before forcing a flush (prevents memory buildup)
 const MAX_PENDING_SIZE = 8192;
+
+// Maximum time to hold incomplete sequences before forcing flush (prevents hangs)
+const MAX_INCOMPLETE_HOLD_MS = 200;
+
+/**
+ * Detects if there's an incomplete ANSI escape sequence at the end of the string.
+ * This prevents TUI corruption when sequences are split across flushes.
+ *
+ * ANSI sequences:
+ * - CSI: \x1b[ ... <letter> (e.g., \x1b[38;5;240m)
+ * - OSC: \x1b] ... \x07 or \x1b\\ (e.g., \x1b]0;title\x07)
+ * - Simple: \x1b<letter> (e.g., \x1bM)
+ */
+function hasIncompleteAnsiSequence(str: string): boolean {
+  if (!str) return false;
+
+  // Find the last ESC character
+  const lastEscIndex = str.lastIndexOf('\x1b');
+  if (lastEscIndex === -1) return false;
+
+  // Get everything after the last ESC
+  const afterEsc = str.slice(lastEscIndex);
+
+  // Just ESC alone - incomplete
+  if (afterEsc === '\x1b') return true;
+
+  // CSI sequence: \x1b[ ... must end with a letter (A-Za-z)
+  if (afterEsc.startsWith('\x1b[')) {
+    // CSI parameters can include digits, semicolons, question marks, etc.
+    // The sequence ends when we hit a letter
+    const afterBracket = afterEsc.slice(2);
+    // Check if there's a terminating letter
+    if (!/[A-Za-z]/.test(afterBracket)) {
+      return true; // No terminating letter found - incomplete
+    }
+    // Check if the letter is at the end (complete) or if there's more after it
+    const match = afterBracket.match(/[A-Za-z]/);
+    if (match && match.index !== undefined) {
+      // If the letter is at the end of afterBracket, sequence is complete
+      // If there's content after it, that content might have another incomplete sequence
+      return false;
+    }
+  }
+
+  // OSC sequence: \x1b] ... must end with \x07 (BEL) or \x1b\\ (ST)
+  if (afterEsc.startsWith('\x1b]')) {
+    if (!afterEsc.includes('\x07') && !afterEsc.includes('\x1b\\')) {
+      return true; // No terminator found - incomplete
+    }
+  }
+
+  // Simple escape: \x1b followed by single letter (like \x1bM for reverse index)
+  // These are always 2 chars, so if we have \x1b + letter, it's complete
+  if (afterEsc.length === 2 && /[A-Za-z]/.test(afterEsc[1])) {
+    return false; // Complete simple escape
+  }
+
+  return false;
+}
 
 export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -31,21 +90,74 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
   const pendingSizeRef = useRef<number>(0);
   const flushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFlushTimeRef = useRef<number>(0);
+  const incompleteHoldStartRef = useRef<number>(0); // Track when we started holding incomplete data
 
   const { registerTerminalWriter, unregisterTerminalWriter, registerPtyId } = useApp();
 
   // Flush pending writes to terminal
+  // Handles incomplete ANSI sequences by retaining them for the next flush
   const flushWrites = useCallback(() => {
     flushTimeoutRef.current = null;
 
     if (pendingWritesRef.current && terminalRef.current) {
       const data = pendingWritesRef.current;
-      pendingWritesRef.current = '';
-      pendingSizeRef.current = 0;
-      lastFlushTimeRef.current = performance.now();
+      const now = performance.now();
 
-      // Write to terminal
-      terminalRef.current.write(data);
+      // Check for incomplete ANSI sequence at the end
+      if (hasIncompleteAnsiSequence(data)) {
+        const lastEscIndex = data.lastIndexOf('\x1b');
+
+        // Check if we've been holding this incomplete sequence too long
+        const holdingTooLong = incompleteHoldStartRef.current > 0 &&
+          (now - incompleteHoldStartRef.current) > MAX_INCOMPLETE_HOLD_MS;
+
+        if (holdingTooLong) {
+          // Force flush everything - sequence is probably malformed
+          console.warn('[Terminal] Forcing flush of incomplete ANSI sequence after timeout');
+          pendingWritesRef.current = '';
+          pendingSizeRef.current = 0;
+          incompleteHoldStartRef.current = 0;
+          lastFlushTimeRef.current = now;
+          terminalRef.current.write(data);
+        } else {
+          // Retain incomplete part, flush complete part
+          if (incompleteHoldStartRef.current === 0) {
+            incompleteHoldStartRef.current = now; // Start tracking hold time
+          }
+
+          const completeData = data.slice(0, lastEscIndex);
+          const incompleteData = data.slice(lastEscIndex);
+
+          if (completeData) {
+            terminalRef.current.write(completeData);
+          }
+
+          // Keep the incomplete part for next flush
+          pendingWritesRef.current = incompleteData;
+          pendingSizeRef.current = incompleteData.length;
+          lastFlushTimeRef.current = now;
+
+          // Schedule another flush to handle the incomplete data
+          flushTimeoutRef.current = setTimeout(() => {
+            flushTimeoutRef.current = null;
+            // This will re-check if the sequence is now complete
+            if (pendingWritesRef.current && terminalRef.current) {
+              const remaining = pendingWritesRef.current;
+              pendingWritesRef.current = '';
+              pendingSizeRef.current = 0;
+              incompleteHoldStartRef.current = 0;
+              terminalRef.current.write(remaining);
+            }
+          }, MIN_FLUSH_INTERVAL_MS);
+        }
+      } else {
+        // No incomplete sequences - flush normally
+        pendingWritesRef.current = '';
+        pendingSizeRef.current = 0;
+        incompleteHoldStartRef.current = 0;
+        lastFlushTimeRef.current = now;
+        terminalRef.current.write(data);
+      }
     }
   }, []);
 
