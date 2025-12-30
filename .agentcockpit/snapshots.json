@@ -20,8 +20,18 @@
         ".agentcockpit/snapshots.json",
         "src/components/sidebar-right/PortMonitor.tsx"
       ]
+    },
+    {
+      "version": 3,
+      "commitHash": "1d6557c1432e00e93214ca84723d031494645ce7",
+      "tag": "snapshot-v3",
+      "timestamp": 1767065537028,
+      "message": "Snapshot V3",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 3,
-  "currentVersion": 2
+  "nextVersion": 4,
+  "currentVersion": 3
 }
