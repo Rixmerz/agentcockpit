@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { exists, readDir, mkdir } from '@tauri-apps/plugin-fs';
 import { openFolderDialog } from '../../services/fileSystemService';
 import { FolderOpen } from 'lucide-react';
+import { withTimeout } from '../../core/utils/promiseTimeout';
 
 interface PathNavigatorProps {
   onCreateProject: (name: string, path: string) => void;
@@ -13,17 +14,27 @@ interface OutputLine {
 }
 
 const HOME = '/Users/juanpablodiaz';
+const FS_TIMEOUT_MS = 3000;
 
-// Check if path exists using shell (more reliable than fs plugin)
+// Check if path exists using Tauri FS plugin (avoids TCC cascade)
 async function checkPathExists(path: string): Promise<boolean> {
   try {
-    await invoke<string>('execute_command', {
-      cmd: `test -d "${path}" && echo "yes"`,
-      cwd: '/',
-    });
-    return true;
+    return await withTimeout(exists(path), FS_TIMEOUT_MS, 'check path exists');
   } catch {
     return false;
+  }
+}
+
+// List directory contents using Tauri FS plugin
+async function listDirectory(path: string): Promise<{ name: string; isDir: boolean }[]> {
+  try {
+    const entries = await withTimeout(readDir(path), FS_TIMEOUT_MS, 'list directory');
+    return entries.map(entry => ({
+      name: entry.name,
+      isDir: entry.isDirectory,
+    }));
+  } catch {
+    return [];
   }
 }
 
@@ -104,12 +115,15 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
           break;
 
         case 'ls': {
-          const result = await invoke<string>('execute_command', {
-            cmd: `ls -1F ${args}`.trim(),
-            cwd: currentPath,
-          });
-          if (result.trim()) {
-            addOutput('output', result.trim());
+          const targetPath = args ? resolvePath(currentPath, args) : currentPath;
+          const entries = await listDirectory(targetPath);
+          if (entries.length > 0) {
+            // Format like ls -1F: directories have trailing /
+            const formatted = entries
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map(e => e.isDir ? `${e.name}/` : e.name)
+              .join('\n');
+            addOutput('output', formatted);
           } else {
             addOutput('output', '(vacío)');
           }
@@ -121,11 +135,17 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
             addOutput('error', 'mkdir: falta nombre');
             break;
           }
-          await invoke<string>('execute_command', {
-            cmd: `mkdir -p "${args}"`,
-            cwd: currentPath,
-          });
-          addOutput('output', `Creado: ${args}`);
+          const newDirPath = resolvePath(currentPath, args);
+          try {
+            await withTimeout(
+              mkdir(newDirPath, { recursive: true }),
+              FS_TIMEOUT_MS,
+              'create directory'
+            );
+            addOutput('output', `Creado: ${args}`);
+          } catch (err) {
+            addOutput('error', `mkdir: ${String(err)}`);
+          }
           break;
         }
 
@@ -138,18 +158,9 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
           break;
 
         default: {
-          // Try to execute as shell command
-          try {
-            const result = await invoke<string>('execute_command', {
-              cmd: trimmedCmd,
-              cwd: currentPath,
-            });
-            if (result.trim()) {
-              addOutput('output', result.trim());
-            }
-          } catch (err) {
-            addOutput('error', String(err));
-          }
+          // Only support safe file navigation commands
+          addOutput('error', `Comando no soportado: ${command}`);
+          addOutput('output', 'Usa: cd, ls, pwd, mkdir, clear, help');
         }
       }
     } catch (error) {
@@ -159,7 +170,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
     }
   }, [currentPath, addOutput, resolvePath]);
 
-  // Tab completion
+  // Tab completion using Tauri FS (avoids TCC cascade)
   const handleTabCompletion = useCallback(async () => {
     // Parse input to find what we're completing
     const parts = input.split(/\s+/);
@@ -177,23 +188,21 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
     }
 
     try {
-      // Get directory listing with -F to show / for directories
-      const result = await invoke<string>('execute_command', {
-        cmd: 'ls -1F',
-        cwd: searchDir,
-      });
+      // Get directory listing using Tauri FS
+      const entries = await listDirectory(searchDir);
 
-      const entries = result.split('\n').filter(e => e.trim());
+      // Format entries like ls -1F (directories have trailing /)
+      const formattedEntries = entries.map(e => e.isDir ? `${e.name}/` : e.name);
 
-      // Find matches (compare without trailing symbols)
-      const matches = entries.filter(e => {
-        const name = e.replace(/[*@|=\/]$/, '');
+      // Find matches (compare without trailing /)
+      const matches = formattedEntries.filter(e => {
+        const name = e.replace(/\/$/, '');
         return name.toLowerCase().startsWith(prefix.toLowerCase());
       });
 
       if (matches.length === 1) {
         // Single match - complete it (keep the / if it's a directory)
-        const completion = matches[0].replace(/[*@|=]$/, ''); // Keep / for dirs
+        const completion = matches[0];
         const beforeLastPart = parts.slice(0, -1).join(' ');
         const lastPartDir = lastPart.includes('/')
           ? lastPart.slice(0, lastPart.lastIndexOf('/') + 1)
@@ -208,8 +217,8 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
         // Multiple matches - show them
         addOutput('output', matches.join('  '));
 
-        // Find common prefix (without trailing symbols)
-        const cleanMatches = matches.map(m => m.replace(/[*@|=\/]$/, ''));
+        // Find common prefix (without trailing /)
+        const cleanMatches = matches.map(m => m.replace(/\/$/, ''));
         let commonPrefix = cleanMatches[0];
         for (const match of cleanMatches) {
           while (commonPrefix && !match.toLowerCase().startsWith(commonPrefix.toLowerCase())) {

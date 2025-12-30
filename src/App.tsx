@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { exists } from '@tauri-apps/plugin-fs';
+import { homeDir } from '@tauri-apps/api/path';
 import { AppProvider, useApp, useTerminalActions, useAppSettings } from './contexts/AppContext';
 import { PluginProvider } from './plugins/context/PluginContext';
 import { claudePlugin } from './agents/claude';
@@ -42,34 +44,42 @@ function MainContent() {
   const [selectedIDE, setSelectedIDE] = useState<string | null>(null);
 
   // Detect installed IDEs on mount and respect defaultIDE setting
+  // Uses Tauri FS exists() to avoid TCC/permission issues
   useEffect(() => {
     const detectIDEs = async () => {
       const ides = ['cursor', 'code', 'antigravity'];
       const available: string[] = [];
 
-      // Specific paths to check (no login shell to avoid triggering macOS permissions)
+      // Get home directory for custom paths
+      let home = '';
+      try {
+        home = await homeDir() || '';
+      } catch {
+        // Fallback if homeDir() fails
+        home = '';
+      }
+
+      // Specific paths to check (system paths don't trigger TCC)
       const pathsToCheck = [
         '/usr/local/bin',
         '/opt/homebrew/bin',
         '/usr/bin',
       ];
 
-      // IDE-specific custom paths
+      // IDE-specific custom paths (resolved with home)
       const customPaths: Record<string, string[]> = {
-        antigravity: ['$HOME/.antigravity/antigravity/bin'],
+        antigravity: [`${home}/.antigravity/antigravity/bin`],
       };
 
       for (const ide of ides) {
         let found = false;
 
-        // Check specific paths first
+        // Check specific paths first using Tauri FS exists()
         for (const basePath of pathsToCheck) {
           try {
-            const result = await invoke<string>('execute_command', {
-              cmd: `test -x "${basePath}/${ide}" && echo "found"`,
-              cwd: '/',
-            });
-            if (result.trim() === 'found') {
+            const idePath = `${basePath}/${ide}`;
+            const ideExists = await exists(idePath);
+            if (ideExists) {
               found = true;
               break;
             }
@@ -78,36 +88,19 @@ function MainContent() {
           }
         }
 
-        // Check IDE-specific custom paths (resolve $HOME)
+        // Check IDE-specific custom paths
         if (!found && customPaths[ide]) {
           for (const customPath of customPaths[ide]) {
             try {
-              const result = await invoke<string>('execute_command', {
-                cmd: `test -x "${customPath}/${ide}" && echo "found"`,
-                cwd: '/',
-              });
-              if (result.trim() === 'found') {
+              const idePath = `${customPath}/${ide}`;
+              const ideExists = await exists(idePath);
+              if (ideExists) {
                 found = true;
                 break;
               }
             } catch {
               // Not in this path
             }
-          }
-        }
-
-        // Fallback to simple which (no login shell)
-        if (!found) {
-          try {
-            const result = await invoke<string>('execute_command', {
-              cmd: `which ${ide} 2>/dev/null`,
-              cwd: '/',
-            });
-            if (result.trim()) {
-              found = true;
-            }
-          } catch {
-            // Not found
           }
         }
 
@@ -130,6 +123,8 @@ function MainContent() {
   }, [defaultIDE]);
 
   // Handler to open project in IDE
+  // Note: This uses execute_command because we need to launch an external process
+  // This is a user-initiated action and doesn't access user files
   const handleOpenInIDE = useCallback(async (projectPath: string) => {
     if (!selectedIDE) {
       console.error('No IDE available');
@@ -137,12 +132,22 @@ function MainContent() {
     }
 
     try {
+      // Use open command on macOS for better compatibility
       await invoke<string>('execute_command', {
-        cmd: `${selectedIDE} "${projectPath}"`,
+        cmd: `open -a "${selectedIDE}" "${projectPath}" 2>/dev/null || ${selectedIDE} "${projectPath}"`,
         cwd: '/',
       });
     } catch (error) {
-      console.error(`Error opening ${selectedIDE}:`, error);
+      console.warn(`[App] Could not open ${selectedIDE}:`, error);
+      // Try fallback with just the command
+      try {
+        await invoke<string>('execute_command', {
+          cmd: `${selectedIDE} "${projectPath}" 2>/dev/null &`,
+          cwd: '/',
+        });
+      } catch {
+        console.error(`[App] Failed to open ${selectedIDE}`);
+      }
     }
   }, [selectedIDE]);
 

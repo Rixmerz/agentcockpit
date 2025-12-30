@@ -34,10 +34,11 @@ export function PortMonitor() {
     setIsLoading(true);
     const portInfos: PortInfo[] = [];
 
-    for (const port of PORTS_TO_CHECK) {
+    // Check ports in parallel batches for better performance
+    const checkPort = async (port: number): Promise<PortInfo | null> => {
       try {
         const result = await invoke<string>('execute_command', {
-          cmd: `lsof -ti:${port}`,
+          cmd: `lsof -ti:${port} 2>/dev/null`,
           cwd: '/',
         });
 
@@ -49,28 +50,43 @@ export function PortMonitor() {
           let processName = 'Unknown';
           try {
             const processResult = await invoke<string>('execute_command', {
-              cmd: `ps -p ${pid} -o comm=`,
+              cmd: `ps -p ${pid} -o comm= 2>/dev/null`,
               cwd: '/',
             });
-            processName = processResult.trim();
+            processName = processResult.trim() || 'Unknown';
           } catch {
             // Ignore if can't get process name
           }
 
-          portInfos.push({
+          return {
             port,
             status: 'active',
             pid,
             process: processName,
-          });
+          };
         }
+        return null;
       } catch {
-        // Port is inactive (lsof returns error when no process found)
-        // Don't add inactive ports to keep the list clean
+        // Port is inactive or command failed
+        return null;
       }
+    };
+
+    try {
+      // Process ports in batches of 10 for better performance
+      const batchSize = 10;
+      for (let i = 0; i < PORTS_TO_CHECK.length; i += batchSize) {
+        const batch = PORTS_TO_CHECK.slice(i, i + batchSize);
+        const results = await Promise.all(batch.map(checkPort));
+        results.forEach(info => {
+          if (info) portInfos.push(info);
+        });
+      }
+    } catch (error) {
+      console.warn('[PortMonitor] Error checking ports:', error);
     }
 
-    // Sort active ports first, then by port number
+    // Sort by port number
     portInfos.sort((a, b) => a.port - b.port);
 
     setPorts(portInfos);
@@ -79,15 +95,26 @@ export function PortMonitor() {
 
   const killPort = useCallback(async (port: number) => {
     try {
-      await invoke<string>('execute_command', {
-        cmd: `lsof -ti:${port} | xargs kill -9`,
+      // Get PID first, then kill (more reliable than pipe)
+      const result = await invoke<string>('execute_command', {
+        cmd: `lsof -ti:${port} 2>/dev/null`,
         cwd: '/',
       });
+
+      const pid = result.trim().split('\n')[0];
+      if (pid) {
+        await invoke<string>('execute_command', {
+          cmd: `kill -9 ${pid} 2>/dev/null || true`,
+          cwd: '/',
+        });
+      }
 
       // Refresh after killing
       setTimeout(() => checkPorts(), 500);
     } catch (error) {
-      console.error(`Error killing port ${port}:`, error);
+      console.warn(`[PortMonitor] Error killing port ${port}:`, error);
+      // Still refresh to update UI
+      setTimeout(() => checkPorts(), 500);
     }
   }, [checkPorts]);
 

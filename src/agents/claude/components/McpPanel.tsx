@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
+import { readTextFile, writeTextFile, exists } from '@tauri-apps/plugin-fs';
 import { RefreshCw, Check, X, Import, Server, AlertCircle, Plus, Minus, FileEdit } from 'lucide-react';
 import type { McpPanelProps as PluginMcpPanelProps, McpServerConfig } from '../../../plugins/types/plugin';
+import { withTimeout } from '../../../core/utils/promiseTimeout';
+
+// Timeout for file operations (same as snapshotService)
+const INVOKE_TIMEOUT_MS = 5000;
 
 export type { McpServerConfig };
 
@@ -15,39 +20,36 @@ export interface McpServer {
 // Re-export as McpPanelProps for the component
 interface McpPanelProps extends PluginMcpPanelProps {}
 
-// Read JSON file using cat command
+// Read JSON file using Tauri FS plugin (avoids TCC cascade)
 async function readJsonFile(path: string): Promise<unknown | null> {
   try {
-    const result = await invoke<string>('execute_command', {
-      cmd: `cat "${path}"`,
-      cwd: '/',
-    });
-    return JSON.parse(result);
+    const fileExists = await withTimeout(exists(path), 2000, 'check exists');
+    if (!fileExists) {
+      console.log('[MCP] File does not exist:', path);
+      return null;
+    }
+
+    const content = await withTimeout(
+      readTextFile(path),
+      INVOKE_TIMEOUT_MS,
+      `read ${path}`
+    );
+    return JSON.parse(content);
   } catch (e) {
     console.error('[MCP] Read error:', e);
     return null;
   }
 }
 
-// Unicode-safe base64 encoding
-function utf8ToBase64(str: string): string {
-  const bytes = new TextEncoder().encode(str);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-// Write JSON file
+// Write JSON file using Tauri FS plugin (avoids TCC cascade)
 async function writeJsonFile(path: string, data: unknown): Promise<boolean> {
   try {
     const json = JSON.stringify(data, null, 2);
-    const base64 = utf8ToBase64(json);
-    await invoke<string>('execute_command', {
-      cmd: `echo "${base64}" | base64 -d > "${path}"`,
-      cwd: '/',
-    });
+    await withTimeout(
+      writeTextFile(path, json),
+      INVOKE_TIMEOUT_MS,
+      `write ${path}`
+    );
     return true;
   } catch (e) {
     console.error('[MCP] Write error:', e);
@@ -324,11 +326,17 @@ export function McpPanel({
     }
   }, [homePath, selectedServers, onSelectionChange, loadMcps, showMessage]);
 
-  // Remove Code MCP by editing ~/.claude.json directly
+  // Remove Code MCP by editing ~/.claude.json directly (with timeout protection)
   const handleRemoveCode = useCallback(async (name: string) => {
     try {
       const claudeJsonPath = `${homePath}/.claude.json`;
       const config = await readJsonFile(claudeJsonPath) as { mcpServers?: Record<string, McpServerConfig> } | null;
+
+      // Validate config was read successfully
+      if (config === null) {
+        showMessage('error', 'No se pudo leer la configuración de Claude');
+        return;
+      }
 
       if (!config?.mcpServers?.[name]) {
         showMessage('error', `"${name}" no encontrado en Code`);
@@ -346,11 +354,11 @@ export function McpPanel({
         }
         loadMcps();
       } else {
-        showMessage('error', 'Error al escribir archivo de configuración');
+        showMessage('error', 'Error al guardar configuración');
       }
     } catch (e) {
       console.error('[MCP] Remove Code error:', e);
-      showMessage('error', `Error: ${e}`);
+      showMessage('error', `Error inesperado: ${e}`);
     }
   }, [homePath, selectedServers, onSelectionChange, loadMcps, showMessage]);
 

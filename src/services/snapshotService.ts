@@ -6,6 +6,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { readTextFile, writeTextFile, exists, mkdir } from '@tauri-apps/plugin-fs';
 import { withTimeout, TimeoutError } from '../core/utils/promiseTimeout';
 import {
   isGitRepository,
@@ -68,18 +69,18 @@ async function acquireLock(projectPath: string): Promise<() => void> {
   };
 }
 
-// Metadata file operations using execute_command with timeout (TCC-safe with Info.plist)
+// Metadata file operations using Tauri FS plugin (avoids TCC cascade)
 async function ensureMetadataDir(projectPath: string): Promise<void> {
   const dirPath = `${projectPath}/${METADATA_DIR}`;
   try {
-    await withTimeout(
-      invoke<string>('execute_command', {
-        cmd: `mkdir -p "${dirPath}"`,
-        cwd: projectPath,
-      }),
-      INVOKE_TIMEOUT_MS,
-      'mkdir metadata dir'
-    );
+    const dirExists = await withTimeout(exists(dirPath), 2000, 'check dir exists');
+    if (!dirExists) {
+      await withTimeout(
+        mkdir(dirPath, { recursive: true }),
+        INVOKE_TIMEOUT_MS,
+        'mkdir metadata dir'
+      );
+    }
   } catch (error) {
     if (error instanceof TimeoutError) {
       console.error('[Snapshot] Timeout creating metadata dir:', error.message);
@@ -92,11 +93,17 @@ async function readMetadata(projectPath: string): Promise<SnapshotMetadata> {
   const filePath = `${projectPath}/${METADATA_DIR}/${METADATA_FILE}`;
 
   try {
+    const fileExists = await withTimeout(exists(filePath), 2000, 'check file exists');
+    if (!fileExists) {
+      return {
+        snapshots: [],
+        nextVersion: 1,
+        currentVersion: null,
+      };
+    }
+
     const content = await withTimeout(
-      invoke<string>('execute_command', {
-        cmd: `cat "${filePath}"`,
-        cwd: projectPath,
-      }),
+      readTextFile(filePath),
       INVOKE_TIMEOUT_MS,
       'read metadata file'
     );
@@ -121,15 +128,9 @@ async function writeMetadata(projectPath: string, metadata: SnapshotMetadata): P
   const filePath = `${projectPath}/${METADATA_DIR}/${METADATA_FILE}`;
   const content = JSON.stringify(metadata, null, 2);
 
-  // Base64 encode to handle special characters in shell
-  const base64 = btoa(unescape(encodeURIComponent(content)));
-
   try {
     await withTimeout(
-      invoke<string>('execute_command', {
-        cmd: `echo "${base64}" | base64 -d > "${filePath}"`,
-        cwd: projectPath,
-      }),
+      writeTextFile(filePath, content),
       INVOKE_TIMEOUT_MS,
       'write metadata file'
     );
