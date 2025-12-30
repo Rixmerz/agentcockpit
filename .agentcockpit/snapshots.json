@@ -153,8 +153,18 @@
         "src/agents/claude/components/McpPanel.tsx",
         "src/hooks/usePty.ts"
       ]
+    },
+    {
+      "version": 16,
+      "commitHash": "9bce1f3570604fb6b70c6c9bb746bbc1b2a20a61",
+      "tag": "snapshot-v16",
+      "timestamp": 1767073508698,
+      "message": "Snapshot V16",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 16,
-  "currentVersion": 15
+  "nextVersion": 17,
+  "currentVersion": 16
 }
