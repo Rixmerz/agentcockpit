@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
-import { RefreshCw, Check, X, Import, Server, AlertCircle, Plus, Minus } from 'lucide-react';
+import { RefreshCw, Check, X, Import, Server, AlertCircle, Plus, Minus, FileEdit } from 'lucide-react';
 import type { McpPanelProps as PluginMcpPanelProps, McpServerConfig } from '../../../plugins/types/plugin';
 
 export type { McpServerConfig };
@@ -339,6 +339,25 @@ export function McpPanel({
     }
   }, [loadMcps, showMessage]);
 
+  // Open config file in IDE
+  const handleOpenConfigInIDE = useCallback(async (configType: 'desktop' | 'code') => {
+    try {
+      const configPath = configType === 'desktop'
+        ? `${homePath}/Library/Application Support/Claude/claude_desktop_config.json`
+        : `${homePath}/.claude.json`;
+
+      // Use 'open' command which opens with default app, or specify IDE
+      await invoke<string>('execute_command', {
+        cmd: `open "${configPath}"`,
+        cwd: '/',
+      });
+      showMessage('success', `Abriendo ${configType === 'desktop' ? 'Desktop' : 'Code'} config...`);
+    } catch (e) {
+      console.error('[MCP] Open config error:', e);
+      showMessage('error', `Error abriendo config: ${e}`);
+    }
+  }, [homePath, showMessage]);
+
   // Import Desktop MCP to Code
   const handleImportToCode = useCallback(async (server: McpServer) => {
     try {
@@ -418,13 +437,25 @@ export function McpPanel({
           <div className="mcp-section">
             <div className="mcp-section-title">
               <span>Desktop ({desktopMcps.length})</span>
-              <button
-                className="btn-icon-sm"
-                onClick={() => setShowManualInput(!showManualInput)}
-                title="Agregar MCP manualmente"
-              >
-                <Plus size={12} />
-              </button>
+              <div className="mcp-section-actions">
+                <button
+                  className="btn-icon-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenConfigInIDE('desktop');
+                  }}
+                  title="Editar claude_desktop_config.json"
+                >
+                  <FileEdit size={12} />
+                </button>
+                <button
+                  className="btn-icon-sm"
+                  onClick={() => setShowManualInput(!showManualInput)}
+                  title="Agregar MCP manualmente"
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
             </div>
 
             {showManualInput && (
@@ -544,6 +575,16 @@ export function McpPanel({
             <div className="mcp-section-title">
               <span>Code ({codeMcps.length})</span>
               <span className="mcp-section-badge">default</span>
+              <button
+                className="btn-icon-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenConfigInIDE('code');
+                }}
+                title="Editar .claude.json"
+              >
+                <FileEdit size={12} />
+              </button>
             </div>
 
             <div className="mcp-list">

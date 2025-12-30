@@ -130,8 +130,18 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 14,
+      "commitHash": "dd2302754299acee5119a5bbb988a2bbf67815bd",
+      "tag": "snapshot-v14",
+      "timestamp": 1767071474940,
+      "message": "Snapshot V14",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 14,
-  "currentVersion": 13
+  "nextVersion": 15,
+  "currentVersion": 14
 }
