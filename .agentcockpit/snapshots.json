@@ -163,8 +163,18 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 17,
+      "commitHash": "cd2d03821ec5f1adfde2d726356ca6efdcc24543",
+      "tag": "snapshot-v17",
+      "timestamp": 1767073681792,
+      "message": "Snapshot V17",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 17,
-  "currentVersion": 16
+  "nextVersion": 18,
+  "currentVersion": 17
 }
