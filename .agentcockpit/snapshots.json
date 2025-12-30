@@ -321,8 +321,19 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 32,
+      "commitHash": "9d4dbaf4759a883ce8108365fdeccfde87f6619f",
+      "tag": "snapshot-v32",
+      "timestamp": 1767075771247,
+      "message": "Snapshot V32",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json",
+        "src/agents/claude/components/McpPanel.tsx"
+      ]
     }
   ],
-  "nextVersion": 32,
-  "currentVersion": 31
+  "nextVersion": 33,
+  "currentVersion": 32
 }
