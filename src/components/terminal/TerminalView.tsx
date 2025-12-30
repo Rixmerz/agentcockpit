@@ -2,6 +2,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { CanvasAddon } from '@xterm/addon-canvas';
 import { usePty } from '../../hooks/usePty';
 import { useApp } from '../../contexts/AppContext';
 import '@xterm/xterm/css/xterm.css';
@@ -18,13 +20,36 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
   const fitAddonRef = useRef<FitAddon | null>(null);
   const initializedRef = useRef(false);
 
+  // Write batching refs for smoother rendering (reduces blank spaces with Claude CLI)
+  const pendingWritesRef = useRef<string[]>([]);
+  const writeScheduledRef = useRef(false);
+
   const { registerTerminalWriter, unregisterTerminalWriter, registerPtyId } = useApp();
+
+  // Flush pending writes to terminal (batched via requestAnimationFrame)
+  const flushWrites = useCallback(() => {
+    if (pendingWritesRef.current.length > 0 && terminalRef.current) {
+      const batch = pendingWritesRef.current.join('');
+      pendingWritesRef.current = [];
+      terminalRef.current.write(batch);
+    }
+    writeScheduledRef.current = false;
+  }, []);
+
+  // Schedule a write to be batched (groups writes within same animation frame)
+  const scheduleWrite = useCallback((data: string) => {
+    pendingWritesRef.current.push(data);
+    if (!writeScheduledRef.current) {
+      writeScheduledRef.current = true;
+      requestAnimationFrame(flushWrites);
+    }
+  }, [flushWrites]);
 
   // PTY hook with callbacks
   const { spawn, write, resize } = usePty({
     onData: useCallback((data: string) => {
-      terminalRef.current?.write(data);
-    }, []),
+      scheduleWrite(data);
+    }, [scheduleWrite]),
     onClose: useCallback(() => {
       terminalRef.current?.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
       onClose?.();
@@ -89,11 +114,22 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
     // Add addons
     const fitAddon = new FitAddon();
     const webLinksAddon = new WebLinksAddon();
+    const unicode11Addon = new Unicode11Addon();
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(webLinksAddon);
+    terminal.loadAddon(unicode11Addon);
+    terminal.unicode.activeVersion = '11';  // Enable Unicode 11 for emojis
 
     // Open terminal in container
     terminal.open(containerRef.current);
+
+    // Canvas addon must be loaded AFTER terminal.open()
+    try {
+      const canvasAddon = new CanvasAddon();
+      terminal.loadAddon(canvasAddon);
+    } catch (e) {
+      console.warn('[Terminal] CanvasAddon failed to load, using default renderer:', e);
+    }
 
     // Initial fit with delay to ensure container has final dimensions
     fitAddon.fit();
