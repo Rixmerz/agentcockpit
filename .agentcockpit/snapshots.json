@@ -215,8 +215,18 @@
         ".agentcockpit/snapshots.json",
         "one-term-project.json"
       ]
+    },
+    {
+      "version": 22,
+      "commitHash": "198d66cf33c939ccab968deae2fa0195a64ce0c3",
+      "tag": "snapshot-v22",
+      "timestamp": 1767074571001,
+      "message": "Snapshot V22",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 22,
-  "currentVersion": 21
+  "nextVersion": 23,
+  "currentVersion": 22
 }
