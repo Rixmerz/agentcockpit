@@ -19,6 +19,9 @@ interface UsePtyReturn {
   isActive: boolean;
 }
 
+// Commands that should NOT trigger snapshots (MCP management, internal commands)
+const SNAPSHOT_SKIP_COMMANDS = ['claude mcp', '/mcp', 'claude --session'];
+
 export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
   const ptyIdRef = useRef<number | null>(null);
   const projectPathRef = useRef<string | null>(null);
@@ -27,6 +30,8 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
   const optionsRef = useRef(options);
   // Re-enabled: Snapshots now use Tauri FS APIs (no TCC permission cascade)
   const isCreatingSnapshotRef = useRef(false);
+  // Buffer to track recent input for snapshot skip detection
+  const inputBufferRef = useRef<string>('');
 
   // Keep options ref updated
   useEffect(() => {
@@ -80,11 +85,35 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
     // CRITICAL: Send input to terminal IMMEDIATELY - never block on snapshot
     await ptyWrite(ptyIdRef.current, data);
 
+    // Accumulate input buffer for command detection
+    // Handle backspace by removing last character
+    if (data === '\x7f' || data === '\b') {
+      inputBufferRef.current = inputBufferRef.current.slice(0, -1);
+    } else {
+      inputBufferRef.current += data;
+    }
+    // Keep buffer limited to last 200 chars
+    if (inputBufferRef.current.length > 200) {
+      inputBufferRef.current = inputBufferRef.current.slice(-200);
+    }
+
     // Snapshot creation on Enter (using Tauri FS APIs - no TCC permission cascade)
     const isEnterPressed = data.includes('\r') || data.includes('\n');
     const projectPath = projectPathRef.current;
 
     if (isEnterPressed && projectPath && !isCreatingSnapshotRef.current) {
+      // Check if current command should skip snapshot
+      const currentBuffer = inputBufferRef.current.toLowerCase();
+      const shouldSkipSnapshot = SNAPSHOT_SKIP_COMMANDS.some(cmd => currentBuffer.includes(cmd.toLowerCase()));
+
+      // Clear buffer after Enter
+      inputBufferRef.current = '';
+
+      if (shouldSkipSnapshot) {
+        console.log('[usePty] Skipping snapshot for MCP/session command');
+        return;
+      }
+
       isCreatingSnapshotRef.current = true;
 
       createSnapshot(projectPath)
