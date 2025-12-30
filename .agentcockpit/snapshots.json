@@ -50,8 +50,18 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 6,
+      "commitHash": "ff95a27ed5fcb28933451f918a2b3d015f95ba91",
+      "tag": "snapshot-v6",
+      "timestamp": 1767065543326,
+      "message": "Snapshot V6",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 6,
-  "currentVersion": 5
+  "nextVersion": 7,
+  "currentVersion": 6
 }
