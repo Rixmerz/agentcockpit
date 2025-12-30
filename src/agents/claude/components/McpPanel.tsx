@@ -590,16 +590,18 @@ export function McpPanel({
             <div className="mcp-section-title">
               <span>Code ({codeMcps.length})</span>
               <span className="mcp-section-badge">default</span>
-              <button
-                className="btn-icon-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleOpenConfigInIDE('code');
-                }}
-                title="Editar .claude.json"
-              >
-                <FileEdit size={12} />
-              </button>
+              <div className="mcp-section-actions">
+                <button
+                  className="btn-icon-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenConfigInIDE('code');
+                  }}
+                  title="Editar .claude.json"
+                >
+                  <FileEdit size={12} />
+                </button>
+              </div>
             </div>
 
             <div className="mcp-list">
