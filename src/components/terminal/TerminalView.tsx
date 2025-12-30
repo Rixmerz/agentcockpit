@@ -3,7 +3,6 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
-import { CanvasAddon } from '@xterm/addon-canvas';
 import { usePty } from '../../hooks/usePty';
 import { useApp } from '../../contexts/AppContext';
 import '@xterm/xterm/css/xterm.css';
@@ -14,35 +13,70 @@ interface TerminalViewProps {
   onClose?: () => void;
 }
 
+// Minimum interval between terminal flushes (ms)
+// 32ms = ~30fps, good balance between smoothness and performance
+const MIN_FLUSH_INTERVAL_MS = 32;
+
+// Maximum pending buffer size before forcing a flush (prevents memory buildup)
+const MAX_PENDING_SIZE = 8192;
+
 export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const initializedRef = useRef(false);
 
-  // Write batching refs for smoother rendering (reduces blank spaces with Claude CLI)
-  const pendingWritesRef = useRef<string[]>([]);
-  const writeScheduledRef = useRef(false);
+  // Write batching refs for smoother rendering
+  const pendingWritesRef = useRef<string>('');
+  const pendingSizeRef = useRef<number>(0);
+  const flushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFlushTimeRef = useRef<number>(0);
 
   const { registerTerminalWriter, unregisterTerminalWriter, registerPtyId } = useApp();
 
-  // Flush pending writes to terminal (batched via requestAnimationFrame)
+  // Flush pending writes to terminal
   const flushWrites = useCallback(() => {
-    if (pendingWritesRef.current.length > 0 && terminalRef.current) {
-      const batch = pendingWritesRef.current.join('');
-      pendingWritesRef.current = [];
-      terminalRef.current.write(batch);
+    flushTimeoutRef.current = null;
+
+    if (pendingWritesRef.current && terminalRef.current) {
+      const data = pendingWritesRef.current;
+      pendingWritesRef.current = '';
+      pendingSizeRef.current = 0;
+      lastFlushTimeRef.current = performance.now();
+
+      // Write to terminal
+      terminalRef.current.write(data);
     }
-    writeScheduledRef.current = false;
   }, []);
 
-  // Schedule a write to be batched (groups writes within same animation frame)
+  // Schedule a write with throttling for smooth rendering
   const scheduleWrite = useCallback((data: string) => {
-    pendingWritesRef.current.push(data);
-    if (!writeScheduledRef.current) {
-      writeScheduledRef.current = true;
-      requestAnimationFrame(flushWrites);
+    // Append to pending buffer
+    pendingWritesRef.current += data;
+    pendingSizeRef.current += data.length;
+
+    // Force immediate flush if buffer is too large
+    if (pendingSizeRef.current >= MAX_PENDING_SIZE) {
+      if (flushTimeoutRef.current) {
+        clearTimeout(flushTimeoutRef.current);
+        flushTimeoutRef.current = null;
+      }
+      flushWrites();
+      return;
     }
+
+    // Already scheduled? Let it run
+    if (flushTimeoutRef.current) {
+      return;
+    }
+
+    // Calculate delay based on time since last flush
+    const now = performance.now();
+    const timeSinceLastFlush = now - lastFlushTimeRef.current;
+    const delay = Math.max(0, MIN_FLUSH_INTERVAL_MS - timeSinceLastFlush);
+
+    // Schedule flush
+    flushTimeoutRef.current = setTimeout(flushWrites, delay);
   }, [flushWrites]);
 
   // PTY hook with callbacks
@@ -76,10 +110,12 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
       fontFamily: "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
       allowTransparency: true,
       scrollback: 10000,
-      // Options from VS Code for better ANSI sequence handling
+      // Options for better ANSI sequence handling and reduced jumping
+      scrollOnUserInput: false,      // Don't auto-scroll on input (reduces jumping)
       scrollOnEraseInDisplay: true,  // Critical for Claude Code spinner
       drawBoldTextInBrightColors: true,
       rescaleOverlappingGlyphs: true,
+      smoothScrollDuration: 0,       // Disable smooth scroll (instant updates)
       windowOptions: {
         getWinSizePixels: true,
         getCellSizePixels: true,
@@ -123,13 +159,9 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
     // Open terminal in container
     terminal.open(containerRef.current);
 
-    // Canvas addon must be loaded AFTER terminal.open()
-    try {
-      const canvasAddon = new CanvasAddon();
-      terminal.loadAddon(canvasAddon);
-    } catch (e) {
-      console.warn('[Terminal] CanvasAddon failed to load, using default renderer:', e);
-    }
+    // Note: Using DOM renderer (default) instead of CanvasAddon
+    // CanvasAddon causes glyph corruption with rapid updates (spinners, counters)
+    // DOM renderer is slower but more stable for ANSI sequences and Unicode
 
     // Initial fit with delay to ensure container has final dimensions
     fitAddon.fit();
@@ -168,7 +200,16 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
     // Cleanup - Do NOT dispose terminal, it persists across tab switches
     // Terminal is only destroyed when removed from project
     return () => {
-      // Keep terminal alive - no cleanup needed
+      // Clean up pending flush timeout
+      if (flushTimeoutRef.current) {
+        clearTimeout(flushTimeoutRef.current);
+        flushTimeoutRef.current = null;
+      }
+      // Flush any remaining data before cleanup
+      if (pendingWritesRef.current && terminalRef.current) {
+        terminalRef.current.write(pendingWritesRef.current);
+        pendingWritesRef.current = '';
+      }
     };
   }, [terminalId, workingDir, spawn, write, resize, registerPtyId]);
 

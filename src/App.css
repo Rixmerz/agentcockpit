@@ -2117,6 +2117,13 @@ input[type="checkbox"] {
   color: var(--accent);
 }
 
+.mcp-section-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
 .mcp-list {
   display: flex;
   flex-direction: column;

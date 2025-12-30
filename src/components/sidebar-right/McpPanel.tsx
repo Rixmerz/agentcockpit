@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
+import { readTextFile, writeTextFile, exists } from '@tauri-apps/plugin-fs';
 import { RefreshCw, Check, X, Import, Server, AlertCircle, Plus } from 'lucide-react';
+import { withTimeout } from '../../core/utils/promiseTimeout';
+
+// Timeout for file operations (same as snapshotService)
+const INVOKE_TIMEOUT_MS = 5000;
 
 export interface McpServerConfig {
   command?: string;
@@ -26,39 +31,36 @@ interface McpPanelProps {
   onMcpsForRemoval: (names: string[]) => void;
 }
 
-// Read JSON file using cat command
+// Read JSON file using Tauri FS plugin (avoids TCC cascade)
 async function readJsonFile(path: string): Promise<unknown | null> {
   try {
-    const result = await invoke<string>('execute_command', {
-      cmd: `cat "${path}"`,
-      cwd: '/',
-    });
-    return JSON.parse(result);
+    const fileExists = await withTimeout(exists(path), 2000, 'check exists');
+    if (!fileExists) {
+      console.log('[MCP] File does not exist:', path);
+      return null;
+    }
+
+    const content = await withTimeout(
+      readTextFile(path),
+      INVOKE_TIMEOUT_MS,
+      `read ${path}`
+    );
+    return JSON.parse(content);
   } catch (e) {
     console.error('[MCP] Read error:', e);
     return null;
   }
 }
 
-// Unicode-safe base64 encoding
-function utf8ToBase64(str: string): string {
-  const bytes = new TextEncoder().encode(str);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-// Write JSON file
+// Write JSON file using Tauri FS plugin (avoids TCC cascade)
 async function writeJsonFile(path: string, data: unknown): Promise<boolean> {
   try {
     const json = JSON.stringify(data, null, 2);
-    const base64 = utf8ToBase64(json);
-    await invoke<string>('execute_command', {
-      cmd: `echo "${base64}" | base64 -d > "${path}"`,
-      cwd: '/',
-    });
+    await withTimeout(
+      writeTextFile(path, json),
+      INVOKE_TIMEOUT_MS,
+      `write ${path}`
+    );
     return true;
   } catch (e) {
     console.error('[MCP] Write error:', e);
