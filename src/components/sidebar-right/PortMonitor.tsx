@@ -16,8 +16,14 @@ export function PortMonitor() {
 
   // Ports to monitor (common development ports)
   const PORTS_TO_CHECK = [
-    // Frontend
-    3000, 3001, 3002, 4173, 5173, 8080,
+    // Frontend (3000-3999 range)
+    3000, 3001, 3002, 3003, 3004, 3005,
+    3006, 3007, 3008, 3009, 3010,
+    3030, 3050, 3100, 3200, 3300,
+    3333, 3456, 3500, 3600, 3700,
+    3800, 3900, 3999,
+    // Vite / Other frontend
+    4173, 5173, 8080,
     // Backend / Tauri
     1420, 4000, 5000, 8000,
     // Database
