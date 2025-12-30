@@ -30,8 +30,18 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 4,
+      "commitHash": "ae6093ffffb0ac37c12b3d7a3b508ec093e57b35",
+      "tag": "snapshot-v4",
+      "timestamp": 1767065538236,
+      "message": "Snapshot V4",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 4,
-  "currentVersion": 3
+  "nextVersion": 5,
+  "currentVersion": 4
 }
