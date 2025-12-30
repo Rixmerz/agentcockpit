@@ -247,8 +247,18 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 25,
+      "commitHash": "bf00f9745b209f0b8d90a0f42cb651cdfa9de84f",
+      "tag": "snapshot-v25",
+      "timestamp": 1767075024562,
+      "message": "Snapshot V25",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 25,
-  "currentVersion": 24
+  "nextVersion": 26,
+  "currentVersion": 25
 }
