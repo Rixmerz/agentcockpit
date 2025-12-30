@@ -237,8 +237,18 @@
         "src/services/gitService.ts",
         "src/services/snapshotService.ts"
       ]
+    },
+    {
+      "version": 24,
+      "commitHash": "78f3560077fa558f472c3c00f4d23d76940a4025",
+      "tag": "snapshot-v24",
+      "timestamp": 1767075007860,
+      "message": "Snapshot V24",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 24,
-  "currentVersion": 23
+  "nextVersion": 25,
+  "currentVersion": 24
 }
