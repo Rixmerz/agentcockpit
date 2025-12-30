@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
-import { readTextFile, writeTextFile, exists } from '@tauri-apps/plugin-fs';
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { RefreshCw, Check, X, Import, Server, AlertCircle, Plus, Minus, FileEdit } from 'lucide-react';
 import type { McpPanelProps as PluginMcpPanelProps, McpServerConfig } from '../../../plugins/types/plugin';
 import { withTimeout } from '../../../core/utils/promiseTimeout';
@@ -21,22 +21,20 @@ export interface McpServer {
 interface McpPanelProps extends PluginMcpPanelProps {}
 
 // Read JSON file using Tauri FS plugin (avoids TCC cascade)
+// Note: We skip exists() check because it has issues with paths containing spaces
 async function readJsonFile(path: string): Promise<unknown | null> {
   try {
-    const fileExists = await withTimeout(exists(path), 2000, 'check exists');
-    if (!fileExists) {
-      console.log('[MCP] File does not exist:', path);
-      return null;
-    }
-
+    console.log('[MCP] Reading file:', path);
     const content = await withTimeout(
       readTextFile(path),
       INVOKE_TIMEOUT_MS,
       `read ${path}`
     );
+    console.log('[MCP] File read successfully, length:', content.length);
     return JSON.parse(content);
   } catch (e) {
-    console.error('[MCP] Read error:', e);
+    // File might not exist or other error - return null
+    console.log('[MCP] Read error (file may not exist):', path, e);
     return null;
   }
 }
