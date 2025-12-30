@@ -179,18 +179,27 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
       '.git',          // Git internals (shouldn't appear but safety check)
     ];
 
+    // Individual files that should NOT count as "real changes"
+    const EXCLUDED_FILES = [
+      'one-term-project.json', // AgentCockpit project config/sessions
+    ];
+
     // Match excluded dirs at start OR anywhere in path (for subdirectory projects)
     // Examples that should match:
     //   ".agentcockpit/snapshots.json" (dir at root)
     //   "landing-fresh/.agentcockpit/snapshots.json" (project in subdirectory)
     //   "src/.claude/memory.db" (nested)
-    const isExcludedPath = (f: string) =>
-      EXCLUDED_DIRS.some(dir => {
-        // Normalize path separators for cross-platform
-        const normalized = f.replace(/\\/g, '/');
+    const isExcludedPath = (f: string) => {
+      const normalized = f.replace(/\\/g, '/');
+      // Check if file matches any excluded file name (at root or in subdirs)
+      const fileName = normalized.split('/').pop() || '';
+      if (EXCLUDED_FILES.includes(fileName)) return true;
+      // Check if path is inside excluded directory
+      return EXCLUDED_DIRS.some(dir => {
         // Match: starts with "dir/" OR contains "/dir/"
         return normalized.startsWith(dir + '/') || normalized.includes('/' + dir + '/');
       });
+    };
 
     // Filter to get only real code changes
     const realChanges = {
@@ -226,8 +235,15 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
     // Create commit message
     const message = `Snapshot V${version}`;
 
-    // Create commit (stages all changes automatically)
-    const commitHash = await createCommit(projectPath, message);
+    // Collect all real files to stage (excluding tool/IDE metadata)
+    const filesToStage = [
+      ...realChanges.untracked,
+      ...realChanges.modified,
+      ...realChanges.staged,
+    ];
+
+    // Create commit with only real changes (not tool/IDE metadata)
+    const commitHash = await createCommit(projectPath, message, filesToStage);
 
     // Create tag for this snapshot
     await createTag(projectPath, tag, commitHash);

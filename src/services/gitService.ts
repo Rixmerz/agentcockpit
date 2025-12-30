@@ -328,12 +328,31 @@ export async function stageAll(projectPath: string): Promise<void> {
 }
 
 /**
+ * Stage specific files only
+ */
+export async function stageFiles(projectPath: string, files: string[]): Promise<void> {
+  if (files.length === 0) return;
+  // Quote file paths to handle spaces and special characters
+  const quotedFiles = files.map(f => `"${f.replace(/"/g, '\\"')}"`).join(' ');
+  await execGit(projectPath, `add ${quotedFiles}`);
+}
+
+/**
  * Create a commit with message
+ * If specificFiles is provided, only stage those files instead of all changes
  * Returns the commit hash
  */
-export async function createCommit(projectPath: string, message: string): Promise<string> {
-  // Stage all changes first
-  await stageAll(projectPath);
+export async function createCommit(
+  projectPath: string,
+  message: string,
+  specificFiles?: string[]
+): Promise<string> {
+  // Stage changes - either specific files or all
+  if (specificFiles && specificFiles.length > 0) {
+    await stageFiles(projectPath, specificFiles);
+  } else {
+    await stageAll(projectPath);
+  }
 
   // Check if there's anything to commit
   const status = await getGitStatus(projectPath);
