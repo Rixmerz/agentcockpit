@@ -40,8 +40,18 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 5,
+      "commitHash": "bbaca87ad356f9fb6364ec825d6f3873bc43a7bd",
+      "tag": "snapshot-v5",
+      "timestamp": 1767065541562,
+      "message": "Snapshot V5",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 5,
-  "currentVersion": 4
+  "nextVersion": 6,
+  "currentVersion": 5
 }
