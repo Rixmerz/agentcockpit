@@ -140,8 +140,21 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 15,
+      "commitHash": "f6d0aff61d467168eaedc2bf43f29f5e6e2a6d74",
+      "tag": "snapshot-v15",
+      "timestamp": 1767073507605,
+      "message": "Snapshot V15",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json",
+        "one-term-project.json",
+        "src/agents/claude/components/McpPanel.tsx",
+        "src/hooks/usePty.ts"
+      ]
     }
   ],
-  "nextVersion": 15,
-  "currentVersion": 14
+  "nextVersion": 16,
+  "currentVersion": 15
 }
