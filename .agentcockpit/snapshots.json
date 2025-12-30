@@ -1,0 +1,16 @@
+{
+  "snapshots": [
+    {
+      "version": 1,
+      "commitHash": "f7cb7825f7d9aa802d0b1129909f9cf08c9d1cf5",
+      "tag": "snapshot-v1",
+      "timestamp": 1767034220000,
+      "message": "feat: Improve xterm.js buffer settings",
+      "filesChanged": [
+        "src/components/terminal/TerminalView.tsx"
+      ]
+    }
+  ],
+  "nextVersion": 2,
+  "currentVersion": 1
+}
