@@ -204,8 +204,19 @@
         ".agentcockpit/snapshots.json",
         "src/agents/claude/components/McpPanel.tsx"
       ]
+    },
+    {
+      "version": 21,
+      "commitHash": "e522a9c753f4d78b048aad005428a4bb86a59214",
+      "tag": "snapshot-v21",
+      "timestamp": 1767074563375,
+      "message": "Snapshot V21",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json",
+        "one-term-project.json"
+      ]
     }
   ],
-  "nextVersion": 21,
-  "currentVersion": 20
+  "nextVersion": 22,
+  "currentVersion": 21
 }
