@@ -289,8 +289,20 @@
         "package.json",
         "pnpm-lock.yaml"
       ]
+    },
+    {
+      "version": 29,
+      "commitHash": "dac30646384483d6184a8d1dfb4807e57cd5b234",
+      "tag": "snapshot-v29",
+      "timestamp": 1767075463552,
+      "message": "Snapshot V29",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json",
+        "one-term-project.json",
+        "src/components/terminal/TerminalView.tsx"
+      ]
     }
   ],
-  "nextVersion": 29,
-  "currentVersion": 28
+  "nextVersion": 30,
+  "currentVersion": 29
 }
