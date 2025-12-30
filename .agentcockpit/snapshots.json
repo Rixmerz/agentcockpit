@@ -9,8 +9,19 @@
       "filesChanged": [
         "src/components/terminal/TerminalView.tsx"
       ]
+    },
+    {
+      "version": 2,
+      "commitHash": "84bccc83bad3c2179b14869ca16ce397a8900a47",
+      "tag": "snapshot-v2",
+      "timestamp": 1767065535689,
+      "message": "Snapshot V2",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json",
+        "src/components/sidebar-right/PortMonitor.tsx"
+      ]
     }
   ],
-  "nextVersion": 2,
-  "currentVersion": 1
+  "nextVersion": 3,
+  "currentVersion": 2
 }
