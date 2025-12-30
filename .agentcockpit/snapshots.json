@@ -90,8 +90,18 @@
       "filesChanged": [
         ".agentcockpit/snapshots.json"
       ]
+    },
+    {
+      "version": 10,
+      "commitHash": "d86c926c42b02db5e9e7e440edacee3524948b9a",
+      "tag": "snapshot-v10",
+      "timestamp": 1767065684349,
+      "message": "Snapshot V10",
+      "filesChanged": [
+        ".agentcockpit/snapshots.json"
+      ]
     }
   ],
-  "nextVersion": 10,
-  "currentVersion": 9
+  "nextVersion": 11,
+  "currentVersion": 10
 }
