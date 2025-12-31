@@ -132,6 +132,7 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
               .then(cleaned => {
                 if (cleaned > 0) {
                   console.log(`[usePty] Cleaned ${cleaned} pushed snapshots`);
+                  snapshotEvents.emit('cleanup', { projectPath, count: cleaned });
                 }
               })
               .catch(() => {}); // Ignore cleanup errors
