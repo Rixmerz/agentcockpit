@@ -138,13 +138,38 @@ export async function getGitStatus(projectPath: string): Promise<GitStatus> {
   // Get porcelain status
   const statusOutput = await execGitSafe(projectPath, 'status --porcelain') || '';
 
+  // DEBUG: Log raw output
+  console.log('[GitService] DEBUG raw statusOutput:', JSON.stringify(statusOutput));
+
   const untrackedFiles: string[] = [];
   const modifiedFiles: string[] = [];
   const stagedFiles: string[] = [];
 
   for (const line of statusOutput.split('\n').filter(Boolean)) {
+    // Git status --porcelain format: XY filename
+    // XY are 2 status chars, followed by a space, then filename
+    // BUT when Y is a space, there's no additional separator
+    // So we need to handle both cases:
+    // "M  filename" (staged, Y=' ') -> file starts at index 3
+    // " M filename" (modified, X=' ') -> file starts at index 3
+    // "M filename" (staged, no extra space) -> file starts at index 2
+
     const status = line.substring(0, 2);
-    const file = line.substring(3);
+    // Find where the filename starts - after the status chars and any spaces
+    let fileStart = 2;
+    while (fileStart < line.length && line[fileStart] === ' ') {
+      fileStart++;
+    }
+    const file = line.substring(fileStart);
+
+    // DEBUG: Log each line parsing
+    console.log('[GitService] DEBUG line:', {
+      rawLine: JSON.stringify(line),
+      lineLength: line.length,
+      status: JSON.stringify(status),
+      fileStart,
+      file: JSON.stringify(file),
+    });
 
     if (status === '??') {
       untrackedFiles.push(file);
@@ -335,6 +360,8 @@ export async function stageFiles(projectPath: string, files: string[]): Promise<
   if (files.length === 0) return;
   // Quote file paths to handle spaces and special characters
   const quotedFiles = files.map(f => `"${f.replace(/"/g, '\\"')}"`).join(' ');
+  // DEBUG: Log the command being executed
+  console.log('[GitService] DEBUG stageFiles:', { files, quotedFiles, cmd: `add ${quotedFiles}` });
   await execGit(projectPath, `add ${quotedFiles}`);
 }
 

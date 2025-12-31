@@ -243,6 +243,10 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
       ...realChanges.staged,
     ];
 
+    // DEBUG: Log files before passing to createCommit
+    console.log('[Snapshot] DEBUG filesToStage:', filesToStage);
+    console.log('[Snapshot] DEBUG filesToStage first chars:', filesToStage.map(f => ({ file: f, char0: f.charAt(0), code0: f.charCodeAt(0) })));
+
     // Create commit with only real changes (not tool/IDE metadata)
     const commitHash = await createCommit(projectPath, message, filesToStage);
 
