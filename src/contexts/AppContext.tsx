@@ -18,6 +18,7 @@ const initialState: AppState = {
   backgroundImage: undefined,
   backgroundOpacity: 30, // Default 30%
   terminalOpacity: 15, // Default 15% (semi-transparent)
+  idleTimeout: 5, // Default 5 seconds
   ptyInstances: new Map(),
   isLoading: true,
 };
@@ -134,6 +135,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_TERMINAL_OPACITY':
       return { ...state, terminalOpacity: action.payload };
 
+    case 'SET_IDLE_TIMEOUT':
+      return { ...state, idleTimeout: action.payload };
+
     default:
       return state;
   }
@@ -211,6 +215,7 @@ export function AppProvider({ children }: AppProviderProps) {
       backgroundImage: stateRef.current.backgroundImage,
       backgroundOpacity: stateRef.current.backgroundOpacity,
       terminalOpacity: stateRef.current.terminalOpacity,
+      idleTimeout: stateRef.current.idleTimeout,
     }), []),
   });
 
@@ -422,6 +427,7 @@ export function useAppSettings() {
     backgroundImage: state.backgroundImage,
     backgroundOpacity: state.backgroundOpacity ?? 30,
     terminalOpacity: state.terminalOpacity ?? 15,
+    idleTimeout: state.idleTimeout ?? 5, // Default 5 seconds
 
     setDefaultIDE: (ide: 'cursor' | 'code' | 'antigravity' | undefined) => {
       dispatch({ type: 'SET_DEFAULT_IDE', payload: ide });
@@ -440,6 +446,11 @@ export function useAppSettings() {
 
     setTerminalOpacity: (opacity: number) => {
       dispatch({ type: 'SET_TERMINAL_OPACITY', payload: opacity });
+      scheduleSave();
+    },
+
+    setIdleTimeout: (seconds: number) => {
+      dispatch({ type: 'SET_IDLE_TIMEOUT', payload: seconds });
       scheduleSave();
     },
   };

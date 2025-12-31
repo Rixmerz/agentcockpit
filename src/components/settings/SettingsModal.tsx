@@ -14,15 +14,18 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     backgroundImage,
     backgroundOpacity,
     terminalOpacity,
+    idleTimeout,
     setDefaultIDE,
     setBackgroundImage,
     setBackgroundOpacity,
     setTerminalOpacity,
+    setIdleTimeout,
   } = useAppSettings();
 
   const [localImage, setLocalImage] = useState(backgroundImage || '');
   const [localOpacity, setLocalOpacity] = useState(backgroundOpacity);
   const [localTerminalOpacity, setLocalTerminalOpacity] = useState(terminalOpacity);
+  const [localIdleTimeout, setLocalIdleTimeout] = useState(idleTimeout);
 
   // Sync local state when modal opens
   useEffect(() => {
@@ -30,13 +33,15 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
       setLocalImage(backgroundImage || '');
       setLocalOpacity(backgroundOpacity);
       setLocalTerminalOpacity(terminalOpacity);
+      setLocalIdleTimeout(idleTimeout);
     }
-  }, [isOpen, backgroundImage, backgroundOpacity, terminalOpacity]);
+  }, [isOpen, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout]);
 
   const handleSave = () => {
     setBackgroundImage(localImage || undefined);
     setBackgroundOpacity(localOpacity);
     setTerminalOpacity(localTerminalOpacity);
+    setIdleTimeout(localIdleTimeout);
     onClose();
   };
 
@@ -44,6 +49,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     setLocalImage(backgroundImage || '');
     setLocalOpacity(backgroundOpacity);
     setLocalTerminalOpacity(terminalOpacity);
+    setLocalIdleTimeout(idleTimeout);
     onClose();
   };
 
@@ -167,6 +173,27 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
             className="settings-slider"
           />
           <span className="settings-slider-value">{localTerminalOpacity}%</span>
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <h3 className="settings-section-title">Modo Inactivo</h3>
+        <p className="settings-section-desc">
+          Tiempo de inactividad antes de ocultar la interfaz para ver el fondo (0 = deshabilitado)
+        </p>
+
+        <div className="settings-slider-container">
+          <input
+            type="range"
+            min="0"
+            max="30"
+            value={localIdleTimeout}
+            onChange={(e) => setLocalIdleTimeout(Number(e.target.value))}
+            className="settings-slider"
+          />
+          <span className="settings-slider-value">
+            {localIdleTimeout === 0 ? 'Deshabilitado' : `${localIdleTimeout}s`}
+          </span>
         </div>
       </div>
 

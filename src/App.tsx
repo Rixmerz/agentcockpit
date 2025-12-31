@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { exists } from '@tauri-apps/plugin-fs';
-import { homeDir } from '@tauri-apps/api/path';
 import { AppProvider, useApp, useTerminalActions, useAppSettings } from './contexts/AppContext';
 import { PluginProvider } from './plugins/context/PluginContext';
 import { claudePlugin } from './agents/claude';
+import { useIdleMode } from './hooks/useIdleMode';
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
 import { ProjectOpener } from './components/sidebar-left/ProjectOpener';
@@ -17,8 +16,7 @@ import {
   Plus,
   X,
   TerminalSquare,
-  Folder,
-  ExternalLink
+  Folder
 } from 'lucide-react';
 import './App.css';
 
@@ -37,7 +35,12 @@ function LoadingScreen() {
 function MainContent() {
   const { state, activeProject, activeTerminal, addProject, addTerminal, setActiveTerminal, removeTerminal, renameTerminal, removeProject } = useApp();
   const { writeToActiveTerminal, hasActiveTerminal } = useTerminalActions();
-  const { defaultIDE, backgroundImage, backgroundOpacity, terminalOpacity } = useAppSettings();
+  const { defaultIDE, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout } = useAppSettings();
+
+  // Idle mode - fade UI after configured inactivity (0 = disabled)
+  const { isIdle } = useIdleMode({
+    idleTimeout: idleTimeout > 0 ? idleTimeout * 1000 : 0 // Convert to ms, 0 = disabled
+  });
 
   // Terminal name editing
   const [editingTerminalId, setEditingTerminalId] = useState<string | null>(null);
@@ -47,110 +50,54 @@ function MainContent() {
   const [availableIDEs, setAvailableIDEs] = useState<string[]>([]);
   const [selectedIDE, setSelectedIDE] = useState<string | null>(null);
 
-  // Detect installed IDEs on mount and respect defaultIDE setting
-  // Uses Tauri FS exists() to avoid TCC/permission issues
+  // Set IDE based on defaultIDE setting or fallback to 'cursor'
+  // No detection needed - we just try to open and let it fail gracefully
   useEffect(() => {
-    const detectIDEs = async () => {
-      const ides = ['cursor', 'code', 'antigravity'];
-      const available: string[] = [];
+    const supportedIDEs = ['cursor', 'code', 'antigravity'];
+    setAvailableIDEs(supportedIDEs);
 
-      // Get home directory for custom paths
-      let home = '';
-      try {
-        home = await homeDir() || '';
-      } catch {
-        // Fallback if homeDir() fails
-        home = '';
-      }
-
-      // Specific paths to check (system paths don't trigger TCC)
-      const pathsToCheck = [
-        '/usr/local/bin',
-        '/opt/homebrew/bin',
-        '/usr/bin',
-      ];
-
-      // IDE-specific custom paths (resolved with home)
-      const customPaths: Record<string, string[]> = {
-        antigravity: [`${home}/.antigravity/antigravity/bin`],
-      };
-
-      for (const ide of ides) {
-        let found = false;
-
-        // Check specific paths first using Tauri FS exists()
-        for (const basePath of pathsToCheck) {
-          try {
-            const idePath = `${basePath}/${ide}`;
-            const ideExists = await exists(idePath);
-            if (ideExists) {
-              found = true;
-              break;
-            }
-          } catch {
-            // Not in this path
-          }
-        }
-
-        // Check IDE-specific custom paths
-        if (!found && customPaths[ide]) {
-          for (const customPath of customPaths[ide]) {
-            try {
-              const idePath = `${customPath}/${ide}`;
-              const ideExists = await exists(idePath);
-              if (ideExists) {
-                found = true;
-                break;
-              }
-            } catch {
-              // Not in this path
-            }
-          }
-        }
-
-        if (found) {
-          available.push(ide);
-        }
-      }
-
-      setAvailableIDEs(available);
-
-      // Prioritize defaultIDE if set and available
-      if (defaultIDE && available.includes(defaultIDE)) {
-        setSelectedIDE(defaultIDE);
-      } else if (available.length > 0) {
-        setSelectedIDE(available[0]);
-      }
-    };
-
-    detectIDEs();
+    if (defaultIDE && supportedIDEs.includes(defaultIDE)) {
+      setSelectedIDE(defaultIDE);
+    } else {
+      // Default to cursor if no preference set
+      setSelectedIDE('cursor');
+    }
   }, [defaultIDE]);
 
   // Handler to open project in IDE
-  // Note: This uses execute_command because we need to launch an external process
-  // This is a user-initiated action and doesn't access user files
+  // Uses macOS `open -a` for reliability, with CLI fallback
   const handleOpenInIDE = useCallback(async (projectPath: string) => {
     if (!selectedIDE) {
-      console.error('No IDE available');
+      console.error('[App] No IDE selected');
       return;
     }
 
+    // Map CLI names to macOS app names
+    const appNames: Record<string, string> = {
+      cursor: 'Cursor',
+      code: 'Visual Studio Code',
+      antigravity: 'Antigravity',
+    };
+
+    const appName = appNames[selectedIDE] || selectedIDE;
+
     try {
-      // Use open command on macOS for better compatibility
+      // Try opening with macOS open command first (most reliable)
       await invoke<string>('execute_command', {
-        cmd: `open -a "${selectedIDE}" "${projectPath}" 2>/dev/null || ${selectedIDE} "${projectPath}"`,
+        cmd: `open -a "${appName}" "${projectPath}"`,
         cwd: '/',
       });
-    } catch (error) {
-      console.warn(`[App] Could not open ${selectedIDE}:`, error);
-      // Try fallback with just the command
+      console.log(`[App] Opened ${projectPath} in ${appName}`);
+    } catch {
+      // Fallback to CLI command
       try {
         await invoke<string>('execute_command', {
-          cmd: `${selectedIDE} "${projectPath}" 2>/dev/null &`,
+          cmd: `${selectedIDE} "${projectPath}" &`,
           cwd: '/',
         });
-      } catch {
-        console.error(`[App] Failed to open ${selectedIDE}`);
+        console.log(`[App] Opened ${projectPath} with ${selectedIDE} CLI`);
+      } catch (error) {
+        console.error(`[App] Failed to open in IDE:`, error);
       }
     }
   }, [selectedIDE]);
@@ -191,11 +138,18 @@ function MainContent() {
           removeTerminal(activeProject.id, activeTerminal.id);
         }
       }
+      // Cmd/Ctrl + O: Open in IDE
+      if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
+        e.preventDefault();
+        if (activeProject && selectedIDE) {
+          handleOpenInIDE(activeProject.path);
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeProject, activeTerminal, handleAddTerminal, removeTerminal]);
+  }, [activeProject, activeTerminal, handleAddTerminal, removeTerminal, selectedIDE, handleOpenInIDE]);
 
   if (state.isLoading) {
     return <LoadingScreen />;
@@ -203,7 +157,7 @@ function MainContent() {
 
   return (
     <div
-      className="app"
+      className={`app ${isIdle ? 'app--idle' : ''}`}
       style={{
         backgroundImage: backgroundImage ? `url("${backgroundImage}")` : 'none',
         backgroundSize: 'cover',
@@ -211,11 +165,11 @@ function MainContent() {
         backgroundRepeat: 'no-repeat',
       }}
     >
-      {/* Background opacity overlay */}
+      {/* Background opacity overlay - fades when idle */}
       {backgroundImage && (
         <div
           className="app-background-overlay"
-          style={{ opacity: 1 - backgroundOpacity / 100 }}
+          style={{ opacity: isIdle ? 0 : 1 - backgroundOpacity / 100 }}
         />
       )}
 
@@ -255,18 +209,6 @@ function MainContent() {
                     >
                       <Plus size={14} />
                     </button>
-                    {availableIDEs.length > 0 && (
-                      <button
-                        className="btn-icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenInIDE(project.path);
-                        }}
-                        title={`Abrir en ${selectedIDE}`}
-                      >
-                        <ExternalLink size={14} />
-                      </button>
-                    )}
                     <button
                       className="btn-icon danger"
                       onClick={(e) => {
@@ -381,6 +323,8 @@ function MainContent() {
               name={activeTerminal.name}
               projectName={activeProject.name}
               onClose={() => removeTerminal(activeProject.id, activeTerminal.id)}
+              onOpenInIDE={() => handleOpenInIDE(activeProject.path)}
+              selectedIDE={selectedIDE}
             />
           ) : (
             <div className="terminal-header justify-center">
