@@ -589,7 +589,17 @@ export async function cleanupPushedSnapshots(projectPath: string): Promise<numbe
     const toRemove: Snapshot[] = [];
     const toKeep: Snapshot[] = [];
 
+    // Find the most recent snapshot - NEVER delete this one
+    // Even if pushed, user needs at least one snapshot for rollback
+    const maxVersion = Math.max(...metadata.snapshots.map(s => s.version));
+
     for (const snapshot of metadata.snapshots) {
+      // ALWAYS keep the most recent snapshot
+      if (snapshot.version === maxVersion) {
+        toKeep.push(snapshot);
+        continue;
+      }
+
       // Check if this snapshot's commit is an ancestor of remote HEAD
       // (meaning it has been pushed and is safely backed up)
       try {
