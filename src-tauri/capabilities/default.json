@@ -30,6 +30,8 @@
       "identifier": "fs:scope",
       "allow": [
         "$HOME/**",
+        "$HOME/**/.*",
+        "$HOME/**/.agentcockpit/**",
         "$HOME/.claude.json",
         "$HOME/Library/Application Support/**",
         "$HOME/Library/Application Support/Claude/**"
