@@ -50,7 +50,7 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
       allowTransparency: true,
       scrollback: 10000,
       theme: {
-        background: 'transparent',
+        background: 'rgba(0, 0, 0, 0)',
         foreground: '#e4e4e7',
         cursor: '#ffffff',
         cursorAccent: '#1a1a1a',

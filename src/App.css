@@ -294,19 +294,20 @@
   display: flex;
 }
 
-/* Terminal xterm container */
-.terminal-xterm {
-  width: 100%;
-  height: 100%;
+/* Terminal xterm container - transparent background only */
+.terminal-xterm,
+.terminal-xterm .xterm,
+.terminal-xterm .xterm-viewport,
+.terminal-xterm .xterm-screen {
   background: transparent !important;
+  background-color: transparent !important;
 }
 
 .terminal-xterm .xterm {
   height: 100%;
 }
 
-/* Scrollbar styling - transparency is handled by Terminal theme config */
-.terminal-xterm .xterm .xterm-viewport {
+.terminal-xterm .xterm-viewport {
   scrollbar-color: rgba(255,255,255,0.3) transparent;
 }
 
