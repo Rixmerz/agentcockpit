@@ -79,6 +79,13 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
     }
   }, [projectPath, loadSnapshots]);
 
+  // Listen for cleanup events (when pushed snapshots are removed)
+  useSnapshotEvent('cleanup', (data) => {
+    if (data.projectPath === projectPath) {
+      loadSnapshots();
+    }
+  }, [projectPath, loadSnapshots]);
+
   // Handle restore
   const handleRestore = useCallback(async (version: number) => {
     if (version === currentVersion) return;
