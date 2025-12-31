@@ -38,16 +38,17 @@ export interface GitStatus {
 }
 
 // Execute git command in project directory with timeout
-// For snapshot commands (add, commit, tag), uses background PTY to avoid TCC cascade
+// For snapshot tag commands, uses background PTY to avoid TCC cascade
+// NOTE: commit is NOT fire-and-forget because we need the commit hash for subsequent operations
 async function execGit(projectPath: string, args: string): Promise<string> {
-  // Detect snapshot-related git commands that should use background PTY
-  // These are fire-and-forget commands where we don't need output
-  const isSnapshotCommand =
+  // Only use background PTY for truly fire-and-forget commands
+  // commit is EXCLUDED because createCommit() needs to get the commit hash afterwards
+  // and that requires the commit to be fully complete before rev-parse runs
+  const isFireAndForgetCommand =
     args.startsWith('add -A') ||
-    args.startsWith('commit -m') ||
     args.startsWith('tag snapshot-');
 
-  if (USE_BACKGROUND_PTY && isSnapshotCommand) {
+  if (USE_BACKGROUND_PTY && isFireAndForgetCommand) {
     // Execute via background PTY (fire-and-forget, no return value)
     // This prevents TCC permission cascade in bundled macOS app
     await backgroundPtyService.execGit(projectPath, args);
