@@ -28,6 +28,7 @@ export interface AppConfig {
   backgroundImage?: string;  // URL or local path
   backgroundOpacity?: number; // 0-100
   terminalOpacity?: number; // 0-100, opacity of terminal container
+  idleTimeout?: number; // Seconds before idle mode (0 = disabled)
 }
 
 // PTY instance managed by Rust backend
@@ -72,4 +73,5 @@ export type AppAction =
   | { type: 'SET_DEFAULT_IDE'; payload: 'cursor' | 'code' | 'antigravity' | undefined }
   | { type: 'SET_BACKGROUND_IMAGE'; payload: string | undefined }
   | { type: 'SET_BACKGROUND_OPACITY'; payload: number }
-  | { type: 'SET_TERMINAL_OPACITY'; payload: number };
+  | { type: 'SET_TERMINAL_OPACITY'; payload: number }
+  | { type: 'SET_IDLE_TIMEOUT'; payload: number };
