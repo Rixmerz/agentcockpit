@@ -64,10 +64,11 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
     loadSnapshots();
   }, [loadSnapshots]);
 
-  // Listen for new snapshots
+  // Listen for new snapshots - delay to ensure metadata is written
   useSnapshotEvent('created', (data) => {
     if (data.projectPath === projectPath) {
-      loadSnapshots();
+      // Small delay to ensure metadata file is fully written before reading
+      setTimeout(() => loadSnapshots(), 500);
     }
   }, [projectPath, loadSnapshots]);
 
