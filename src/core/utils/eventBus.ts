@@ -45,6 +45,7 @@ function emitSnapshotEvent<T extends SnapshotEventType>(
   event: T,
   data: SnapshotEventData<T>
 ): void {
+  console.log(`[EventBus] Emitting snapshot:${event}`, data);
   const customEvent = new CustomEvent(`snapshot:${event}`, {
     detail: data,
     bubbles: false,
@@ -63,6 +64,7 @@ function onSnapshotEvent<T extends SnapshotEventType>(
 ): () => void {
   const listener = (e: Event) => {
     const customEvent = e as CustomEvent<SnapshotEventData<T>>;
+    console.log(`[EventBus] Received snapshot:${event}`, customEvent.detail);
     handler(customEvent.detail);
   };
 

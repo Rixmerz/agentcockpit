@@ -127,15 +127,18 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
             });
             console.log('[usePty] Snapshot V' + snapshot.version + ' created');
 
-            // Fire-and-forget: Clean up snapshots that have been pushed to remote
-            cleanupPushedSnapshots(projectPath)
-              .then(cleaned => {
-                if (cleaned > 0) {
-                  console.log(`[usePty] Cleaned ${cleaned} pushed snapshots`);
-                  snapshotEvents.emit('cleanup', { projectPath, count: cleaned });
-                }
-              })
-              .catch(() => {}); // Ignore cleanup errors
+            // Delayed cleanup: Wait 2 seconds to ensure metadata is fully written
+            // This prevents race conditions with the snapshot save
+            setTimeout(() => {
+              cleanupPushedSnapshots(projectPath)
+                .then(cleaned => {
+                  if (cleaned > 0) {
+                    console.log(`[usePty] Cleaned ${cleaned} pushed snapshots`);
+                    snapshotEvents.emit('cleanup', { projectPath, count: cleaned });
+                  }
+                })
+                .catch(() => {}); // Ignore cleanup errors
+            }, 2000);
           }
         })
         .catch(err => {
