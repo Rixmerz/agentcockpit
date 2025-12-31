@@ -1,8 +1,12 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { ClipboardAddon } from '@xterm/addon-clipboard';
+import { LigaturesAddon } from '@xterm/addon-ligatures';
+import { SearchAddon } from '@xterm/addon-search';
+import { open } from '@tauri-apps/plugin-shell';
 import { usePty } from '../../hooks/usePty';
 import { useApp } from '../../contexts/AppContext';
 import '@xterm/xterm/css/xterm.css';
@@ -83,7 +87,12 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
   const initializedRef = useRef(false);
+
+  // Search UI state
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Write batching refs for smoother rendering
   const pendingWritesRef = useRef<string>('');
@@ -261,12 +270,31 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
 
     // Add addons
     const fitAddon = new FitAddon();
-    const webLinksAddon = new WebLinksAddon();
     const unicode11Addon = new Unicode11Addon();
+    const clipboardAddon = new ClipboardAddon();
+    const ligaturesAddon = new LigaturesAddon();
+    const searchAddon = new SearchAddon();
+
+    // WebLinksAddon with custom handler to open URLs in browser
+    // Supports: Click, Shift+Click, Cmd/Ctrl+Click
+    const webLinksAddon = new WebLinksAddon((_event, uri) => {
+      // Open URL in default browser using Tauri shell
+      open(uri).catch((err) => {
+        console.error('[Terminal] Failed to open URL:', uri, err);
+      });
+    }, {
+      // URL validation options
+      urlRegex: /https?:\/\/[^\s"'<>]+/g,
+    });
+
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(webLinksAddon);
     terminal.loadAddon(unicode11Addon);
+    terminal.loadAddon(clipboardAddon);
+    terminal.loadAddon(ligaturesAddon);
+    terminal.loadAddon(searchAddon);
     terminal.unicode.activeVersion = '11';  // Enable Unicode 11 for emojis
+    searchAddonRef.current = searchAddon;
 
     // Open terminal in container
     terminal.open(containerRef.current);
@@ -358,14 +386,151 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
     };
   }, [resize]);
 
+  // Keyboard shortcut for search (Cmd+F / Ctrl+F)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        setShowSearch(prev => !prev);
+      }
+      // Escape to close search
+      if (e.key === 'Escape' && showSearch) {
+        setShowSearch(false);
+        setSearchQuery('');
+        searchAddonRef.current?.clearDecorations();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showSearch]);
+
+  // Search handlers
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (searchAddonRef.current) {
+      if (value) {
+        searchAddonRef.current.findNext(value, { caseSensitive: false, regex: false });
+      } else {
+        searchAddonRef.current.clearDecorations();
+      }
+    }
+  }, []);
+
+  const handleSearchNext = useCallback(() => {
+    if (searchAddonRef.current && searchQuery) {
+      searchAddonRef.current.findNext(searchQuery, { caseSensitive: false, regex: false });
+    }
+  }, [searchQuery]);
+
+  const handleSearchPrev = useCallback(() => {
+    if (searchAddonRef.current && searchQuery) {
+      searchAddonRef.current.findPrevious(searchQuery, { caseSensitive: false, regex: false });
+    }
+  }, [searchQuery]);
+
+  const handleCloseSearch = useCallback(() => {
+    setShowSearch(false);
+    setSearchQuery('');
+    searchAddonRef.current?.clearDecorations();
+  }, []);
+
   return (
-    <div
-      ref={containerRef}
-      className="terminal-xterm"
-      style={{
-        width: '100%',
-        height: '100%',
-      }}
-    />
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {/* Search bar */}
+      {showSearch && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            background: '#2d2d2d',
+            border: '1px solid #444',
+            borderRadius: 4,
+            padding: '4px 8px',
+          }}
+        >
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.shiftKey ? handleSearchPrev() : handleSearchNext();
+              }
+            }}
+            placeholder="Search..."
+            autoFocus
+            style={{
+              background: '#1a1a1a',
+              border: '1px solid #555',
+              borderRadius: 2,
+              padding: '4px 8px',
+              color: '#e4e4e7',
+              fontSize: 12,
+              width: 180,
+              outline: 'none',
+            }}
+          />
+          <button
+            onClick={handleSearchPrev}
+            title="Previous (Shift+Enter)"
+            style={{
+              background: '#444',
+              border: 'none',
+              borderRadius: 2,
+              padding: '4px 8px',
+              color: '#e4e4e7',
+              cursor: 'pointer',
+              fontSize: 12,
+            }}
+          >
+            ↑
+          </button>
+          <button
+            onClick={handleSearchNext}
+            title="Next (Enter)"
+            style={{
+              background: '#444',
+              border: 'none',
+              borderRadius: 2,
+              padding: '4px 8px',
+              color: '#e4e4e7',
+              cursor: 'pointer',
+              fontSize: 12,
+            }}
+          >
+            ↓
+          </button>
+          <button
+            onClick={handleCloseSearch}
+            title="Close (Esc)"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: '4px 8px',
+              color: '#888',
+              cursor: 'pointer',
+              fontSize: 14,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+      {/* Terminal container */}
+      <div
+        ref={containerRef}
+        className="terminal-xterm"
+        style={{
+          width: '100%',
+          height: '100%',
+        }}
+      />
+    </div>
   );
 }
