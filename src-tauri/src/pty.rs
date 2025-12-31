@@ -6,6 +6,55 @@ use std::sync::Arc;
 use std::thread;
 use tauri::{AppHandle, Emitter, State};
 
+/// Find the last valid UTF-8 character boundary in a byte slice.
+/// Returns the number of bytes that form complete UTF-8 characters.
+fn find_utf8_boundary(bytes: &[u8]) -> usize {
+    if bytes.is_empty() {
+        return 0;
+    }
+
+    // Start from the end and look for incomplete UTF-8 sequences
+    let len = bytes.len();
+
+    // Check if the last 1-3 bytes might be an incomplete UTF-8 character
+    for i in 1..=3.min(len) {
+        let pos = len - i;
+        let byte = bytes[pos];
+
+        // Check if this byte is a UTF-8 start byte (not a continuation byte 10xxxxxx)
+        if byte & 0b1100_0000 != 0b1000_0000 {
+            // This is a start byte, check if the sequence is complete
+            let expected_len = if byte & 0b1000_0000 == 0 {
+                1  // ASCII: 0xxxxxxx
+            } else if byte & 0b1110_0000 == 0b1100_0000 {
+                2  // 2-byte: 110xxxxx
+            } else if byte & 0b1111_0000 == 0b1110_0000 {
+                3  // 3-byte: 1110xxxx
+            } else if byte & 0b1111_1000 == 0b1111_0000 {
+                4  // 4-byte: 11110xxx
+            } else {
+                1  // Invalid, treat as single byte
+            };
+
+            let actual_len = len - pos;
+            if actual_len < expected_len {
+                // Incomplete sequence, return up to before this byte
+                return pos;
+            } else {
+                // Complete sequence, return all bytes
+                return len;
+            }
+        }
+    }
+
+    // If we get here, either all bytes are complete or something is very wrong
+    // Try to validate the whole thing
+    match std::str::from_utf8(bytes) {
+        Ok(_) => len,
+        Err(e) => e.valid_up_to(),
+    }
+}
+
 pub struct PtyInstance {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
@@ -79,16 +128,34 @@ impl PtyManager {
         let pty_id = id;
         thread::spawn(move || {
             let mut buf = [0u8; 4096];
+            let mut pending: Vec<u8> = Vec::new();
+
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) => {
-                        // PTY closed
+                        // PTY closed - emit any remaining data
+                        if !pending.is_empty() {
+                            let data = String::from_utf8_lossy(&pending).to_string();
+                            let _ = app.emit(&format!("pty-output-{}", pty_id), data);
+                        }
                         let _ = app.emit(&format!("pty-close-{}", pty_id), ());
                         break;
                     }
                     Ok(n) => {
-                        let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                        let _ = app.emit(&format!("pty-output-{}", pty_id), data);
+                        // Append new data to pending buffer
+                        pending.extend_from_slice(&buf[..n]);
+
+                        // Find the last valid UTF-8 boundary
+                        let valid_up_to = find_utf8_boundary(&pending);
+
+                        if valid_up_to > 0 {
+                            // Convert and emit only complete UTF-8 characters
+                            let complete = String::from_utf8_lossy(&pending[..valid_up_to]).to_string();
+                            let _ = app.emit(&format!("pty-output-{}", pty_id), complete);
+
+                            // Keep incomplete bytes for next iteration
+                            pending.drain(..valid_up_to);
+                        }
                     }
                     Err(_) => {
                         let _ = app.emit(&format!("pty-close-{}", pty_id), ());
