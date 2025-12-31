@@ -1,8 +1,8 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { ptySpawn, ptyWrite, ptyResize, ptyClose, onPtyOutput, onPtyClose } from '../services/tauriService';
 import type { UnlistenFn } from '@tauri-apps/api/event';
-// Re-enabled: Snapshots now use Tauri FS APIs (no TCC permission cascade)
-import { createSnapshot } from '../services/snapshotService';
+// Re-enabled: Snapshots now use execute_command (bypasses Tauri FS permissions)
+import { createSnapshot, cleanupPushedSnapshots } from '../services/snapshotService';
 import { snapshotEvents } from '../core/utils/eventBus';
 
 interface UsePtyOptions {
@@ -126,6 +126,15 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
               timestamp: snapshot.timestamp,
             });
             console.log('[usePty] Snapshot V' + snapshot.version + ' created');
+
+            // Fire-and-forget: Clean up snapshots that have been pushed to remote
+            cleanupPushedSnapshots(projectPath)
+              .then(cleaned => {
+                if (cleaned > 0) {
+                  console.log(`[usePty] Cleaned ${cleaned} pushed snapshots`);
+                }
+              })
+              .catch(() => {}); // Ignore cleanup errors
           }
         })
         .catch(err => {
