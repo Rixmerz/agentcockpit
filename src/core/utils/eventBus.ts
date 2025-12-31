@@ -20,13 +20,20 @@ export interface SnapshotRestoredEvent {
   projectPath: string;
 }
 
+export interface SnapshotCleanupEvent {
+  projectPath: string;
+  count: number;
+}
+
 // Event types
-type SnapshotEventType = 'created' | 'restored';
+type SnapshotEventType = 'created' | 'restored' | 'cleanup';
 
 // Combined event data type
 type SnapshotEventData<T extends SnapshotEventType> = T extends 'created'
   ? SnapshotCreatedEvent
-  : SnapshotRestoredEvent;
+  : T extends 'restored'
+  ? SnapshotRestoredEvent
+  : SnapshotCleanupEvent;
 
 // Type-safe event handlers
 type SnapshotEventHandler<T extends SnapshotEventType> = (data: SnapshotEventData<T>) => void;
