@@ -46,7 +46,7 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
     const terminal = new Terminal({
       cursorBlink: true,
       fontSize: 14,
-      fontFamily: "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
+      fontFamily: "'CaskaydiaMono Nerd Font', 'CaskaydiaMono NF', 'JetBrains Mono', 'Menlo', monospace",
       allowTransparency: true,
       scrollback: 10000,
       theme: {

@@ -69,6 +69,23 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
 
+    case 'RENAME_TERMINAL': {
+      const { projectId, terminalId, name } = action.payload;
+      return {
+        ...state,
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? {
+                ...p,
+                terminals: p.terminals.map(t =>
+                  t.id === terminalId ? { ...t, name } : t
+                ),
+              }
+            : p
+        ),
+      };
+    }
+
     case 'SET_ACTIVE_TERMINAL':
       return { ...state, activeTerminalId: action.payload };
 
@@ -137,6 +154,7 @@ interface AppContextType {
   removeProject: (id: string) => void;
   addTerminal: (projectId: string, name: string) => void;
   removeTerminal: (projectId: string, terminalId: string) => Promise<void>;
+  renameTerminal: (projectId: string, terminalId: string, name: string) => void;
   setActiveTerminal: (projectId: string, terminalId: string) => void;
   // Terminal writer registry
   registerTerminalWriter: (terminalId: string, writer: TerminalWriter) => void;
@@ -271,6 +289,10 @@ export function AppProvider({ children }: AppProviderProps) {
     dispatch({ type: 'REMOVE_TERMINAL', payload: { projectId, terminalId } });
   }, []);
 
+  const renameTerminal = useCallback((projectId: string, terminalId: string, name: string) => {
+    dispatch({ type: 'RENAME_TERMINAL', payload: { projectId, terminalId, name } });
+  }, []);
+
   const setActiveTerminal = useCallback((projectId: string, terminalId: string) => {
     dispatch({ type: 'SET_ACTIVE_PROJECT', payload: projectId });
     dispatch({ type: 'SET_ACTIVE_TERMINAL', payload: terminalId });
@@ -316,6 +338,7 @@ export function AppProvider({ children }: AppProviderProps) {
     removeProject,
     addTerminal,
     removeTerminal,
+    renameTerminal,
     setActiveTerminal,
     registerTerminalWriter,
     unregisterTerminalWriter,
