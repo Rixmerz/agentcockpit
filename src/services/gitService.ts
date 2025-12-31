@@ -138,9 +138,6 @@ export async function getGitStatus(projectPath: string): Promise<GitStatus> {
   // Get porcelain status
   const statusOutput = await execGitSafe(projectPath, 'status --porcelain') || '';
 
-  // DEBUG: Log raw output
-  console.log('[GitService] DEBUG raw statusOutput:', JSON.stringify(statusOutput));
-
   const untrackedFiles: string[] = [];
   const modifiedFiles: string[] = [];
   const stagedFiles: string[] = [];
@@ -161,15 +158,6 @@ export async function getGitStatus(projectPath: string): Promise<GitStatus> {
       fileStart++;
     }
     const file = line.substring(fileStart);
-
-    // DEBUG: Log each line parsing
-    console.log('[GitService] DEBUG line:', {
-      rawLine: JSON.stringify(line),
-      lineLength: line.length,
-      status: JSON.stringify(status),
-      fileStart,
-      file: JSON.stringify(file),
-    });
 
     if (status === '??') {
       untrackedFiles.push(file);
