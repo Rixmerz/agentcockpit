@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { ClipboardAddon } from '@xterm/addon-clipboard';
+import { open } from '@tauri-apps/plugin-shell';
 import { usePty } from '../../hooks/usePty';
 import { useApp } from '../../contexts/AppContext';
 import '@xterm/xterm/css/xterm.css';
@@ -11,7 +14,6 @@ interface TerminalViewProps {
   onClose?: () => void;
 }
 
-// BRUTAL SIMPLE IMPLEMENTATION - No extras, no configs, just basics
 export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -19,13 +21,13 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
 
   const { registerTerminalWriter, unregisterTerminalWriter, registerPtyId } = useApp();
 
-  // PTY hook - direct writes, no processing
+  // PTY hook - direct writes
   const { spawn, write, resize } = usePty({
     onData: (data: string) => {
       terminalRef.current?.write(data);
     },
     onClose: () => {
-      terminalRef.current?.write('\r\n[Process exited]\r\n');
+      terminalRef.current?.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
       onClose?.();
     },
   });
@@ -36,24 +38,53 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
     return () => unregisterTerminalWriter(terminalId);
   }, [terminalId, write, registerTerminalWriter, unregisterTerminalWriter]);
 
-  // Initialize terminal - MINIMAL
+  // Initialize terminal
   useEffect(() => {
     if (!containerRef.current || initializedRef.current) return;
     initializedRef.current = true;
 
-    // Bare minimum terminal
     const terminal = new Terminal({
       cursorBlink: true,
       fontSize: 14,
-      fontFamily: 'monospace',
+      fontFamily: "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
+      allowTransparency: true,
+      scrollback: 10000,
       theme: {
-        background: '#1a1a1a',
+        background: 'transparent',
         foreground: '#e4e4e7',
+        cursor: '#ffffff',
+        cursorAccent: '#1a1a1a',
+        selectionBackground: '#264f78',
+        black: '#000000',
+        red: '#cd3131',
+        green: '#0dbc79',
+        yellow: '#e5e510',
+        blue: '#2472c8',
+        magenta: '#bc3fbc',
+        cyan: '#11a8cd',
+        white: '#e5e5e5',
+        brightBlack: '#666666',
+        brightRed: '#f14c4c',
+        brightGreen: '#23d18b',
+        brightYellow: '#f5f543',
+        brightBlue: '#3b8eea',
+        brightMagenta: '#d670d6',
+        brightCyan: '#29b8db',
+        brightWhite: '#e5e5e5',
       },
     });
 
+    // Addons
     const fitAddon = new FitAddon();
+    const clipboardAddon = new ClipboardAddon();
+    const webLinksAddon = new WebLinksAddon((_event, uri) => {
+      open(uri).catch((err) => console.error('[Terminal] Failed to open URL:', uri, err));
+    });
+
     terminal.loadAddon(fitAddon);
+    terminal.loadAddon(clipboardAddon);
+    terminal.loadAddon(webLinksAddon);
+
     terminal.open(containerRef.current);
     terminalRef.current = terminal;
 
@@ -67,7 +98,7 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
         registerPtyId(terminalId, ptyId);
       })
       .catch((err) => {
-        terminal.write(`Error: ${err}\r\n`);
+        terminal.write(`\x1b[31mError: ${err}\x1b[0m\r\n`);
       });
 
     // Input
@@ -86,10 +117,10 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
   return (
     <div
       ref={containerRef}
+      className="terminal-xterm"
       style={{
         width: '100%',
         height: '100%',
-        background: '#1a1a1a',
       }}
     />
   );
