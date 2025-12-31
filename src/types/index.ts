@@ -59,6 +59,7 @@ export type AppAction =
   | { type: 'SET_ACTIVE_PROJECT'; payload: string | null }
   | { type: 'ADD_TERMINAL'; payload: { projectId: string; terminal: Terminal } }
   | { type: 'REMOVE_TERMINAL'; payload: { projectId: string; terminalId: string } }
+  | { type: 'RENAME_TERMINAL'; payload: { projectId: string; terminalId: string; name: string } }
   | { type: 'SET_ACTIVE_TERMINAL'; payload: string | null }
   | { type: 'SET_MODEL'; payload: 'haiku' | 'sonnet' | 'opus' }
   | { type: 'TOGGLE_MCP_DESKTOP' }

@@ -35,9 +35,13 @@ function LoadingScreen() {
 }
 
 function MainContent() {
-  const { state, activeProject, activeTerminal, addProject, addTerminal, setActiveTerminal, removeTerminal, removeProject } = useApp();
+  const { state, activeProject, activeTerminal, addProject, addTerminal, setActiveTerminal, removeTerminal, renameTerminal, removeProject } = useApp();
   const { writeToActiveTerminal, hasActiveTerminal } = useTerminalActions();
   const { defaultIDE, backgroundImage, backgroundOpacity, terminalOpacity } = useAppSettings();
+
+  // Terminal name editing
+  const [editingTerminalId, setEditingTerminalId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
 
   // IDE Detection
   const [availableIDEs, setAvailableIDEs] = useState<string[]>([]);
@@ -285,7 +289,44 @@ function MainContent() {
                       onClick={() => setActiveTerminal(project.id, terminal.id)}
                     >
                       <TerminalSquare size={13} className="terminal-icon" />
-                      <span>{terminal.name}</span>
+                      {editingTerminalId === terminal.id ? (
+                        <input
+                          type="text"
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          onBlur={() => {
+                            if (editingName.trim()) {
+                              renameTerminal(project.id, terminal.id, editingName.trim());
+                            }
+                            setEditingTerminalId(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              if (editingName.trim()) {
+                                renameTerminal(project.id, terminal.id, editingName.trim());
+                              }
+                              setEditingTerminalId(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingTerminalId(null);
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          autoFocus
+                          className="terminal-name-input"
+                        />
+                      ) : (
+                        <span
+                          onDoubleClick={(e) => {
+                            if (state.activeTerminalId === terminal.id) {
+                              e.stopPropagation();
+                              setEditingName(terminal.name);
+                              setEditingTerminalId(terminal.id);
+                            }
+                          }}
+                        >
+                          {terminal.name}
+                        </span>
+                      )}
                       <button
                         className="btn-icon-sm"
                         onClick={(e) => {
