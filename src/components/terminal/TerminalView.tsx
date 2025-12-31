@@ -6,6 +6,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { LigaturesAddon } from '@xterm/addon-ligatures';
 import { SearchAddon } from '@xterm/addon-search';
+import { WebglAddon } from '@xterm/addon-webgl';
 import { open } from '@tauri-apps/plugin-shell';
 import { usePty } from '../../hooks/usePty';
 import { useApp } from '../../contexts/AppContext';
@@ -299,9 +300,22 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
     // Open terminal in container
     terminal.open(containerRef.current);
 
-    // Note: Using DOM renderer (default) instead of CanvasAddon
-    // CanvasAddon causes glyph corruption with rapid updates (spinners, counters)
-    // DOM renderer is slower but more stable for ANSI sequences and Unicode
+    // Load WebGL renderer for GPU-accelerated performance (like VS Code, Hyper, iTerm2)
+    // Falls back to DOM renderer if WebGL is not supported or context is lost
+    try {
+      const webglAddon = new WebglAddon();
+
+      // Handle WebGL context loss (GPU crash, system suspend, etc.)
+      webglAddon.onContextLoss(() => {
+        console.warn('[Terminal] WebGL context lost, falling back to DOM renderer');
+        webglAddon.dispose();
+      });
+
+      terminal.loadAddon(webglAddon);
+      console.log('[Terminal] WebGL renderer enabled');
+    } catch (e) {
+      console.log('[Terminal] WebGL not supported, using DOM renderer:', e);
+    }
 
     // Initial fit with delay to ensure container has final dimensions
     fitAddon.fit();
