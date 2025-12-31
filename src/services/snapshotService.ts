@@ -548,6 +548,104 @@ export async function pruneSnapshots(projectPath: string, keepLast: number = MAX
 }
 
 /**
+ * Clean up snapshots that have been pushed to remote.
+ * Once a commit is on origin, the local snapshot is redundant.
+ *
+ * Logic: If snapshot's commit is an ancestor of origin/HEAD, it's backed up → delete it
+ */
+export async function cleanupPushedSnapshots(projectPath: string): Promise<number> {
+  const releaseLock = await acquireLock(projectPath);
+
+  try {
+    const metadata = await readMetadata(projectPath);
+
+    if (metadata.snapshots.length === 0) {
+      return 0;
+    }
+
+    // Get the remote HEAD commit (origin/master or origin/main)
+    let remoteHead: string | null = null;
+    try {
+      const result = await withTimeout(
+        invoke<string>('execute_command', {
+          cmd: 'git rev-parse origin/master 2>/dev/null || git rev-parse origin/main 2>/dev/null || echo ""',
+          cwd: projectPath,
+        }),
+        INVOKE_TIMEOUT_MS,
+        'get remote HEAD'
+      );
+      remoteHead = result.trim() || null;
+    } catch {
+      // No remote or offline - can't cleanup
+      console.log('[Snapshot] No remote found, skipping pushed cleanup');
+      return 0;
+    }
+
+    if (!remoteHead) {
+      console.log('[Snapshot] No remote HEAD, skipping pushed cleanup');
+      return 0;
+    }
+
+    const toRemove: Snapshot[] = [];
+    const toKeep: Snapshot[] = [];
+
+    for (const snapshot of metadata.snapshots) {
+      // Check if this snapshot's commit is an ancestor of remote HEAD
+      // (meaning it has been pushed and is safely backed up)
+      try {
+        const mergeBaseResult = await withTimeout(
+          invoke<string>('execute_command', {
+            cmd: `git merge-base --is-ancestor ${snapshot.commitHash} ${remoteHead} && echo "yes" || echo "no"`,
+            cwd: projectPath,
+          }),
+          INVOKE_TIMEOUT_MS,
+          'check ancestor'
+        );
+
+        const isPushed = mergeBaseResult.trim() === 'yes';
+
+        if (isPushed) {
+          toRemove.push(snapshot);
+        } else {
+          toKeep.push(snapshot);
+        }
+      } catch {
+        // If check fails, keep the snapshot to be safe
+        toKeep.push(snapshot);
+      }
+    }
+
+    if (toRemove.length === 0) {
+      console.log('[Snapshot] No pushed snapshots to clean up');
+      return 0;
+    }
+
+    // Delete git tags for pushed snapshots
+    for (const snapshot of toRemove) {
+      await deleteTag(projectPath, snapshot.tag);
+    }
+
+    // Update metadata
+    metadata.snapshots = toKeep;
+
+    // Recalculate currentVersion if it was removed
+    if (metadata.currentVersion !== null) {
+      const stillExists = toKeep.some(s => s.version === metadata.currentVersion);
+      if (!stillExists) {
+        metadata.currentVersion = toKeep.length > 0 ? toKeep[toKeep.length - 1].version : null;
+      }
+    }
+
+    await writeMetadata(projectPath, metadata);
+
+    console.log(`[Snapshot] Cleaned up ${toRemove.length} pushed snapshots (backed up on remote)`);
+    return toRemove.length;
+  } finally {
+    releaseLock();
+  }
+}
+
+/**
  * Get snapshot by version
  */
 export async function getSnapshot(projectPath: string, version: number): Promise<Snapshot | null> {
