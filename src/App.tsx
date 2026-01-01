@@ -348,7 +348,7 @@ function MainContent() {
             )}
             {state.projects.every(p => p.terminals.length === 0) && (
               <div className="terminal-placeholder">
-                <div className="flex flex-col items-center gap-4 opacity-50">
+                <div className="flex flex-col items-center gap-4">
                   <TerminalSquare size={48} strokeWidth={1} />
                   <p>Selecciona o crea una terminal para comenzar</p>
                 </div>

@@ -346,10 +346,15 @@
   justify-content: center;
   width: 100%;
   height: 100%;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.7);
   font-size: 14px;
-  background: rgba(9, 9, 11, 0.5);
+  background: transparent;
   border-radius: 0 0 calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.terminal-placeholder svg {
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8));
 }
 
 /* Terminal Header Elements */
