@@ -14,7 +14,7 @@ import { PortMonitor } from './PortMonitor';
 import { GitSettings } from './GitSettings';
 import { SettingsModal } from '../settings/SettingsModal';
 import { GitHubLoginModal } from '../sidebar-left/GitHubLoginModal';
-import { createSession, updateSessionLastUsed, type ProjectSession } from '../../services/projectSessionService';
+import { createSession, updateSessionLastUsed, getSessions, type ProjectSession } from '../../services/projectSessionService';
 import { getCurrentUser, type GitHubUser } from '../../services/githubService';
 import type { McpServerInfo } from '../../plugins/types/plugin';
 
@@ -85,22 +85,42 @@ export function ActionsPanel({
       return selectedSession;
     }
 
-    // Auto-create new session (wasPreExisting=false → uses --session-id)
-    console.log('[ActionsPanel] Creating new session for project:', projectPath);
+    // Try to load existing sessions from JSON file
+    console.log('[ActionsPanel] No session selected, checking for existing sessions');
+    try {
+      const existingSessions = await getSessions(projectPath);
+
+      if (existingSessions.length > 0) {
+        // Use most recent existing session (already marked as wasPreExisting: true from JSON)
+        const mostRecent = existingSessions[0];
+        console.log('[ActionsPanel] Found existing session in JSON, using:', mostRecent.id);
+        setSelectedSession(mostRecent);
+        setSessionError(null);
+        try {
+          await updateSessionLastUsed(projectPath, mostRecent.id, terminalId || undefined);
+        } catch (error) {
+          console.warn('[ActionsPanel] Failed to update session lastUsed:', error);
+        }
+        return mostRecent;
+      }
+    } catch (error) {
+      console.warn('[ActionsPanel] Failed to load existing sessions:', error);
+      // Continue to create new session if loading fails
+    }
+
+    // No existing sessions found - create new one (wasPreExisting=false → uses --session-id)
+    console.log('[ActionsPanel] No existing sessions, creating new one for project:', projectPath);
     try {
       const newSession = await createSession(projectPath);
       console.log('[ActionsPanel] New session created:', newSession.id);
-
-      // Mark as pre-existing since it's now saved in the JSON and subsequent launches should use --resume
-      const sessionForReturn = { ...newSession, wasPreExisting: true };
-      setSelectedSession(sessionForReturn);
+      setSelectedSession(newSession);
       setSessionError(null);
       try {
-        await updateSessionLastUsed(projectPath, sessionForReturn.id, terminalId || undefined);
+        await updateSessionLastUsed(projectPath, newSession.id, terminalId || undefined);
       } catch (error) {
         console.warn('[ActionsPanel] Failed to update new session lastUsed:', error);
       }
-      return sessionForReturn;
+      return newSession;
     } catch (error) {
       console.error('[ActionsPanel] Failed to create session:', error);
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido al crear sesión';
