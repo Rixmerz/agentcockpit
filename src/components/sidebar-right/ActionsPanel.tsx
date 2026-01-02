@@ -90,14 +90,17 @@ export function ActionsPanel({
     try {
       const newSession = await createSession(projectPath);
       console.log('[ActionsPanel] New session created:', newSession.id);
-      setSelectedSession(newSession);
+
+      // Mark as pre-existing since it's now saved in the JSON and subsequent launches should use --resume
+      const sessionForReturn = { ...newSession, wasPreExisting: true };
+      setSelectedSession(sessionForReturn);
       setSessionError(null);
       try {
-        await updateSessionLastUsed(projectPath, newSession.id, terminalId || undefined);
+        await updateSessionLastUsed(projectPath, sessionForReturn.id, terminalId || undefined);
       } catch (error) {
         console.warn('[ActionsPanel] Failed to update new session lastUsed:', error);
       }
-      return newSession;
+      return sessionForReturn;
     } catch (error) {
       console.error('[ActionsPanel] Failed to create session:', error);
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido al crear sesión';
