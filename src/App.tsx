@@ -282,15 +282,20 @@ function MainContent() {
                     </div>
                   ))}
                 </div>
-
-                {/* Snapshots for active project */}
-                {activeProject?.id === project.id && (
-                  <SnapshotPanel projectPath={project.path} />
-                )}
               </div>
             ))
           )}
         </div>
+
+        {/* Snapshots Section - Fixed position for active project */}
+        {activeProject && (
+          <div className="navigator-section">
+            <div className="section-header" style={{ height: '32px', border: 'none', paddingLeft: '8px' }}>
+              VERSIONES
+            </div>
+            <SnapshotPanel projectPath={activeProject.path} />
+          </div>
+        )}
 
         <div className="navigator-section">
           <div className="section-header" style={{ height: '32px', border: 'none', paddingLeft: '8px' }}>

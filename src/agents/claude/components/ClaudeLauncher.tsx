@@ -29,6 +29,7 @@ export function ClaudeLauncher({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customArgs, setCustomArgs] = useState('');
   const [activeModel, setActiveModel] = useState<string | null>(null);
+  const [skipPermissions, setSkipPermissions] = useState(false);
 
   // Send /model command to switch model in running Claude instance
   const handleModelSwitch = useCallback(async (model: string) => {
@@ -60,10 +61,16 @@ export function ClaudeLauncher({
     console.log('[ClaudeLauncher] Step 2: Building command...');
     // wasPreExisting=true → --resume (existing sessions)
     // wasPreExisting=false → --session-id (newly created sessions)
+    const baseArgs = customArgs ? customArgs.split(' ').filter(Boolean) : [];
+    const filteredArgs = baseArgs.filter(arg => arg !== '--dangerously-skip-permissions');
+    const allArgs = skipPermissions
+      ? [...filteredArgs, '--dangerously-skip-permissions']
+      : filteredArgs;
+
     const claudeCommand = buildClaudeCommand({
       sessionId: currentSession.id,
       resume: currentSession.wasPreExisting ?? false,
-      additionalArgs: customArgs ? customArgs.split(' ').filter(Boolean) : undefined,
+      additionalArgs: allArgs.length > 0 ? allArgs : undefined,
     });
     console.log('[ClaudeLauncher] Claude command built:', claudeCommand);
 
@@ -96,14 +103,20 @@ export function ClaudeLauncher({
     console.log('[ClaudeLauncher] Executing onLaunch callback...');
     onLaunch(fullCommand);
     console.log('[ClaudeLauncher] Launch complete');
-  }, [projectPath, hasActiveTerminal, mcpsToInject, mcpsToRemove, ensureSession, customArgs, onLaunch]);
+  }, [projectPath, hasActiveTerminal, mcpsToInject, mcpsToRemove, ensureSession, customArgs, skipPermissions, onLaunch]);
 
   // Build preview command
   const previewSession = session ?? { wasPreExisting: false };
+  const previewBaseArgs = customArgs ? customArgs.split(' ').filter(Boolean) : [];
+  const previewFiltered = previewBaseArgs.filter(arg => arg !== '--dangerously-skip-permissions');
+  const previewAllArgs = skipPermissions
+    ? [...previewFiltered, '--dangerously-skip-permissions']
+    : previewFiltered;
+
   const claudeCmd = buildClaudeCommand({
     sessionId: session?.id ?? '<auto-session>',
     resume: (previewSession as { wasPreExisting?: boolean }).wasPreExisting ?? false,
-    additionalArgs: customArgs ? customArgs.split(' ').filter(Boolean) : undefined,
+    additionalArgs: previewAllArgs.length > 0 ? previewAllArgs : undefined,
   });
 
   const previewParts: string[] = [];
@@ -141,6 +154,20 @@ export function ClaudeLauncher({
         >
           Opus
         </button>
+      </div>
+
+      {/* Skip Permissions Toggle */}
+      <div className="flex items-center justify-between mt-2 px-1">
+        <label className="text-xs text-muted cursor-pointer flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={skipPermissions}
+            onChange={(e) => setSkipPermissions(e.target.checked)}
+            disabled={!hasActiveTerminal}
+            className="cursor-pointer"
+          />
+          <span>Skip permissions</span>
+        </label>
       </div>
 
       {session && (
