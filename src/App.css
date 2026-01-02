@@ -738,6 +738,44 @@ input::placeholder {
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
+/* Skip Permissions Checkbox */
+.skip-permissions-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--accent-dim);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skip-permissions-checkbox:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.skip-permissions-checkbox:checked::after {
+  content: '✓';
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  display: block;
+}
+
+.skip-permissions-checkbox:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.skip-permissions-checkbox:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Primary Button - Cyber Teal with glow */
 .btn-primary {
   width: 100%;
@@ -1295,7 +1333,7 @@ input::placeholder {
   gap: 0;
   position: relative;
   padding-left: 16px;
-  height: 180px;
+  height: 90px;
   overflow-y: auto;
   overflow-x: hidden;
 }
