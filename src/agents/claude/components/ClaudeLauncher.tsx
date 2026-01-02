@@ -166,9 +166,19 @@ export function ClaudeLauncher({
             disabled={!hasActiveTerminal}
             className="cursor-pointer"
             style={{
+              appearance: 'none',
+              width: '16px',
+              height: '16px',
               backgroundColor: 'var(--bg-input)',
               borderColor: 'var(--accent-dim)',
+              border: '1px solid var(--accent-dim)',
+              borderRadius: '3px',
+              cursor: 'pointer',
               accentColor: 'var(--accent)',
+              ...(skipPermissions && {
+                backgroundColor: 'var(--accent)',
+                borderColor: 'var(--accent)',
+              }),
             }}
           />
           <span>Skip permissions</span>
