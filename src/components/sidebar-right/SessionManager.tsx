@@ -45,6 +45,17 @@ export function SessionManager({
     loadSessions();
   }, [loadSessions]);
 
+  // Detectar sesiones creadas externamente (auto-created por ensureSession)
+  useEffect(() => {
+    if (selectedSession && projectPath) {
+      const sessionExists = sessions.some(s => s.id === selectedSession.id);
+      if (!sessionExists) {
+        console.log('[SessionManager] Auto-created session detected, adding to list:', selectedSession.id);
+        setSessions(prev => [selectedSession, ...prev]);
+      }
+    }
+  }, [selectedSession, projectPath, sessions]);
+
   const handleCreateSession = async () => {
     if (!projectPath) return;
 
