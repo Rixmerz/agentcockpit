@@ -25,6 +25,8 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
   const { spawn, write, resize } = usePty({
     onData: (data: string) => {
       terminalRef.current?.write(data);
+      // Note: Terminal OUTPUT doesn't reset idle mode
+      // Only user INPUT (keyboard, mouse) should reset it
     },
     onClose: () => {
       terminalRef.current?.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
