@@ -109,6 +109,8 @@ export function GitSettings({ projectPath }: GitSettingsProps) {
   // Load on mount and when project changes
   useEffect(() => {
     console.log('[GitSettings] projectPath changed:', projectPath);
+    setNewRemoteUrl(''); // Reset remote URL when project changes
+    setSaveStatus('idle');
     loadGitInfo();
   }, [projectPath, loadGitInfo]);
 

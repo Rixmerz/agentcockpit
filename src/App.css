@@ -1295,6 +1295,9 @@ input::placeholder {
   gap: 0;
   position: relative;
   padding-left: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Timeline vertical line */

@@ -165,6 +165,11 @@ export function ClaudeLauncher({
             onChange={(e) => setSkipPermissions(e.target.checked)}
             disabled={!hasActiveTerminal}
             className="cursor-pointer"
+            style={{
+              backgroundColor: 'var(--bg-input)',
+              borderColor: 'var(--accent-dim)',
+              accentColor: 'var(--accent)',
+            }}
           />
           <span>Skip permissions</span>
         </label>
