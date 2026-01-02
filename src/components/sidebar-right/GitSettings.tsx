@@ -108,8 +108,9 @@ export function GitSettings({ projectPath }: GitSettingsProps) {
 
   // Load on mount and when project changes
   useEffect(() => {
+    console.log('[GitSettings] projectPath changed:', projectPath);
     loadGitInfo();
-  }, [loadGitInfo]);
+  }, [projectPath, loadGitInfo]);
 
   // Handle remote URL change
   const handleSaveRemote = useCallback(async () => {
