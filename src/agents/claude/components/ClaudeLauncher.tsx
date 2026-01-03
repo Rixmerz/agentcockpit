@@ -8,7 +8,6 @@
 import { useState, useCallback } from 'react';
 import { Rocket, ChevronRight, ChevronDown } from 'lucide-react';
 import type { LauncherProps } from '../../../plugins/types/plugin';
-import { buildClaudeCommand } from '../services/claudeService';
 import {
   executeAction,
   escapeJsonForShell,
@@ -59,18 +58,29 @@ export function ClaudeLauncher({
 
     // STEP 2: Build command with guaranteed session
     console.log('[ClaudeLauncher] Step 2: Building command...');
-    // buildClaudeCommand now checks actual session existence in ~/.claude/projects/
+
+    // Simple logic: if session was already selected (from list) → --resume
+    // If session was just created by ensureSession() → --session-id
+    const sessionWasPreSelected = session !== null && session.id === currentSession.id;
+    console.log('[ClaudeLauncher] Session pre-selected:', sessionWasPreSelected, 'session prop:', session?.id, 'current:', currentSession.id);
+
     const baseArgs = customArgs ? customArgs.split(' ').filter(Boolean) : [];
     const filteredArgs = baseArgs.filter(arg => arg !== '--dangerously-skip-permissions');
     const allArgs = skipPermissions
       ? [...filteredArgs, '--dangerously-skip-permissions']
       : filteredArgs;
 
-    const claudeCommand = await buildClaudeCommand({
-      projectPath: projectPath || undefined,
-      sessionId: currentSession.id,
-      additionalArgs: allArgs.length > 0 ? allArgs : undefined,
-    });
+    // Build command: --resume if session was pre-selected, --session-id if newly created
+    const args: string[] = ['claude'];
+    if (sessionWasPreSelected) {
+      args.push('--resume', currentSession.id);
+    } else {
+      args.push('--session-id', currentSession.id);
+    }
+    if (allArgs.length > 0) {
+      args.push(...allArgs);
+    }
+    const claudeCommand = args.join(' ');
     console.log('[ClaudeLauncher] Claude command built:', claudeCommand);
 
     const allCommands: string[] = [];
