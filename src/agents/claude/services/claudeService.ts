@@ -144,11 +144,13 @@ export async function sessionExistsInClaudeProjects(
   sessionId: string
 ): Promise<boolean> {
   try {
-    const home = await homeDir();
+    const claudeDir = await getClaudeConfigDir();
     const encodedProject = encodeProjectPath(projectPath);
     // Sessions are .jsonl files, not directories
-    const sessionFilePath = `${home}.claude/projects/${encodedProject}/${sessionId}.jsonl`;
+    const sessionFilePath = `${claudeDir}projects/${encodedProject}/${sessionId}.jsonl`;
     console.log(`[ClaudeService] Checking session existence: ${sessionFilePath}`);
+    console.log(`[ClaudeService] projectPath received: "${projectPath}"`);
+    console.log(`[ClaudeService] encodedProject: "${encodedProject}"`);
     const sessionExists = await exists(sessionFilePath);
     console.log(`[ClaudeService] Session ${sessionId} exists: ${sessionExists}`);
     return sessionExists;
@@ -165,21 +167,36 @@ export async function sessionExistsInClaudeProjects(
 export async function buildClaudeCommand(
   options: BuildCommandOptions & { projectPath?: string }
 ): Promise<string> {
+  console.log('[buildClaudeCommand] Called with options:', {
+    projectPath: options.projectPath,
+    sessionId: options.sessionId,
+    hasProjectPath: !!options.projectPath,
+    hasSessionId: !!options.sessionId
+  });
+
   const args: string[] = ['claude'];
 
   // Session handling: --resume for existing sessions, --session-id for new
   if (options.sessionId) {
-    // Determine if session actually exists in Claude CLI's storage
-    const shouldResume = options.projectPath
-      ? await sessionExistsInClaudeProjects(options.projectPath, options.sessionId)
-      : false;
+    let shouldResume = false;
+
+    if (options.projectPath) {
+      console.log('[buildClaudeCommand] Checking if session exists in Claude projects...');
+      shouldResume = await sessionExistsInClaudeProjects(options.projectPath, options.sessionId);
+      console.log('[buildClaudeCommand] Session exists result:', shouldResume);
+    } else {
+      console.warn('[buildClaudeCommand] No projectPath provided - defaulting to --session-id');
+    }
 
     if (shouldResume) {
+      console.log('[buildClaudeCommand] Using --resume');
       args.push('--resume', options.sessionId);
     } else {
+      console.log('[buildClaudeCommand] Using --session-id');
       args.push('--session-id', options.sessionId);
     }
   } else {
+    console.log('[buildClaudeCommand] No sessionId - using --new-session');
     args.push('--new-session');
   }
 
