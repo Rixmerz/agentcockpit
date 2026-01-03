@@ -37,32 +37,16 @@ export function ClaudeLauncher({
   }, [onWriteToTerminal]);
 
   const handleLaunch = useCallback(async () => {
-    console.log('[ClaudeLauncher] Launch button clicked');
-    console.log('[ClaudeLauncher] State:', {
-      projectPath,
-      hasActiveTerminal,
-      mcpsToInject: mcpsToInject.length,
-      mcpsToRemove: mcpsToRemove.length,
-      customArgs
-    });
-
-    // STEP 1: Ensure session exists BEFORE building command
-    console.log('[ClaudeLauncher] Step 1: Ensuring session...');
+    // Ensure session exists BEFORE building command
     const currentSession = await ensureSession();
-    console.log('[ClaudeLauncher] Session ensured:', currentSession?.id ?? 'NULL');
-
     if (!currentSession) {
       console.error('[ClaudeLauncher] No session available - aborting launch');
       return;
     }
 
-    // STEP 2: Build command with guaranteed session
-    console.log('[ClaudeLauncher] Step 2: Building command...');
-
     // Simple logic: if session was already selected (from list) → --resume
     // If session was just created by ensureSession() → --session-id
     const sessionWasPreSelected = session !== null && session.id === currentSession.id;
-    console.log('[ClaudeLauncher] Session pre-selected:', sessionWasPreSelected, 'session prop:', session?.id, 'current:', currentSession.id);
 
     const baseArgs = customArgs ? customArgs.split(' ').filter(Boolean) : [];
     const filteredArgs = baseArgs.filter(arg => arg !== '--dangerously-skip-permissions');
@@ -70,7 +54,7 @@ export function ClaudeLauncher({
       ? [...filteredArgs, '--dangerously-skip-permissions']
       : filteredArgs;
 
-    // Build command: --resume if session was pre-selected, --session-id if newly created
+    // Build command: --resume if pre-selected, --session-id if newly created
     const args: string[] = ['claude'];
     if (sessionWasPreSelected) {
       args.push('--resume', currentSession.id);
@@ -81,13 +65,11 @@ export function ClaudeLauncher({
       args.push(...allArgs);
     }
     const claudeCommand = args.join(' ');
-    console.log('[ClaudeLauncher] Claude command built:', claudeCommand);
 
     const allCommands: string[] = [];
 
     // First: remove MCPs marked for removal
     if (mcpsToRemove.length > 0) {
-      console.log('[ClaudeLauncher] Adding MCP remove commands:', mcpsToRemove);
       const removeCommands = mcpsToRemove.map(name =>
         wrapCommandSafe(`claude mcp remove "${name}"`)
       );
@@ -96,7 +78,6 @@ export function ClaudeLauncher({
 
     // Second: inject MCPs
     if (mcpsToInject.length > 0) {
-      console.log('[ClaudeLauncher] Adding MCP inject commands:', mcpsToInject.map(m => m.name));
       const injectCommands = mcpsToInject.map(mcp => {
         const escapedJson = escapeJsonForShell(mcp.config);
         return wrapCommandSafe(`claude mcp add-json "${mcp.name}" '${escapedJson}' -s user`);
@@ -108,13 +89,9 @@ export function ClaudeLauncher({
     allCommands.push(claudeCommand);
 
     const fullCommand = joinCommandsSequential(allCommands);
-    console.log('[ClaudeLauncher] Full command:', fullCommand);
-    console.log('[ClaudeLauncher] Executing onLaunch callback...');
     onLaunch(fullCommand);
-    console.log('[ClaudeLauncher] Launch complete');
-  }, [projectPath, hasActiveTerminal, mcpsToInject, mcpsToRemove, ensureSession, customArgs, skipPermissions, onLaunch]);
+  }, [session, mcpsToInject, mcpsToRemove, ensureSession, customArgs, skipPermissions, onLaunch]);
 
-  // Build preview command
   // Build preview command (synchronous version for display)
   const previewBaseArgs = customArgs ? customArgs.split(' ').filter(Boolean) : [];
   const previewFiltered = previewBaseArgs.filter(arg => arg !== '--dangerously-skip-permissions');

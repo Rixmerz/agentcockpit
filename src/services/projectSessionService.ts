@@ -136,7 +136,6 @@ async function writeProjectConfig(projectPath: string, config: ProjectConfig): P
 export async function getProjectConfig(projectPath: string): Promise<ProjectConfig> {
   const existing = await readProjectConfig(projectPath);
   if (existing) {
-    // Keep sessions as-is from JSON - wasPreExisting flag determines --resume vs --session-id
     return existing;
   }
 
