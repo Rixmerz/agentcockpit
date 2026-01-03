@@ -159,7 +159,7 @@ export interface AgentPlugin {
   /**
    * Build CLI command with options
    */
-  buildCommand: (options: BuildCommandOptions) => string | Promise<string>;
+  buildCommand: (options: BuildCommandOptions) => string;
 
   /**
    * Check if CLI is installed
