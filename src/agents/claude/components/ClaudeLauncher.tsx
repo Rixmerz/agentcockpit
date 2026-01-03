@@ -59,17 +59,16 @@ export function ClaudeLauncher({
 
     // STEP 2: Build command with guaranteed session
     console.log('[ClaudeLauncher] Step 2: Building command...');
-    // wasPreExisting=true → --resume (existing sessions)
-    // wasPreExisting=false → --session-id (newly created sessions)
+    // buildClaudeCommand now checks actual session existence in ~/.claude/projects/
     const baseArgs = customArgs ? customArgs.split(' ').filter(Boolean) : [];
     const filteredArgs = baseArgs.filter(arg => arg !== '--dangerously-skip-permissions');
     const allArgs = skipPermissions
       ? [...filteredArgs, '--dangerously-skip-permissions']
       : filteredArgs;
 
-    const claudeCommand = buildClaudeCommand({
+    const claudeCommand = await buildClaudeCommand({
+      projectPath: projectPath || undefined,
       sessionId: currentSession.id,
-      resume: currentSession.wasPreExisting ?? false,
       additionalArgs: allArgs.length > 0 ? allArgs : undefined,
     });
     console.log('[ClaudeLauncher] Claude command built:', claudeCommand);
@@ -106,18 +105,16 @@ export function ClaudeLauncher({
   }, [projectPath, hasActiveTerminal, mcpsToInject, mcpsToRemove, ensureSession, customArgs, skipPermissions, onLaunch]);
 
   // Build preview command
-  const previewSession = session ?? { wasPreExisting: false };
+  // Build preview command (synchronous version for display)
   const previewBaseArgs = customArgs ? customArgs.split(' ').filter(Boolean) : [];
   const previewFiltered = previewBaseArgs.filter(arg => arg !== '--dangerously-skip-permissions');
   const previewAllArgs = skipPermissions
     ? [...previewFiltered, '--dangerously-skip-permissions']
     : previewFiltered;
 
-  const claudeCmd = buildClaudeCommand({
-    sessionId: session?.id ?? '<auto-session>',
-    resume: (previewSession as { wasPreExisting?: boolean }).wasPreExisting ?? false,
-    additionalArgs: previewAllArgs.length > 0 ? previewAllArgs : undefined,
-  });
+  // Simple preview: shows that command will use session detection
+  const sessionDisplay = session?.id ? `${session.id.slice(0, 8)}...` : '<auto-session>';
+  const claudeCmd = `claude [--resume|--session-id] ${sessionDisplay}${previewAllArgs.length > 0 ? ' ' + previewAllArgs.join(' ') : ''}`;
 
   const previewParts: string[] = [];
   if (mcpsToRemove.length > 0) previewParts.push(`[-${mcpsToRemove.length}]`);
