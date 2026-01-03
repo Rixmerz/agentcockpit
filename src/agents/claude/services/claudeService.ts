@@ -125,8 +125,19 @@ export async function listClaudeSessions(): Promise<ClaudeSession[]> {
 // ==================== Command Building ====================
 
 /**
+ * Encode project path to Claude CLI format
+ * Claude CLI uses dash-encoding: /Users/path/to/project → -Users-path-to-project
+ */
+function encodeProjectPath(projectPath: string): string {
+  // Replace all forward slashes with dashes
+  // /Users/juan/projects/app → -Users-juan-projects-app
+  return projectPath.replace(/\//g, '-');
+}
+
+/**
  * Check if a session exists in ~/.claude/projects/
  * This is the source of truth for whether a session has been launched before
+ * Sessions are stored as .jsonl files: ~/.claude/projects/<dash-encoded-path>/<session-id>.jsonl
  */
 export async function sessionExistsInClaudeProjects(
   projectPath: string,
@@ -134,9 +145,13 @@ export async function sessionExistsInClaudeProjects(
 ): Promise<boolean> {
   try {
     const home = await homeDir();
-    const encodedProject = encodeURIComponent(projectPath);
-    const sessionPath = `${home}.claude/projects/${encodedProject}/${sessionId}`;
-    return await exists(sessionPath);
+    const encodedProject = encodeProjectPath(projectPath);
+    // Sessions are .jsonl files, not directories
+    const sessionFilePath = `${home}.claude/projects/${encodedProject}/${sessionId}.jsonl`;
+    console.log(`[ClaudeService] Checking session existence: ${sessionFilePath}`);
+    const sessionExists = await exists(sessionFilePath);
+    console.log(`[ClaudeService] Session ${sessionId} exists: ${sessionExists}`);
+    return sessionExists;
   } catch (error) {
     console.warn(`[ClaudeService] Failed to check session existence: ${error}`);
     return false; // If error checking, assume not in use (will create with --session-id)
