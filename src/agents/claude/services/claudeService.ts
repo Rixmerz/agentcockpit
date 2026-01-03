@@ -125,78 +125,19 @@ export async function listClaudeSessions(): Promise<ClaudeSession[]> {
 // ==================== Command Building ====================
 
 /**
- * Encode project path to Claude CLI format
- * Claude CLI uses dash-encoding: /Users/path/to/project → -Users-path-to-project
- */
-function encodeProjectPath(projectPath: string): string {
-  // Replace all forward slashes with dashes
-  // /Users/juan/projects/app → -Users-juan-projects-app
-  return projectPath.replace(/\//g, '-');
-}
-
-/**
- * Check if a session exists in ~/.claude/projects/
- * This is the source of truth for whether a session has been launched before
- * Sessions are stored as .jsonl files: ~/.claude/projects/<dash-encoded-path>/<session-id>.jsonl
- */
-export async function sessionExistsInClaudeProjects(
-  projectPath: string,
-  sessionId: string
-): Promise<boolean> {
-  try {
-    const claudeDir = await getClaudeConfigDir();
-    const encodedProject = encodeProjectPath(projectPath);
-    // Sessions are .jsonl files, not directories
-    const sessionFilePath = `${claudeDir}projects/${encodedProject}/${sessionId}.jsonl`;
-    console.log(`[ClaudeService] Checking session existence: ${sessionFilePath}`);
-    console.log(`[ClaudeService] projectPath received: "${projectPath}"`);
-    console.log(`[ClaudeService] encodedProject: "${encodedProject}"`);
-    const sessionExists = await exists(sessionFilePath);
-    console.log(`[ClaudeService] Session ${sessionId} exists: ${sessionExists}`);
-    return sessionExists;
-  } catch (error) {
-    console.warn(`[ClaudeService] Failed to check session existence: ${error}`);
-    return false; // If error checking, assume not in use (will create with --session-id)
-  }
-}
-
-/**
  * Build Claude CLI command with optional flags
- * Determines whether to use --resume or --session-id based on actual session existence
+ * Note: Session resume logic (--resume vs --session-id) is handled in ClaudeLauncher
+ * based on whether the session was pre-selected from the list or newly created.
  */
-export async function buildClaudeCommand(
-  options: BuildCommandOptions & { projectPath?: string }
-): Promise<string> {
-  console.log('[buildClaudeCommand] Called with options:', {
-    projectPath: options.projectPath,
-    sessionId: options.sessionId,
-    hasProjectPath: !!options.projectPath,
-    hasSessionId: !!options.sessionId
-  });
-
+export function buildClaudeCommand(options: BuildCommandOptions): string {
   const args: string[] = ['claude'];
 
-  // Session handling: --resume for existing sessions, --session-id for new
-  if (options.sessionId) {
-    let shouldResume = false;
-
-    if (options.projectPath) {
-      console.log('[buildClaudeCommand] Checking if session exists in Claude projects...');
-      shouldResume = await sessionExistsInClaudeProjects(options.projectPath, options.sessionId);
-      console.log('[buildClaudeCommand] Session exists result:', shouldResume);
-    } else {
-      console.warn('[buildClaudeCommand] No projectPath provided - defaulting to --session-id');
-    }
-
-    if (shouldResume) {
-      console.log('[buildClaudeCommand] Using --resume');
-      args.push('--resume', options.sessionId);
-    } else {
-      console.log('[buildClaudeCommand] Using --session-id');
-      args.push('--session-id', options.sessionId);
-    }
+  // Session handling
+  if (options.resume && options.sessionId) {
+    args.push('--resume', options.sessionId);
+  } else if (options.sessionId) {
+    args.push('--session-id', options.sessionId);
   } else {
-    console.log('[buildClaudeCommand] No sessionId - using --new-session');
     args.push('--new-session');
   }
 
