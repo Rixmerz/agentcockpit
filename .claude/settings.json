@@ -1,0 +1,63 @@
+{
+  "cfa_version": "3.0",
+  "project_name": "one-term",
+  "source_root": "src",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/cfa_validator.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/cfa_validator.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__cfa__kg_retrieve|mcp__cfa__kg_build|mcp__cfa__workflow_onboard",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/cfa_validator.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/cfa_validator.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/cfa_smart_suggestions.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

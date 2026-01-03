@@ -4,19 +4,19 @@
       "id": "690b11a4-c835-4b99-8e20-3d9cac45ce64",
       "name": "Session 1",
       "createdAt": 1767073498042,
-      "lastUsed": 1767074562313,
+      "lastUsed": 1767399929581,
       "model": "sonnet",
       "wasPreExisting": true,
-      "terminalId": "8629bc84-4c54-486d-93e5-e2ab0d04288f"
+      "terminalId": "c1194d70-3ba8-486b-9afd-38fe55f11bb5"
     },
     {
       "id": "3e6e156d-e57f-449b-97c1-a7829059755f",
       "name": "Session 2",
       "createdAt": 1767075410178,
-      "lastUsed": 1767076335399,
+      "lastUsed": 1767366383037,
       "model": "sonnet",
       "wasPreExisting": true,
-      "terminalId": "84c224ed-28b8-48f7-8a98-7f50184e8f53"
+      "terminalId": "9be65d14-c08c-4e08-a546-d487f934a69c"
     }
   ],
   "defaultModel": "sonnet",
