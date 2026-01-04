@@ -106,11 +106,48 @@ export async function isGitInstalled(): Promise<boolean> {
 }
 
 /**
- * Check if path is a git repository
+ * Check if path is inside a git repository (may be in parent directory)
+ * WARNING: This returns true even if .git is in a parent directory!
+ * Use hasLocalGitRepo() for strict detection.
  */
 export async function isGitRepository(projectPath: string): Promise<boolean> {
   const result = await execGitSafe(projectPath, 'rev-parse --is-inside-work-tree');
   return result === 'true';
+}
+
+/**
+ * Check if path has its OWN .git directory (strict detection)
+ * This does NOT detect parent directory repos - only repos in the exact path.
+ * Use this for project-level git detection to avoid "phantom repo" issues.
+ */
+export async function hasLocalGitRepo(projectPath: string): Promise<boolean> {
+  // Get the git directory path
+  const gitDir = await execGitSafe(projectPath, 'rev-parse --git-dir');
+
+  if (!gitDir) {
+    return false;
+  }
+
+  // If gitDir is ".git", the repo is in projectPath itself
+  if (gitDir === '.git') {
+    return true;
+  }
+
+  // If gitDir is an absolute path, check if it's directly in projectPath
+  // e.g., /Users/juan/project/.git should match /Users/juan/project
+  const normalizedGitDir = gitDir.replace(/\/$/, ''); // Remove trailing slash
+  const expectedGitDir = `${projectPath}/.git`.replace(/\/+/g, '/'); // Normalize slashes
+
+  return normalizedGitDir === expectedGitDir || normalizedGitDir === '.git';
+}
+
+/**
+ * Get the root directory of the git repository
+ * Useful to detect if we're in a subdirectory of a repo
+ */
+export async function getGitRoot(projectPath: string): Promise<string | null> {
+  const result = await execGitSafe(projectPath, 'rev-parse --show-toplevel');
+  return result;
 }
 
 /**
