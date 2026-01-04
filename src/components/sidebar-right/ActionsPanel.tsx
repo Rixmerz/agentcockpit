@@ -14,7 +14,8 @@ import { PortMonitor } from './PortMonitor';
 import { GitSettings } from './GitSettings';
 import { SettingsModal } from '../settings/SettingsModal';
 import { GitHubLoginModal } from '../sidebar-left/GitHubLoginModal';
-import { createSession, updateSessionLastUsed, getSessions, type ProjectSession } from '../../services/projectSessionService';
+import { createSession, updateSessionLastUsed, getSessions, markSessionAsPreExisting, type ProjectSession } from '../../services/projectSessionService';
+import { buildClaudeCommand } from '../../services/claudeService';
 import { getCurrentUser, type GitHubUser } from '../../services/githubService';
 import type { McpServerInfo } from '../../plugins/types/plugin';
 
@@ -134,10 +135,64 @@ export function ActionsPanel({
     await onWriteToTerminal(command + '\n');
   }, [onWriteToTerminal]);
 
-  // Handle session creation
-  const handleSessionCreated = useCallback((session: ProjectSession) => {
+  // Handle session creation - auto-launch Claude to persist session
+  const handleSessionCreated = useCallback(async (session: ProjectSession) => {
     setSelectedSession(session);
-  }, []);
+
+    // Auto-launch only if we have an active terminal and project
+    if (!hasActiveTerminal || !projectPath) {
+      console.log('[ActionsPanel] Cannot auto-launch: no terminal or project');
+      return;
+    }
+
+    console.log('[ActionsPanel] Auto-launching Claude for new session:', session.id);
+
+    // Build command with --session-id (new session)
+    const claudeCommand = buildClaudeCommand({
+      sessionId: session.id,
+      resume: false, // New session, use --session-id
+    });
+
+    // Build full command with MCP operations
+    const allCommands: string[] = [];
+    if (mcpsToRemove.length > 0) {
+      allCommands.push(...mcpsToRemove.map(name =>
+        `claude mcp remove "${name}" 2>/dev/null || true`
+      ));
+    }
+    if (mcpsToInject.length > 0) {
+      allCommands.push(...mcpsToInject.map(mcp => {
+        const jsonConfig = JSON.stringify(mcp.config);
+        const escapedJson = jsonConfig.replace(/'/g, "'\"'\"'");
+        return `claude mcp add-json "${mcp.name}" '${escapedJson}' -s user 2>/dev/null || true`;
+      }));
+    }
+    allCommands.push(claudeCommand);
+
+    const fullCommand = allCommands.join(' ; ');
+
+    // Launch Claude
+    await onWriteToTerminal(fullCommand + '\n');
+
+    // Wait for Claude to initialize (5 seconds)
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // Send "hola" to persist the session
+    await onWriteToTerminal('hola\n');
+
+    // Wait a bit for the message to be processed
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Mark session as pre-existing so future launches use --resume
+    try {
+      await markSessionAsPreExisting(projectPath, session.id);
+      // Update local state to reflect the change
+      setSelectedSession(prev => prev ? { ...prev, wasPreExisting: true } : prev);
+      console.log('[ActionsPanel] Session persisted and marked as pre-existing');
+    } catch (error) {
+      console.error('[ActionsPanel] Failed to mark session as pre-existing:', error);
+    }
+  }, [hasActiveTerminal, projectPath, mcpsToRemove, mcpsToInject, onWriteToTerminal]);
 
   // Handle MCP changes from plugin
   const handleMcpsChange = useCallback((toInject: McpServerInfo[], toRemove: string[]) => {
