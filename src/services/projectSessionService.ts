@@ -194,6 +194,24 @@ export async function updateSessionLastUsed(
   }
 }
 
+/**
+ * Mark a session as pre-existing (already persisted in Claude CLI).
+ * After this, the session will use --resume instead of --session-id.
+ */
+export async function markSessionAsPreExisting(
+  projectPath: string,
+  sessionId: string
+): Promise<void> {
+  const config = await getProjectConfig(projectPath);
+  const session = config.sessions.find(s => s.id === sessionId);
+
+  if (session) {
+    session.wasPreExisting = true;
+    await saveProjectConfig(projectPath, config);
+    console.log(`[ProjectSession] Marked session ${sessionId} as pre-existing`);
+  }
+}
+
 export async function deleteSession(projectPath: string, sessionId: string): Promise<void> {
   const config = await getProjectConfig(projectPath);
   config.sessions = config.sessions.filter(s => s.id !== sessionId);
