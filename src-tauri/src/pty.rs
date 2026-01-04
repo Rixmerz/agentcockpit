@@ -100,15 +100,78 @@ impl PtyManager {
         cmd_builder.env("TERM", "xterm-256color");
         cmd_builder.env("COLORTERM", "truecolor");
 
-        // Ensure common binary paths are in PATH for bundled app
-        // The bundled macOS app doesn't inherit shell PATH, so we add common locations
+        // CRITICAL: macOS bundled apps have limited environment
+        // Copy essential variables explicitly (learned from opcode project)
+        // This prevents TCC permission issues and ensures tools work correctly
+
+        // Copy HOME, USER, SHELL from parent process
+        if let Ok(home) = std::env::var("HOME") {
+            cmd_builder.env("HOME", &home);
+        }
+        if let Ok(user) = std::env::var("USER") {
+            cmd_builder.env("USER", &user);
+        }
+        if let Ok(shell) = std::env::var("SHELL") {
+            cmd_builder.env("SHELL", &shell);
+        }
+
+        // Build comprehensive PATH including NVM, Homebrew, and common locations
+        let home = std::env::var("HOME").unwrap_or_default();
         let current_path = std::env::var("PATH").unwrap_or_default();
-        let extended_path = format!(
-            "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:{}/.local/bin:{}",
-            std::env::var("HOME").unwrap_or_default(),
-            current_path
-        );
+
+        // Detect NVM node path if present
+        let nvm_node_path = std::path::Path::new(&home)
+            .join(".nvm/versions/node")
+            .to_string_lossy()
+            .to_string();
+
+        // Build extended PATH with priority order:
+        // 1. Homebrew (Apple Silicon + Intel)
+        // 2. User local bin
+        // 3. NVM (if exists)
+        // 4. System paths
+        // 5. Current PATH
+        let mut paths = vec![
+            "/opt/homebrew/bin".to_string(),      // Homebrew Apple Silicon
+            "/opt/homebrew/sbin".to_string(),
+            "/usr/local/bin".to_string(),         // Homebrew Intel / system
+            "/usr/local/sbin".to_string(),
+            format!("{}/.local/bin", home),       // User local
+            "/usr/bin".to_string(),
+            "/bin".to_string(),
+            "/usr/sbin".to_string(),
+            "/sbin".to_string(),
+        ];
+
+        // Add NVM default node if it exists
+        if std::path::Path::new(&format!("{}/.nvm", home)).exists() {
+            // Try to find the default node version
+            let nvm_default = format!("{}/.nvm/versions/node", home);
+            if let Ok(entries) = std::fs::read_dir(&nvm_default) {
+                // Get the most recent node version
+                if let Some(entry) = entries.filter_map(|e| e.ok()).last() {
+                    let node_bin = entry.path().join("bin");
+                    if node_bin.exists() {
+                        paths.insert(0, node_bin.to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+
+        // Append current PATH
+        if !current_path.is_empty() {
+            paths.push(current_path);
+        }
+
+        let extended_path = paths.join(":");
         cmd_builder.env("PATH", &extended_path);
+
+        // Copy additional useful environment variables
+        for var in &["LANG", "LC_ALL", "EDITOR", "VISUAL", "XDG_CONFIG_HOME"] {
+            if let Ok(value) = std::env::var(var) {
+                cmd_builder.env(var, &value);
+            }
+        }
 
         // Note: Process group setup (setsid) is handled automatically by portable_pty
         // when spawning the command. The slave PTY makes the child process a session
