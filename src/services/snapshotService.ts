@@ -9,6 +9,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { withTimeout, TimeoutError } from '../core/utils/promiseTimeout';
 import {
   isGitRepository,
+  hasLocalGitRepo,
   initRepository,
   createCommit,
   createTag,
@@ -171,11 +172,15 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
   const releaseLock = await acquireLock(projectPath);
 
   try {
-    // Ensure git repository exists
-    const isRepo = await isGitRepository(projectPath);
-    if (!isRepo) {
-      console.log('[Snapshot] Initializing git repository...');
-      await initRepository(projectPath);
+    // Check for LOCAL git repository (strict detection)
+    // We use hasLocalGitRepo to avoid detecting parent directory repos
+    const hasLocalRepo = await hasLocalGitRepo(projectPath);
+
+    if (!hasLocalRepo) {
+      // DO NOT auto-initialize - user must explicitly init git
+      // This prevents creating repos in wrong directories
+      console.log('[Snapshot] No local git repository - snapshots disabled. User must init git manually.');
+      return null;
     }
 
     // Check git status
@@ -362,8 +367,9 @@ async function getTagInfo(projectPath: string, tagName: string): Promise<{
  * Discovers existing git tags and syncs with metadata
  */
 export async function listSnapshots(projectPath: string): Promise<Snapshot[]> {
-  const isRepo = await isGitRepository(projectPath);
-  if (!isRepo) {
+  // Use strict detection - only local repos, not parent directories
+  const hasLocalRepo = await hasLocalGitRepo(projectPath);
+  if (!hasLocalRepo) {
     return [];
   }
 

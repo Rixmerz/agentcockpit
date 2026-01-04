@@ -1,8 +1,12 @@
 /**
  * Git Settings Component
  *
- * Easy change repository remote URL feature.
- * Allows users to reconfigure origin URL quickly.
+ * Manages git repository configuration with explicit user control.
+ * Features:
+ * - Strict local repo detection (avoids parent directory repos)
+ * - Manual git init button
+ * - Remote URL management
+ * - Clear state indicators
  */
 
 import { useState, useCallback, useEffect } from 'react';
@@ -15,30 +19,40 @@ import {
   Loader2,
   ChevronDown,
   Copy,
+  FolderGit2,
+  Plus,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   setRemoteUrl,
   listRemotes,
   getGitStatus,
-  isGitRepository,
+  hasLocalGitRepo,
+  getGitRoot,
+  initRepository,
 } from '../../services/gitService';
 
 interface GitSettingsProps {
   projectPath: string | null;
+  onGitInit?: () => void; // Callback when git is initialized
 }
 
+type GitRepoState = 'none' | 'local' | 'remote' | 'parent';
+
 interface GitState {
-  isRepo: boolean;
+  repoState: GitRepoState;
+  parentRepoPath: string | null;
   remotes: Array<{ name: string; url: string }>;
   currentBranch: string | null;
   isLoading: boolean;
   error: string | null;
 }
 
-export function GitSettings({ projectPath }: GitSettingsProps) {
+export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [gitState, setGitState] = useState<GitState>({
-    isRepo: false,
+    repoState: 'none',
+    parentRepoPath: null,
     remotes: [],
     currentBranch: null,
     isLoading: false,
@@ -47,14 +61,16 @@ export function GitSettings({ projectPath }: GitSettingsProps) {
 
   const [newRemoteUrl, setNewRemoteUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [copied, setCopied] = useState(false);
 
-  // Load git info
+  // Load git info with strict detection
   const loadGitInfo = useCallback(async () => {
     if (!projectPath) {
       setGitState({
-        isRepo: false,
+        repoState: 'none',
+        parentRepoPath: null,
         remotes: [],
         currentBranch: null,
         isLoading: false,
@@ -66,33 +82,52 @@ export function GitSettings({ projectPath }: GitSettingsProps) {
     setGitState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const isRepo = await isGitRepository(projectPath);
+      // Check for LOCAL repo (strict detection - not parent directories)
+      const hasLocal = await hasLocalGitRepo(projectPath);
 
-      if (!isRepo) {
-        setGitState({
-          isRepo: false,
-          remotes: [],
-          currentBranch: null,
-          isLoading: false,
-          error: null,
-        });
+      if (!hasLocal) {
+        // Check if there's a parent repo (to warn user)
+        const gitRoot = await getGitRoot(projectPath);
+
+        if (gitRoot && gitRoot !== projectPath) {
+          setGitState({
+            repoState: 'parent',
+            parentRepoPath: gitRoot,
+            remotes: [],
+            currentBranch: null,
+            isLoading: false,
+            error: null,
+          });
+        } else {
+          setGitState({
+            repoState: 'none',
+            parentRepoPath: null,
+            remotes: [],
+            currentBranch: null,
+            isLoading: false,
+            error: null,
+          });
+        }
         return;
       }
 
+      // Has local repo - get details
       const [remotes, status] = await Promise.all([
         listRemotes(projectPath),
         getGitStatus(projectPath),
       ]);
 
+      const hasRemote = remotes.length > 0;
+
       setGitState({
-        isRepo: true,
+        repoState: hasRemote ? 'remote' : 'local',
+        parentRepoPath: null,
         remotes,
         currentBranch: status.branch,
         isLoading: false,
         error: null,
       });
 
-      // Set default remote URL if origin exists
       const origin = remotes.find((r: { name: string; url: string }) => r.name === 'origin');
       if (origin) {
         setNewRemoteUrl(origin.url);
@@ -105,6 +140,24 @@ export function GitSettings({ projectPath }: GitSettingsProps) {
       }));
     }
   }, [projectPath]);
+
+  // Handle git init
+  const handleInitGit = useCallback(async () => {
+    if (!projectPath) return;
+    setIsInitializing(true);
+    try {
+      await initRepository(projectPath);
+      await loadGitInfo();
+      onGitInit?.();
+    } catch (error) {
+      setGitState(prev => ({
+        ...prev,
+        error: `Failed to initialize git: ${error}`,
+      }));
+    } finally {
+      setIsInitializing(false);
+    }
+  }, [projectPath, loadGitInfo, onGitInit]);
 
   // Load on mount and when project changes
   useEffect(() => {
@@ -152,6 +205,21 @@ export function GitSettings({ projectPath }: GitSettingsProps) {
   }
 
   const originRemote = gitState.remotes.find(r => r.name === 'origin');
+  const hasLocalOrRemote = gitState.repoState === 'local' || gitState.repoState === 'remote';
+
+  // Status badge based on state
+  const getStatusBadge = () => {
+    switch (gitState.repoState) {
+      case 'remote':
+        return <span className="git-branch-badge git-status-remote">{gitState.currentBranch || 'remote'}</span>;
+      case 'local':
+        return <span className="git-branch-badge git-status-local">{gitState.currentBranch || 'local'}</span>;
+      case 'parent':
+        return <span className="git-branch-badge git-status-warning">parent</span>;
+      default:
+        return <span className="git-branch-badge git-status-none">none</span>;
+    }
+  };
 
   return (
     <div className="git-settings">
@@ -162,9 +230,7 @@ export function GitSettings({ projectPath }: GitSettingsProps) {
         <GitBranch size={14} className="git-settings-icon" />
         <span className="git-settings-title">GIT</span>
 
-        {gitState.isRepo && gitState.currentBranch && (
-          <span className="git-branch-badge">{gitState.currentBranch}</span>
-        )}
+        {getStatusBadge()}
 
         <button
           className="git-refresh-btn"
@@ -194,14 +260,6 @@ export function GitSettings({ projectPath }: GitSettingsProps) {
             </div>
           )}
 
-          {/* Not a repo */}
-          {!gitState.isLoading && !gitState.isRepo && (
-            <div className="git-not-repo">
-              <AlertCircle size={14} />
-              <span>Not a git repository</span>
-            </div>
-          )}
-
           {/* Error */}
           {gitState.error && (
             <div className="git-error">
@@ -210,9 +268,80 @@ export function GitSettings({ projectPath }: GitSettingsProps) {
             </div>
           )}
 
-          {/* Git info */}
-          {!gitState.isLoading && gitState.isRepo && (
+          {/* No repo - show init button */}
+          {!gitState.isLoading && gitState.repoState === 'none' && (
+            <div className="git-no-repo">
+              <div className="git-no-repo-message">
+                <FolderGit2 size={16} />
+                <span>No git repository</span>
+              </div>
+              <p className="git-no-repo-hint">
+                Initialize git to enable snapshots and version control.
+              </p>
+              <button
+                className="git-init-btn"
+                onClick={handleInitGit}
+                disabled={isInitializing}
+              >
+                {isInitializing ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Initializing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus size={14} />
+                    <span>Initialize Git</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Parent repo warning */}
+          {!gitState.isLoading && gitState.repoState === 'parent' && (
+            <div className="git-parent-warning">
+              <div className="git-warning-header">
+                <AlertTriangle size={14} />
+                <span>Git in parent directory</span>
+              </div>
+              <p className="git-warning-text">
+                Found repo at: <code>{gitState.parentRepoPath}</code>
+              </p>
+              <p className="git-warning-hint">
+                This project doesn't have its own git. Create one for snapshots?
+              </p>
+              <button
+                className="git-init-btn"
+                onClick={handleInitGit}
+                disabled={isInitializing}
+              >
+                {isInitializing ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Initializing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus size={14} />
+                    <span>Initialize Git Here</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Has local repo */}
+          {!gitState.isLoading && hasLocalOrRemote && (
             <>
+              {/* Local-only indicator */}
+              {gitState.repoState === 'local' && !originRemote && (
+                <div className="git-local-only">
+                  <FolderGit2 size={12} />
+                  <span>Local repository (snapshots enabled)</span>
+                </div>
+              )}
+
               {/* Current remote */}
               {originRemote && (
                 <div className="git-remote-info">
@@ -231,9 +360,11 @@ export function GitSettings({ projectPath }: GitSettingsProps) {
                 </div>
               )}
 
-              {/* Change remote form */}
+              {/* Add/Change remote form */}
               <div className="git-change-remote">
-                <label className="git-input-label">Change Remote URL</label>
+                <label className="git-input-label">
+                  {originRemote ? 'Change Remote URL' : 'Add Remote (origin)'}
+                </label>
                 <div className="git-input-row">
                   <input
                     type="text"
