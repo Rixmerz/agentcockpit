@@ -1,0 +1,21 @@
+{
+  "id": "gemini-cli",
+  "name": "Gemini CLI",
+  "version": "1.0.0",
+  "description": "Integration with Google's Gemini CLI",
+  "author": "AgentCockpit",
+  "icon": "/gemini-logo.svg",
+  "color": "#3186FF",
+  "cli": {
+    "command": "gemini",
+    "installCheck": "which gemini",
+    "installUrl": "https://github.com/google-gemini/gemini-cli"
+  },
+  "configPaths": {},
+  "quickActions": [],
+  "models": [],
+  "components": {
+    "launcher": true,
+    "mcpPanel": false
+  }
+}
