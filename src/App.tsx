@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { AppProvider, useApp, useTerminalActions, useAppSettings } from './contexts/AppContext';
 import { PluginProvider } from './plugins/context/PluginContext';
 import { claudePlugin } from './agents/claude';
+import { cursorAgentPlugin } from './agents/cursor-agent';
 import { useIdleMode } from './hooks/useIdleMode';
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
@@ -380,7 +381,7 @@ function MainContent() {
 function App() {
   return (
     <AppProvider>
-      <PluginProvider initialPlugins={[claudePlugin]}>
+      <PluginProvider initialPlugins={[claudePlugin, cursorAgentPlugin]}>
         <MainContent />
       </PluginProvider>
     </AppProvider>

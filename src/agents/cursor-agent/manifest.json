@@ -1,0 +1,21 @@
+{
+  "id": "cursor-agent",
+  "name": "Cursor Agent",
+  "version": "1.0.0",
+  "description": "Integration with Cursor Agent CLI",
+  "author": "AgentCockpit",
+  "icon": "/cursor-agent-logo.svg",
+  "color": "#FFFFFF",
+  "cli": {
+    "command": "cursor-agent",
+    "installCheck": "which cursor-agent",
+    "installUrl": "https://cursor.com"
+  },
+  "configPaths": {},
+  "quickActions": [],
+  "models": [],
+  "components": {
+    "launcher": true,
+    "mcpPanel": false
+  }
+}
