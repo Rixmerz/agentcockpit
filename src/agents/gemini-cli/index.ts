@@ -5,6 +5,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { homeDir } from '@tauri-apps/api/path';
 import type { AgentPlugin } from '../../plugins/types/plugin';
 import manifest from './manifest.json';
 import { GeminiLauncher } from './components/GeminiLauncher';
@@ -23,12 +24,25 @@ export const geminiPlugin: AgentPlugin = {
 
   // Validate CLI installation
   validateInstallation: async () => {
-    // Check specific paths where gemini CLI might be installed
+    // Get home directory for ~/.local/bin check
+    let homePath = '';
+    try {
+      homePath = await homeDir();
+    } catch {
+      // Fallback - will be handled by which command
+    }
+
+    // Build paths to check
     const paths = [
       '/usr/local/bin/gemini',
       '/opt/homebrew/bin/gemini',
       '/usr/bin/gemini',
     ];
+
+    // Add home path if available
+    if (homePath) {
+      paths.unshift(`${homePath}.local/bin/gemini`);
+    }
 
     for (const path of paths) {
       try {
@@ -42,7 +56,7 @@ export const geminiPlugin: AgentPlugin = {
       }
     }
 
-    // Also check via simple which
+    // Also check via which (will find it in PATH including ~/.local/bin)
     try {
       const result = await invoke<string>('execute_command', {
         cmd: 'which gemini 2>/dev/null',
