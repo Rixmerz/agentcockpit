@@ -17,6 +17,7 @@ import {
   resetHard,
   getCommitFiles,
   getGitStatus,
+  listCommits,
 } from './gitService';
 
 // Constants
@@ -41,6 +42,21 @@ export interface SnapshotMetadata {
   snapshots: Snapshot[];
   nextVersion: number;
   currentVersion: number | null;
+}
+
+// Unified history item (can be snapshot or manual commit)
+export interface HistoryItem {
+  type: 'snapshot' | 'commit';
+  commitHash: string;
+  shortHash: string;
+  timestamp: number;
+  message: string;
+  // Snapshot-specific
+  version?: number;
+  tag?: string;
+  filesChanged?: string[];
+  // Commit-specific
+  author?: string;
 }
 
 // Lock management to prevent race conditions
@@ -430,6 +446,56 @@ export async function listSnapshots(projectPath: string): Promise<Snapshot[]> {
   }
 
   return allSnapshots;
+}
+
+/**
+ * Get combined history (snapshots + manual commits)
+ * Returns items sorted by timestamp (newest first)
+ */
+export async function getHistory(projectPath: string, limit: number = 50): Promise<HistoryItem[]> {
+  const hasLocalRepo = await hasLocalGitRepo(projectPath);
+  if (!hasLocalRepo) {
+    return [];
+  }
+
+  // Get snapshots and commits in parallel
+  const [snapshots, commits] = await Promise.all([
+    listSnapshots(projectPath),
+    listCommits(projectPath, limit),
+  ]);
+
+  // Create a set of snapshot commit hashes for quick lookup
+  const snapshotHashes = new Set(snapshots.map(s => s.commitHash));
+
+  // Convert snapshots to HistoryItems
+  const snapshotItems: HistoryItem[] = snapshots.map(s => ({
+    type: 'snapshot' as const,
+    commitHash: s.commitHash,
+    shortHash: s.commitHash.substring(0, 7),
+    timestamp: s.timestamp,
+    message: s.message,
+    version: s.version,
+    tag: s.tag,
+    filesChanged: s.filesChanged,
+  }));
+
+  // Convert non-snapshot commits to HistoryItems
+  const commitItems: HistoryItem[] = commits
+    .filter(c => !snapshotHashes.has(c.hash)) // Exclude commits that are snapshots
+    .map(c => ({
+      type: 'commit' as const,
+      commitHash: c.hash,
+      shortHash: c.shortHash,
+      timestamp: c.timestamp,
+      message: c.message,
+      author: c.author,
+    }));
+
+  // Merge and sort by timestamp (newest first)
+  const allItems = [...snapshotItems, ...commitItems];
+  allItems.sort((a, b) => b.timestamp - a.timestamp);
+
+  return allItems.slice(0, limit);
 }
 
 /**
