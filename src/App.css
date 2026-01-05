@@ -1453,6 +1453,105 @@ input::placeholder {
   to { transform: rotate(360deg); }
 }
 
+/* --- History Panel (Snapshots + Commits) --- */
+
+/* Header counts */
+.snapshot-panel-counts {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.snapshot-panel-counts .count-snapshots,
+.snapshot-panel-counts .count-commits {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 600;
+  border-radius: 7px;
+}
+
+.snapshot-panel-counts .count-snapshots {
+  background: rgba(0, 212, 170, 0.2);
+  color: var(--accent);
+}
+
+.snapshot-panel-counts .count-commits {
+  background: rgba(139, 92, 246, 0.2);
+  color: #8b5cf6;
+}
+
+/* History type icon */
+.history-type-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.snapshot-panel-item.snapshot .history-type-icon {
+  color: var(--accent);
+}
+
+.snapshot-panel-item.commit .history-type-icon {
+  color: #8b5cf6;
+}
+
+/* History label (V# or hash) */
+.history-label {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 11px;
+  min-width: 36px;
+}
+
+.snapshot-panel-item.snapshot .history-label {
+  color: var(--accent);
+}
+
+.snapshot-panel-item.commit .history-label {
+  color: #8b5cf6;
+  font-weight: 500;
+}
+
+/* Commit message */
+.commit-message {
+  flex: 1;
+  font-size: 10px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* Commit item styling */
+.snapshot-panel-item.commit {
+  opacity: 0.8;
+}
+
+.snapshot-panel-item.commit::before {
+  border-color: #8b5cf6;
+  background: var(--bg-panel);
+  width: 8px;
+  height: 8px;
+}
+
+.snapshot-panel-item.commit:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.snapshot-panel-item.commit:hover:not(:disabled)::before {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 6px rgba(139, 92, 246, 0.5);
+}
+
 /* --- PROJECT OPENER - Tabbed Interface --- */
 .project-opener {
   display: flex;
