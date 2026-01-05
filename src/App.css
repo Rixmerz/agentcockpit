@@ -3798,6 +3798,130 @@ input[type="checkbox"] {
   color: #6b7280;
 }
 
+/* Git Changes Badge (header) */
+.git-changes-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  border-radius: 8px;
+}
+
+/* Git Sync Indicators (header) */
+.git-sync-indicators {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.git-sync-ahead,
+.git-sync-behind {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.git-sync-ahead {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.git-sync-behind {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* Git Changes Summary (expanded) */
+.git-changes-summary {
+  padding: 8px;
+  background: rgba(39, 39, 42, 0.3);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.git-changes-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.git-changes-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.git-change-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.git-change-item.git-staged {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.git-change-item.git-modified {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.git-change-item.git-untracked {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+/* Git Sync Summary (expanded) */
+.git-sync-summary {
+  padding: 6px 8px;
+  background: rgba(39, 39, 42, 0.2);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.git-sync-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.git-sync-status.git-synced {
+  color: #22c55e;
+}
+
+.git-sync-status.git-out-of-sync {
+  display: flex;
+  gap: 12px;
+}
+
+.git-sync-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+}
+
+.git-sync-detail svg {
+  flex-shrink: 0;
+}
+
 /* Git No Repo / Init Section */
 .git-no-repo {
   display: flex;

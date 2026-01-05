@@ -22,6 +22,11 @@ import {
   FolderGit2,
   Plus,
   AlertTriangle,
+  ArrowUp,
+  ArrowDown,
+  FileEdit,
+  FilePlus,
+  FileCheck,
 } from 'lucide-react';
 import {
   setRemoteUrl,
@@ -30,6 +35,8 @@ import {
   hasLocalGitRepo,
   getGitRoot,
   initRepository,
+  getSyncStatus,
+  type SyncStatus,
 } from '../../services/gitService';
 
 interface GitSettingsProps {
@@ -46,6 +53,12 @@ interface GitState {
   currentBranch: string | null;
   isLoading: boolean;
   error: string | null;
+  // Change counts
+  modifiedCount: number;
+  stagedCount: number;
+  untrackedCount: number;
+  // Sync status
+  syncStatus: SyncStatus | null;
 }
 
 export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
@@ -57,6 +70,10 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
     currentBranch: null,
     isLoading: false,
     error: null,
+    modifiedCount: 0,
+    stagedCount: 0,
+    untrackedCount: 0,
+    syncStatus: null,
   });
 
   const [newRemoteUrl, setNewRemoteUrl] = useState('');
@@ -75,6 +92,10 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
         currentBranch: null,
         isLoading: false,
         error: null,
+        modifiedCount: 0,
+        stagedCount: 0,
+        untrackedCount: 0,
+        syncStatus: null,
       });
       return;
     }
@@ -97,6 +118,10 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
             currentBranch: null,
             isLoading: false,
             error: null,
+            modifiedCount: 0,
+            stagedCount: 0,
+            untrackedCount: 0,
+            syncStatus: null,
           });
         } else {
           setGitState({
@@ -106,15 +131,20 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
             currentBranch: null,
             isLoading: false,
             error: null,
+            modifiedCount: 0,
+            stagedCount: 0,
+            untrackedCount: 0,
+            syncStatus: null,
           });
         }
         return;
       }
 
       // Has local repo - get details
-      const [remotes, status] = await Promise.all([
+      const [remotes, status, syncStatus] = await Promise.all([
         listRemotes(projectPath),
         getGitStatus(projectPath),
+        getSyncStatus(projectPath),
       ]);
 
       const hasRemote = remotes.length > 0;
@@ -126,6 +156,10 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
         currentBranch: status.branch,
         isLoading: false,
         error: null,
+        modifiedCount: status.modifiedFiles.length,
+        stagedCount: status.stagedFiles.length,
+        untrackedCount: status.untrackedFiles.length,
+        syncStatus,
       });
 
       const origin = remotes.find((r: { name: string; url: string }) => r.name === 'origin');
@@ -207,6 +241,9 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
   const originRemote = gitState.remotes.find(r => r.name === 'origin');
   const hasLocalOrRemote = gitState.repoState === 'local' || gitState.repoState === 'remote';
 
+  // Total changes count for header badge
+  const totalChanges = gitState.modifiedCount + gitState.stagedCount + gitState.untrackedCount;
+
   // Status badge based on state
   const getStatusBadge = () => {
     switch (gitState.repoState) {
@@ -221,6 +258,31 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
     }
   };
 
+  // Sync status indicators (ahead/behind)
+  const getSyncIndicators = () => {
+    if (!gitState.syncStatus || !gitState.syncStatus.hasRemote) return null;
+
+    const { ahead, behind } = gitState.syncStatus;
+    if (ahead === 0 && behind === 0) return null;
+
+    return (
+      <div className="git-sync-indicators">
+        {ahead > 0 && (
+          <span className="git-sync-ahead" title={`${ahead} commit(s) ahead of remote`}>
+            <ArrowUp size={10} />
+            {ahead}
+          </span>
+        )}
+        {behind > 0 && (
+          <span className="git-sync-behind" title={`${behind} commit(s) behind remote`}>
+            <ArrowDown size={10} />
+            {behind}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="git-settings">
       <div
@@ -231,6 +293,16 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
         <span className="git-settings-title">GIT</span>
 
         {getStatusBadge()}
+
+        {/* Change count badge */}
+        {hasLocalOrRemote && totalChanges > 0 && (
+          <span className="git-changes-badge" title={`${totalChanges} pending change(s)`}>
+            {totalChanges}
+          </span>
+        )}
+
+        {/* Sync indicators */}
+        {getSyncIndicators()}
 
         <button
           className="git-refresh-btn"
@@ -334,6 +406,60 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
           {/* Has local repo */}
           {!gitState.isLoading && hasLocalOrRemote && (
             <>
+              {/* Changes summary */}
+              {totalChanges > 0 && (
+                <div className="git-changes-summary">
+                  <div className="git-changes-title">Pending Changes</div>
+                  <div className="git-changes-list">
+                    {gitState.stagedCount > 0 && (
+                      <div className="git-change-item git-staged">
+                        <FileCheck size={12} />
+                        <span>{gitState.stagedCount} staged</span>
+                      </div>
+                    )}
+                    {gitState.modifiedCount > 0 && (
+                      <div className="git-change-item git-modified">
+                        <FileEdit size={12} />
+                        <span>{gitState.modifiedCount} modified</span>
+                      </div>
+                    )}
+                    {gitState.untrackedCount > 0 && (
+                      <div className="git-change-item git-untracked">
+                        <FilePlus size={12} />
+                        <span>{gitState.untrackedCount} untracked</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Sync status details */}
+              {gitState.syncStatus?.hasRemote && (
+                <div className="git-sync-summary">
+                  {gitState.syncStatus.ahead === 0 && gitState.syncStatus.behind === 0 ? (
+                    <div className="git-sync-status git-synced">
+                      <Check size={12} />
+                      <span>Up to date with {gitState.syncStatus.remoteBranch}</span>
+                    </div>
+                  ) : (
+                    <div className="git-sync-status git-out-of-sync">
+                      {gitState.syncStatus.ahead > 0 && (
+                        <span className="git-sync-detail">
+                          <ArrowUp size={12} />
+                          {gitState.syncStatus.ahead} to push
+                        </span>
+                      )}
+                      {gitState.syncStatus.behind > 0 && (
+                        <span className="git-sync-detail">
+                          <ArrowDown size={12} />
+                          {gitState.syncStatus.behind} to pull
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Local-only indicator */}
               {gitState.repoState === 'local' && !originRemote && (
                 <div className="git-local-only">
