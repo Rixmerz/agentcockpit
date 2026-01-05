@@ -196,8 +196,25 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
   // Load on mount and when project changes
   useEffect(() => {
     console.log('[GitSettings] projectPath changed:', projectPath);
-    setNewRemoteUrl(''); // Reset remote URL when project changes
+
+    // IMMEDIATELY reset all state when project changes
+    setNewRemoteUrl('');
     setSaveStatus('idle');
+    setCopied(false);
+    setGitState({
+      repoState: 'none',
+      parentRepoPath: null,
+      remotes: [],
+      currentBranch: null,
+      isLoading: true, // Show loading while we fetch new data
+      error: null,
+      modifiedCount: 0,
+      stagedCount: 0,
+      untrackedCount: 0,
+      syncStatus: null,
+    });
+
+    // Then load the new project's git info
     loadGitInfo();
   }, [projectPath, loadGitInfo]);
 
