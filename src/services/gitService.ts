@@ -383,7 +383,8 @@ export interface SyncStatus {
 
 /**
  * Get sync status with remote (ahead/behind commits)
- * Returns null if not a repo or no remote configured
+ * Uses local tracking info only - no network requests.
+ * Returns null if not a repo or no remote configured.
  */
 export async function getSyncStatus(projectPath: string, remoteName: string = 'origin'): Promise<SyncStatus | null> {
   const isRepo = await hasLocalGitRepo(projectPath);
@@ -403,21 +404,28 @@ export async function getSyncStatus(projectPath: string, remoteName: string = 'o
   const branch = await execGitSafe(projectPath, 'rev-parse --abbrev-ref HEAD');
   if (!branch) return null;
 
-  const remoteBranch = `${remoteName}/${branch}`;
+  // Get the upstream tracking branch (if set)
+  const upstream = await execGitSafe(projectPath, `rev-parse --abbrev-ref ${branch}@{upstream}`);
 
-  // Fetch to get latest remote state (silent, don't fail if offline)
-  await execGitSafe(projectPath, `fetch ${remoteName} --quiet`);
-
-  // Get ahead/behind counts
-  const result = await execGitSafe(projectPath, `rev-list --left-right --count ${branch}...${remoteBranch}`);
-
-  if (!result) {
-    // Remote branch might not exist yet
+  if (!upstream) {
+    // No upstream tracking branch configured
     return {
       ahead: 0,
       behind: 0,
       hasRemote: true,
       remoteBranch: null,
+    };
+  }
+
+  // Get ahead/behind counts using local refs (no network)
+  const result = await execGitSafe(projectPath, `rev-list --left-right --count ${branch}...${upstream}`);
+
+  if (!result) {
+    return {
+      ahead: 0,
+      behind: 0,
+      hasRemote: true,
+      remoteBranch: upstream,
     };
   }
 
@@ -427,7 +435,7 @@ export async function getSyncStatus(projectPath: string, remoteName: string = 'o
     ahead: ahead || 0,
     behind: behind || 0,
     hasRemote: true,
-    remoteBranch,
+    remoteBranch: upstream,
   };
 }
 
