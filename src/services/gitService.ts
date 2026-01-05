@@ -372,6 +372,66 @@ export async function setRemoteUrl(projectPath: string, url: string, remoteName:
 }
 
 /**
+ * Sync status with remote
+ */
+export interface SyncStatus {
+  ahead: number;
+  behind: number;
+  hasRemote: boolean;
+  remoteBranch: string | null;
+}
+
+/**
+ * Get sync status with remote (ahead/behind commits)
+ * Returns null if not a repo or no remote configured
+ */
+export async function getSyncStatus(projectPath: string, remoteName: string = 'origin'): Promise<SyncStatus | null> {
+  const isRepo = await hasLocalGitRepo(projectPath);
+  if (!isRepo) return null;
+
+  const remoteExists = await hasRemote(projectPath, remoteName);
+  if (!remoteExists) {
+    return {
+      ahead: 0,
+      behind: 0,
+      hasRemote: false,
+      remoteBranch: null,
+    };
+  }
+
+  // Get current branch
+  const branch = await execGitSafe(projectPath, 'rev-parse --abbrev-ref HEAD');
+  if (!branch) return null;
+
+  const remoteBranch = `${remoteName}/${branch}`;
+
+  // Fetch to get latest remote state (silent, don't fail if offline)
+  await execGitSafe(projectPath, `fetch ${remoteName} --quiet`);
+
+  // Get ahead/behind counts
+  const result = await execGitSafe(projectPath, `rev-list --left-right --count ${branch}...${remoteBranch}`);
+
+  if (!result) {
+    // Remote branch might not exist yet
+    return {
+      ahead: 0,
+      behind: 0,
+      hasRemote: true,
+      remoteBranch: null,
+    };
+  }
+
+  const [ahead, behind] = result.trim().split(/\s+/).map(Number);
+
+  return {
+    ahead: ahead || 0,
+    behind: behind || 0,
+    hasRemote: true,
+    remoteBranch,
+  };
+}
+
+/**
  * Stage all changes
  */
 export async function stageAll(projectPath: string): Promise<void> {
