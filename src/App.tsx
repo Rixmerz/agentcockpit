@@ -4,6 +4,7 @@ import { AppProvider, useApp, useTerminalActions, useAppSettings } from './conte
 import { PluginProvider } from './plugins/context/PluginContext';
 import { claudePlugin } from './agents/claude';
 import { cursorAgentPlugin } from './agents/cursor-agent';
+import { geminiPlugin } from './agents/gemini-cli';
 import { useIdleMode } from './hooks/useIdleMode';
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
@@ -381,7 +382,7 @@ function MainContent() {
 function App() {
   return (
     <AppProvider>
-      <PluginProvider initialPlugins={[claudePlugin, cursorAgentPlugin]}>
+      <PluginProvider initialPlugins={[claudePlugin, cursorAgentPlugin, geminiPlugin]}>
         <MainContent />
       </PluginProvider>
     </AppProvider>
