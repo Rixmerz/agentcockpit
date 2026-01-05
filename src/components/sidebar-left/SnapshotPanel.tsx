@@ -1,13 +1,16 @@
 /**
- * Snapshot Panel
+ * History Panel (formerly Snapshot Panel)
  *
- * Shows snapshot versions (V1, V2, V3...) in the left sidebar.
- * Allows restoring to previous versions.
+ * Shows version history including:
+ * - Snapshots (V1, V2, V3...) - automatic saves before agent interactions
+ * - Manual commits - user commits made outside of snapshots
+ *
+ * Allows restoring to previous snapshot versions.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { History, RotateCcw, Check, Loader2, AlertCircle } from 'lucide-react';
-import { listSnapshots, restoreSnapshot, getCurrentVersion, type Snapshot } from '../../services/snapshotService';
+import { History, RotateCcw, Check, Loader2, AlertCircle, GitCommit, Camera } from 'lucide-react';
+import { getHistory, restoreSnapshot, getCurrentVersion, type HistoryItem } from '../../services/snapshotService';
 import { useSnapshotEvent, snapshotEvents } from '../../core/utils/eventBus';
 
 interface SnapshotPanelProps {
@@ -29,31 +32,37 @@ function formatRelativeTime(timestamp: number): string {
   return 'ahora';
 }
 
+// Truncate commit message to fit in the panel
+function truncateMessage(message: string, maxLength: number = 25): string {
+  if (message.length <= maxLength) return message;
+  return message.substring(0, maxLength - 3) + '...';
+}
+
 export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRestoring, setIsRestoring] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load snapshots
-  const loadSnapshots = useCallback(async () => {
+  // Load history
+  const loadHistory = useCallback(async () => {
     if (!projectPath) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const [snapshotList, current] = await Promise.all([
-        listSnapshots(projectPath),
+      const [history, current] = await Promise.all([
+        getHistory(projectPath, 50),
         getCurrentVersion(projectPath),
       ]);
 
-      setSnapshots(snapshotList);
+      setHistoryItems(history);
       setCurrentVersion(current);
     } catch (err) {
       console.error('[SnapshotPanel] Load error:', err);
-      setError('Error cargando snapshots');
+      setError('Error cargando historial');
     } finally {
       setIsLoading(false);
     }
@@ -61,49 +70,50 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
 
   // Initial load
   useEffect(() => {
-    loadSnapshots();
-  }, [loadSnapshots]);
+    loadHistory();
+  }, [loadHistory]);
 
   // Listen for new snapshots - delay to ensure metadata is written
   useSnapshotEvent('created', (data) => {
     if (data.projectPath === projectPath) {
       // Small delay to ensure metadata file is fully written before reading
-      setTimeout(() => loadSnapshots(), 500);
+      setTimeout(() => loadHistory(), 500);
     }
-  }, [projectPath, loadSnapshots]);
+  }, [projectPath, loadHistory]);
 
   // Listen for restored snapshots
   useSnapshotEvent('restored', (data) => {
     if (data.projectPath === projectPath) {
       setCurrentVersion(data.version);
-      loadSnapshots();
+      loadHistory();
     }
-  }, [projectPath, loadSnapshots]);
+  }, [projectPath, loadHistory]);
 
   // Listen for cleanup events (when pushed snapshots are removed)
   useSnapshotEvent('cleanup', (data) => {
     if (data.projectPath === projectPath) {
-      loadSnapshots();
+      loadHistory();
     }
-  }, [projectPath, loadSnapshots]);
+  }, [projectPath, loadHistory]);
 
-  // Handle restore
-  const handleRestore = useCallback(async (version: number) => {
-    if (version === currentVersion) return;
+  // Handle restore (only for snapshots)
+  const handleRestore = useCallback(async (item: HistoryItem) => {
+    if (item.type !== 'snapshot' || !item.version) return;
+    if (item.version === currentVersion) return;
 
-    setIsRestoring(version);
+    setIsRestoring(item.version);
     setError(null);
 
     try {
-      await restoreSnapshot(projectPath, version, true);
+      await restoreSnapshot(projectPath, item.version, true);
 
       snapshotEvents.emit('restored', {
-        version,
+        version: item.version,
         projectPath,
       });
 
-      setCurrentVersion(version);
-      onRestore?.(version);
+      setCurrentVersion(item.version);
+      onRestore?.(item.version);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError(`Error: ${errorMsg}`);
@@ -112,13 +122,17 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
     }
   }, [projectPath, currentVersion, onRestore]);
 
-  // Don't show if loading or no snapshots
+  // Count snapshots vs commits
+  const snapshotCount = historyItems.filter(i => i.type === 'snapshot').length;
+  const commitCount = historyItems.filter(i => i.type === 'commit').length;
+
+  // Don't show if loading
   if (isLoading) {
     return (
       <div className="snapshot-panel">
         <div className="snapshot-panel-header">
           <History size={12} />
-          <span>Versiones</span>
+          <span>Historial</span>
         </div>
         <div className="snapshot-panel-loading">
           <Loader2 size={14} className="animate-spin" />
@@ -127,15 +141,15 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
     );
   }
 
-  if (snapshots.length === 0) {
+  if (historyItems.length === 0) {
     return (
       <div className="snapshot-panel">
         <div className="snapshot-panel-header">
           <History size={12} />
-          <span>Versiones</span>
+          <span>Historial</span>
         </div>
         <div className="snapshot-panel-empty">
-          Sin versiones guardadas
+          Sin historial
         </div>
       </div>
     );
@@ -145,7 +159,11 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
     <div className="snapshot-panel">
       <div className="snapshot-panel-header">
         <History size={12} />
-        <span>Versiones ({snapshots.length})</span>
+        <span>Historial</span>
+        <span className="snapshot-panel-counts">
+          {snapshotCount > 0 && <span className="count-snapshots" title="Snapshots">{snapshotCount}</span>}
+          {commitCount > 0 && <span className="count-commits" title="Commits">{commitCount}</span>}
+        </span>
       </div>
 
       {error && (
@@ -156,25 +174,60 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
       )}
 
       <div className="snapshot-panel-list">
-        {snapshots.slice().reverse().map(snapshot => (
-          <button
-            key={snapshot.version}
-            className={`snapshot-panel-item ${snapshot.version === currentVersion ? 'current' : ''}`}
-            onClick={() => handleRestore(snapshot.version)}
-            disabled={isRestoring !== null || snapshot.version === currentVersion}
-            title={`${snapshot.filesChanged.length} archivos cambiados`}
-          >
-            <span className="snapshot-version">V{snapshot.version}</span>
-            <span className="snapshot-time">{formatRelativeTime(snapshot.timestamp)}</span>
-            {isRestoring === snapshot.version ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : snapshot.version === currentVersion ? (
-              <Check size={12} className="snapshot-current-icon" />
-            ) : (
-              <RotateCcw size={12} className="snapshot-restore-icon" />
-            )}
-          </button>
-        ))}
+        {historyItems.map((item) => {
+          const isSnapshot = item.type === 'snapshot';
+          const isCurrent = isSnapshot && item.version === currentVersion;
+          const canRestore = isSnapshot && !isCurrent;
+
+          return (
+            <button
+              key={item.commitHash}
+              className={`snapshot-panel-item ${item.type} ${isCurrent ? 'current' : ''}`}
+              onClick={() => canRestore && handleRestore(item)}
+              disabled={isRestoring !== null || !canRestore}
+              title={isSnapshot
+                ? `V${item.version}: ${item.filesChanged?.length || 0} archivos cambiados`
+                : `${item.shortHash}: ${item.message}`
+              }
+            >
+              {/* Type indicator */}
+              <span className="history-type-icon">
+                {isSnapshot ? (
+                  <Camera size={10} />
+                ) : (
+                  <GitCommit size={10} />
+                )}
+              </span>
+
+              {/* Version/Hash */}
+              <span className="history-label">
+                {isSnapshot ? `V${item.version}` : item.shortHash}
+              </span>
+
+              {/* Message (for commits) or time */}
+              {isSnapshot ? (
+                <span className="snapshot-time">{formatRelativeTime(item.timestamp)}</span>
+              ) : (
+                <span className="commit-message" title={item.message}>
+                  {truncateMessage(item.message)}
+                </span>
+              )}
+
+              {/* Action icon */}
+              {isSnapshot && (
+                <>
+                  {isRestoring === item.version ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : isCurrent ? (
+                    <Check size={12} className="snapshot-current-icon" />
+                  ) : (
+                    <RotateCcw size={12} className="snapshot-restore-icon" />
+                  )}
+                </>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
