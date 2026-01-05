@@ -8,9 +8,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { withTimeout, TimeoutError } from '../core/utils/promiseTimeout';
 import {
-  isGitRepository,
   hasLocalGitRepo,
-  initRepository,
   createCommit,
   createTag,
   deleteTag,
