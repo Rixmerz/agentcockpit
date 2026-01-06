@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { AppProvider, useApp, useTerminalActions, useAppSettings } from './contexts/AppContext';
 import { PluginProvider } from './plugins/context/PluginContext';
 import { claudePlugin } from './agents/claude';
@@ -43,6 +43,20 @@ function MainContent() {
   const { isIdle, signalActivity } = useIdleMode({
     idleTimeout: idleTimeout > 0 ? idleTimeout * 1000 : 0 // Convert to ms, 0 = disabled
   });
+
+  // Convert local file paths to asset:// protocol for Tauri
+  const getBackgroundUrl = useCallback((path: string | undefined): string => {
+    if (!path) return 'none';
+    // URLs (http/https) use directly
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return `url("${path}")`;
+    }
+    // Local paths need conversion to asset:// protocol
+    if (path.startsWith('/')) {
+      return `url("${convertFileSrc(path)}")`;
+    }
+    return `url("${path}")`;
+  }, []);
 
   // Terminal name editing
   const [editingTerminalId, setEditingTerminalId] = useState<string | null>(null);
@@ -161,7 +175,7 @@ function MainContent() {
     <div
       className={`app ${isIdle ? 'app--idle' : ''}`}
       style={{
-        backgroundImage: backgroundImage ? `url("${backgroundImage}")` : 'none',
+        backgroundImage: getBackgroundUrl(backgroundImage),
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
