@@ -6,6 +6,81 @@ use std::sync::Arc;
 use std::thread;
 use tauri::{AppHandle, Emitter, State};
 
+/// Get the NVM node bin path, respecting user's default alias or falling back to latest version
+/// This ensures bundled apps use the same node version as the user's terminal
+fn get_nvm_node_bin(home: &str) -> Option<String> {
+    let nvm_dir = format!("{}/.nvm", home);
+    let versions_dir = format!("{}/versions/node", nvm_dir);
+
+    if !std::path::Path::new(&nvm_dir).exists() {
+        return None;
+    }
+
+    // Get all installed node versions
+    let mut versions: Vec<String> = match std::fs::read_dir(&versions_dir) {
+        Ok(entries) => entries
+            .filter_map(|e| e.ok())
+            .filter_map(|e| e.file_name().into_string().ok())
+            .filter(|name| name.starts_with('v'))
+            .collect(),
+        Err(_) => return None,
+    };
+
+    if versions.is_empty() {
+        return None;
+    }
+
+    // Try to read the default alias
+    let default_alias = std::fs::read_to_string(format!("{}/alias/default", nvm_dir))
+        .ok()
+        .map(|s| s.trim().to_string());
+
+    let selected_version = if let Some(alias) = default_alias {
+        // Find a version that matches the alias prefix (e.g., "22" matches "v22.16.0")
+        let matching = versions.iter().find(|v| {
+            let version_num = v.trim_start_matches('v');
+            version_num.starts_with(&alias) || version_num == alias
+        });
+
+        if let Some(v) = matching {
+            v.clone()
+        } else {
+            // No match for alias, fall back to sorting and picking latest
+            sort_versions_semver(&mut versions);
+            versions.last()?.clone()
+        }
+    } else {
+        // No default alias, sort and pick latest
+        sort_versions_semver(&mut versions);
+        versions.last()?.clone()
+    };
+
+    let node_bin = format!("{}/{}/bin", versions_dir, selected_version);
+    if std::path::Path::new(&node_bin).exists() {
+        Some(node_bin)
+    } else {
+        None
+    }
+}
+
+/// Sort node versions by semver (e.g., v18.20.8 < v20.19.5 < v22.16.0)
+fn sort_versions_semver(versions: &mut Vec<String>) {
+    versions.sort_by(|a, b| {
+        let parse_version = |v: &str| -> (u32, u32, u32) {
+            let nums: Vec<u32> = v.trim_start_matches('v')
+                .split('.')
+                .filter_map(|s| s.parse().ok())
+                .collect();
+            (
+                nums.first().copied().unwrap_or(0),
+                nums.get(1).copied().unwrap_or(0),
+                nums.get(2).copied().unwrap_or(0),
+            )
+        };
+        parse_version(a).cmp(&parse_version(b))
+    });
+}
+
 /// Find the last valid UTF-8 character boundary in a byte slice.
 /// Returns the number of bytes that form complete UTF-8 characters.
 fn find_utf8_boundary(bytes: &[u8]) -> usize {
@@ -119,16 +194,10 @@ impl PtyManager {
         let home = std::env::var("HOME").unwrap_or_default();
         let current_path = std::env::var("PATH").unwrap_or_default();
 
-        // Detect NVM node path if present
-        let nvm_node_path = std::path::Path::new(&home)
-            .join(".nvm/versions/node")
-            .to_string_lossy()
-            .to_string();
-
         // Build extended PATH with priority order:
-        // 1. Homebrew (Apple Silicon + Intel)
-        // 2. User local bin
-        // 3. NVM (if exists)
+        // 1. NVM node bin (respects user's default alias)
+        // 2. Homebrew (Apple Silicon + Intel)
+        // 3. User local bin
         // 4. System paths
         // 5. Current PATH
         let mut paths = vec![
@@ -143,19 +212,9 @@ impl PtyManager {
             "/sbin".to_string(),
         ];
 
-        // Add NVM default node if it exists
-        if std::path::Path::new(&format!("{}/.nvm", home)).exists() {
-            // Try to find the default node version
-            let nvm_default = format!("{}/.nvm/versions/node", home);
-            if let Ok(entries) = std::fs::read_dir(&nvm_default) {
-                // Get the most recent node version
-                if let Some(entry) = entries.filter_map(|e| e.ok()).last() {
-                    let node_bin = entry.path().join("bin");
-                    if node_bin.exists() {
-                        paths.insert(0, node_bin.to_string_lossy().to_string());
-                    }
-                }
-            }
+        // Add NVM node bin if available (respects user's default alias)
+        if let Some(nvm_bin) = get_nvm_node_bin(&home) {
+            paths.insert(0, nvm_bin);
         }
 
         // Append current PATH
