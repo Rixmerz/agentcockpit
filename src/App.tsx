@@ -40,7 +40,7 @@ function MainContent() {
   const { defaultIDE, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout } = useAppSettings();
 
   // Idle mode - fade UI after configured inactivity (0 = disabled)
-  const { isIdle } = useIdleMode({
+  const { isIdle, signalActivity } = useIdleMode({
     idleTimeout: idleTimeout > 0 ? idleTimeout * 1000 : 0 // Convert to ms, 0 = disabled
   });
 
@@ -349,6 +349,7 @@ function MainContent() {
                   <TerminalView
                     terminalId={terminal.id}
                     workingDir={project.path}
+                    onActivity={signalActivity}
                   />
                 </div>
               ))
