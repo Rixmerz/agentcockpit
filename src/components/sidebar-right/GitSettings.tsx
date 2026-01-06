@@ -36,6 +36,7 @@ import {
   getGitRoot,
   initRepository,
   getSyncStatus,
+  gitPush,
   type SyncStatus,
 } from '../../services/gitService';
 
@@ -79,6 +80,8 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
   const [newRemoteUrl, setNewRemoteUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
+  const [pushStatus, setPushStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [copied, setCopied] = useState(false);
 
@@ -249,6 +252,27 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
       setTimeout(() => setCopied(false), 2000);
     }
   }, [gitState.remotes]);
+
+  // Handle git push
+  const handlePush = useCallback(async () => {
+    if (!projectPath) return;
+
+    setIsPushing(true);
+    setPushStatus('idle');
+
+    try {
+      await gitPush(projectPath);
+      setPushStatus('success');
+      await loadGitInfo(); // Refresh to update ahead/behind counts
+      setTimeout(() => setPushStatus('idle'), 2000);
+    } catch (error) {
+      console.error('[GitSettings] Push failed:', error);
+      setPushStatus('error');
+      setTimeout(() => setPushStatus('idle'), 3000);
+    } finally {
+      setIsPushing(false);
+    }
+  }, [projectPath, loadGitInfo]);
 
   // No project selected
   if (!projectPath) {
@@ -473,6 +497,26 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
                         </span>
                       )}
                     </div>
+                  )}
+                  {/* Push button - only show when there are commits to push */}
+                  {gitState.syncStatus.ahead > 0 && (
+                    <button
+                      className="git-push-btn"
+                      onClick={handlePush}
+                      disabled={isPushing}
+                      title={`Push ${gitState.syncStatus.ahead} commit(s) to ${gitState.syncStatus.remoteBranch}`}
+                    >
+                      {isPushing ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : pushStatus === 'success' ? (
+                        <Check size={12} />
+                      ) : pushStatus === 'error' ? (
+                        <AlertCircle size={12} />
+                      ) : (
+                        <ArrowUp size={12} />
+                      )}
+                      <span>{isPushing ? 'Pushing...' : pushStatus === 'success' ? 'Pushed!' : pushStatus === 'error' ? 'Error' : 'Push'}</span>
+                    </button>
                   )}
                 </div>
               )}
