@@ -12,9 +12,11 @@ interface TerminalViewProps {
   terminalId: string;
   workingDir: string;
   onClose?: () => void;
+  /** Called on user input to signal activity (resets idle timer) */
+  onActivity?: () => void;
 }
 
-export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewProps) {
+export function TerminalView({ terminalId, workingDir, onClose, onActivity }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const initializedRef = useRef(false);
@@ -106,6 +108,8 @@ export function TerminalView({ terminalId, workingDir, onClose }: TerminalViewPr
     // Input
     terminal.onData((data) => {
       write(data).catch(console.error);
+      // Signal activity to reset idle timer
+      onActivity?.();
     });
 
     // Resize
