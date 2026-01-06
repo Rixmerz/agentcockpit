@@ -175,11 +175,11 @@ export function ActionsPanel({
     // Launch Claude
     await onWriteToTerminal(fullCommand + '\n');
 
-    // Wait for Claude to initialize (5 seconds)
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    // Wait for Claude to initialize (2 seconds)
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Send "hola" to persist the session
-    await onWriteToTerminal('hola\n');
+    // Send "hola" to persist the session (using executeAction for proper PTY interaction)
+    await executeAction(onWriteToTerminal, 'hola');
 
     // Wait a bit for the message to be processed
     await new Promise(resolve => setTimeout(resolve, 1000));
