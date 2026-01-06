@@ -610,3 +610,19 @@ export async function getCommitFiles(projectPath: string, commitHash: string): P
   if (!result) return [];
   return result.split('\n').filter(Boolean);
 }
+
+/**
+ * Push commits to remote
+ * Returns the number of commits pushed or throws on error
+ */
+export async function gitPush(projectPath: string, remote = 'origin'): Promise<void> {
+  // Push can take longer - use 30s timeout
+  await withTimeout(
+    invoke<string>('execute_command', {
+      cmd: `git push ${remote}`,
+      cwd: projectPath,
+    }),
+    30000,
+    `git push ${remote}`
+  );
+}

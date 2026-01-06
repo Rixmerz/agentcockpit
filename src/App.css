@@ -4021,6 +4021,32 @@ input[type="checkbox"] {
   flex-shrink: 0;
 }
 
+.git-push-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.git-push-btn:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.25);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.git-push-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Git No Repo / Init Section */
 .git-no-repo {
   display: flex;
