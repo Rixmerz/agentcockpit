@@ -56,10 +56,10 @@ export const geminiPlugin: AgentPlugin = {
       }
     }
 
-    // Also check via which (will find it in PATH including ~/.local/bin)
+    // Check via login shell to get full PATH (includes nvm, etc.)
     try {
       const result = await invoke<string>('execute_command', {
-        cmd: 'which gemini 2>/dev/null',
+        cmd: 'zsh -l -c "which gemini" 2>/dev/null',
         cwd: '/',
       });
       if (result.trim()) return true;
