@@ -301,6 +301,28 @@
   color: var(--error);
 }
 
+/* Terminal Finished Indicator */
+.terminal-finished-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  color: var(--accent);
+  opacity: 0.9;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.7;
+    filter: drop-shadow(0 0 2px var(--accent));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 6px var(--accent));
+  }
+}
+
 
 /* Terminals */
 .terminal-view {
@@ -2666,6 +2688,51 @@ input[type="checkbox"] {
 .settings-radio-item:has(input:checked) span {
   color: var(--text-primary);
   font-weight: 500;
+}
+
+.settings-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(9, 9, 11, 0.5);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.settings-checkbox-item:hover {
+  background: rgba(24, 24, 27, 0.6);
+  border-color: var(--border-strong);
+}
+
+.settings-checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.settings-checkbox-item span {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.settings-checkbox-item:has(input:checked) {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--accent);
+}
+
+.settings-checkbox-item:has(input:checked) span {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.settings-slider-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
 }
 
 .settings-input {
