@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
-import { AppProvider, useApp, useTerminalActions, useAppSettings } from './contexts/AppContext';
+import { AppProvider, useApp, useTerminalActions, useAppSettings, useTerminalActivityState } from './contexts/AppContext';
 import { PluginProvider } from './plugins/context/PluginContext';
 import { claudePlugin } from './agents/claude';
 import { cursorAgentPlugin } from './agents/cursor-agent';
@@ -18,7 +18,8 @@ import {
   Plus,
   X,
   TerminalSquare,
-  Folder
+  Folder,
+  CheckCircle2
 } from 'lucide-react';
 import './App.css';
 
@@ -38,6 +39,7 @@ function MainContent() {
   const { state, activeProject, activeTerminal, addProject, addTerminal, setActiveTerminal, removeTerminal, renameTerminal, removeProject } = useApp();
   const { writeToActiveTerminal, hasActiveTerminal } = useTerminalActions();
   const { defaultIDE, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout } = useAppSettings();
+  const { isTerminalFinished } = useTerminalActivityState();
 
   // Idle mode - fade UI after configured inactivity (0 = disabled)
   const { isIdle, signalActivity } = useIdleMode({
@@ -283,6 +285,12 @@ function MainContent() {
                           }}
                         >
                           {terminal.name}
+                        </span>
+                      )}
+                      {/* Terminal finished indicator */}
+                      {isTerminalFinished(terminal.id) && (
+                        <span className="terminal-finished-indicator" title="Terminal finished">
+                          <CheckCircle2 size={12} />
                         </span>
                       )}
                       <button

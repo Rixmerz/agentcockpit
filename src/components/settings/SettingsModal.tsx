@@ -15,17 +15,23 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     backgroundOpacity,
     terminalOpacity,
     idleTimeout,
+    terminalFinishedSound,
+    terminalFinishedThreshold,
     setDefaultIDE,
     setBackgroundImage,
     setBackgroundOpacity,
     setTerminalOpacity,
     setIdleTimeout,
+    setTerminalFinishedSound,
+    setTerminalFinishedThreshold,
   } = useAppSettings();
 
   const [localImage, setLocalImage] = useState(backgroundImage || '');
   const [localOpacity, setLocalOpacity] = useState(backgroundOpacity);
   const [localTerminalOpacity, setLocalTerminalOpacity] = useState(terminalOpacity);
   const [localIdleTimeout, setLocalIdleTimeout] = useState(idleTimeout);
+  const [localFinishedSound, setLocalFinishedSound] = useState(terminalFinishedSound);
+  const [localFinishedThreshold, setLocalFinishedThreshold] = useState(terminalFinishedThreshold);
 
   // Sync local state when modal opens
   useEffect(() => {
@@ -34,14 +40,18 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
       setLocalOpacity(backgroundOpacity);
       setLocalTerminalOpacity(terminalOpacity);
       setLocalIdleTimeout(idleTimeout);
+      setLocalFinishedSound(terminalFinishedSound);
+      setLocalFinishedThreshold(terminalFinishedThreshold);
     }
-  }, [isOpen, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout]);
+  }, [isOpen, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout, terminalFinishedSound, terminalFinishedThreshold]);
 
   const handleSave = () => {
     setBackgroundImage(localImage || undefined);
     setBackgroundOpacity(localOpacity);
     setTerminalOpacity(localTerminalOpacity);
     setIdleTimeout(localIdleTimeout);
+    setTerminalFinishedSound(localFinishedSound);
+    setTerminalFinishedThreshold(localFinishedThreshold);
     onClose();
   };
 
@@ -50,6 +60,8 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     setLocalOpacity(backgroundOpacity);
     setLocalTerminalOpacity(terminalOpacity);
     setLocalIdleTimeout(idleTimeout);
+    setLocalFinishedSound(terminalFinishedSound);
+    setLocalFinishedThreshold(terminalFinishedThreshold);
     onClose();
   };
 
@@ -194,6 +206,35 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
           <span className="settings-slider-value">
             {localIdleTimeout === 0 ? 'Disabled' : `${localIdleTimeout}s`}
           </span>
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <h3 className="settings-section-title">Terminal Notifications</h3>
+        <p className="settings-section-desc">
+          Alert when terminal output stops (command finishes)
+        </p>
+
+        <label className="settings-checkbox-item">
+          <input
+            type="checkbox"
+            checked={localFinishedSound}
+            onChange={(e) => setLocalFinishedSound(e.target.checked)}
+          />
+          <span>Play sound when terminal finishes</span>
+        </label>
+
+        <div className="settings-slider-container" style={{ marginTop: '12px' }}>
+          <label className="settings-slider-label">Detection delay</label>
+          <input
+            type="range"
+            min="1"
+            max="10"
+            value={localFinishedThreshold}
+            onChange={(e) => setLocalFinishedThreshold(Number(e.target.value))}
+            className="settings-slider"
+          />
+          <span className="settings-slider-value">{localFinishedThreshold}s</span>
         </div>
       </div>
 
