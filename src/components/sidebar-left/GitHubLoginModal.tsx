@@ -191,12 +191,12 @@ export function GitHubLoginModal({
                 <Github size={48} />
               </div>
               <p className="github-description">
-                Conecta tu cuenta de GitHub para clonar repositorios privados
-                y acceder a tus proyectos.
+                Connect your GitHub account to clone private repositories
+                and access your projects.
               </p>
               <button className="btn-primary github-login-btn" onClick={handleStartAuth}>
                 <Github size={18} />
-                Iniciar sesión con GitHub
+                Sign in with GitHub
               </button>
             </div>
           )}
@@ -205,7 +205,7 @@ export function GitHubLoginModal({
           {authState.status === 'loading' && (
             <div className="github-loading">
               <Loader2 size={32} className="animate-spin" />
-              <p>Conectando con GitHub...</p>
+              <p>Connecting to GitHub...</p>
             </div>
           )}
 
@@ -213,7 +213,7 @@ export function GitHubLoginModal({
           {authState.status === 'device_code' && (
             <div className="github-device-code">
               <p className="github-instruction">
-                Ingresa este código en <strong>github.com/login/device</strong>
+                Enter this code at <strong>github.com/login/device</strong>
               </p>
 
               <div className="github-code-box">
@@ -221,31 +221,31 @@ export function GitHubLoginModal({
                 <button
                   className="btn-icon github-copy-btn"
                   onClick={handleCopyCode}
-                  title="Copiar código"
+                  title="Copy code"
                 >
                   {copied ? <Check size={16} /> : <Copy size={16} />}
                 </button>
               </div>
 
               {copied && (
-                <p className="github-copied-notice">Código copiado al portapapeles</p>
+                <p className="github-copied-notice">Code copied to clipboard</p>
               )}
 
               <button className="btn-primary github-open-btn" onClick={handleOpenGitHub}>
                 <ExternalLink size={16} />
-                Abrir GitHub
+                Open GitHub
               </button>
 
               {/* Polling indicator */}
               {authState.polling && (
                 <div className="github-polling-inline">
                   <Loader2 size={14} className="animate-spin" />
-                  <span>Esperando autorización...</span>
+                  <span>Waiting for authorization...</span>
                 </div>
               )}
 
               <p className="github-expires">
-                El código expira en {Math.floor(authState.data.expires_in / 60)} minutos
+                Code expires in {Math.floor(authState.data.expires_in / 60)} minutes
               </p>
             </div>
           )}
@@ -256,7 +256,7 @@ export function GitHubLoginModal({
               <AlertCircle size={32} />
               <p className="github-error-message">{authState.message}</p>
               <button className="btn-secondary" onClick={() => setAuthState({ status: 'idle' })}>
-                Intentar de nuevo
+                Try again
               </button>
             </div>
           )}

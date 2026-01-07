@@ -7,7 +7,7 @@ export async function openFolderDialog(): Promise<string | null> {
   const selected = await open({
     directory: true,
     multiple: false,
-    title: 'Seleccionar carpeta del proyecto',
+    title: 'Select project folder',
   });
 
   return selected as string | null;

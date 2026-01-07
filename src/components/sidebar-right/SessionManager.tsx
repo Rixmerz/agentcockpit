@@ -86,7 +86,7 @@ export function SessionManager({
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleDateString('es', {
+    return date.toLocaleDateString('en', {
       day: '2-digit',
       month: 'short',
       hour: '2-digit',
@@ -102,9 +102,9 @@ export function SessionManager({
     return (
       <div className="session-manager disabled">
         <div className="session-header">
-          <span>Sesiones</span>
+          <span>Sessions</span>
         </div>
-        <div className="session-empty">Selecciona un proyecto</div>
+        <div className="session-empty">Select a project</div>
       </div>
     );
   }
@@ -116,7 +116,7 @@ export function SessionManager({
         onClick={() => setExpanded(!expanded)}
       >
         <span className="session-title">
-          Sesiones ({sessions.length})
+          Sessions ({sessions.length})
         </span>
         <button
           className="session-new-btn"
@@ -124,7 +124,7 @@ export function SessionManager({
             e.stopPropagation();
             handleCreateSession();
           }}
-          title="Nueva sesión"
+          title="New session"
         >
           +
         </button>
@@ -134,12 +134,12 @@ export function SessionManager({
       {expanded && (
         <div className="session-list">
           {isLoading ? (
-            <div className="session-loading">Cargando...</div>
+            <div className="session-loading">Loading...</div>
           ) : sessions.length === 0 ? (
             <div className="session-empty">
-              Sin sesiones previas
+              No previous sessions
               <button className="session-create-btn" onClick={handleCreateSession}>
-                Crear primera sesión
+                Create first session
               </button>
             </div>
           ) : (
@@ -160,7 +160,7 @@ export function SessionManager({
                   <button
                     className="session-delete-btn"
                     onClick={(e) => handleDeleteSession(e, session.id)}
-                    title="Eliminar"
+                    title="Delete"
                   >
                     ×
                   </button>

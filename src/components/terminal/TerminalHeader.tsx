@@ -30,7 +30,7 @@ export function TerminalHeader({
           <button
             className="btn-ide-open"
             onClick={onOpenInIDE}
-            title={`Abrir en ${selectedIDE} (⌘+O)`}
+            title={`Open in ${selectedIDE} (⌘+O)`}
           >
             <ExternalLink size={14} />
             <span>{selectedIDE}</span>
@@ -41,7 +41,7 @@ export function TerminalHeader({
           <button
             className="btn-close"
             onClick={onClose}
-            title="Cerrar terminal"
+            title="Close terminal"
           >
             &times;
           </button>
