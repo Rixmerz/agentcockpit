@@ -1,11 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { open } from '@tauri-apps/plugin-shell';
 import { usePty } from '../../hooks/usePty';
-import { useApp } from '../../contexts/AppContext';
+import { useTerminalActivity } from '../../hooks/useTerminalActivity';
+import { useApp, useAppSettings, useTerminalActivityState } from '../../contexts/AppContext';
+import { playNotificationSound } from '../../services/soundService';
 import '@xterm/xterm/css/xterm.css';
 
 interface TerminalViewProps {
@@ -23,11 +25,48 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
 
   const { registerTerminalWriter, unregisterTerminalWriter, registerPtyId } = useApp();
 
+  // Terminal notification settings
+  const {
+    terminalFinishedSound,
+    terminalFinishedThreshold,
+    customSoundPath,
+  } = useAppSettings();
+
+  // Terminal activity state
+  const { setTerminalActivity, clearTerminalActivity } = useTerminalActivityState();
+
+  // Callback when terminal finishes (no output for threshold duration)
+  const handleTerminalFinished = useCallback(() => {
+    setTerminalActivity(terminalId, true, Date.now());
+    if (terminalFinishedSound) {
+      playNotificationSound(customSoundPath);
+    }
+  }, [terminalId, terminalFinishedSound, customSoundPath, setTerminalActivity]);
+
+  // Terminal activity tracking hook
+  const { signalOutput } = useTerminalActivity({
+    terminalId,
+    threshold: terminalFinishedThreshold * 1000,
+    onFinished: handleTerminalFinished,
+    enabled: true,
+  });
+
+  // Cleanup activity state on unmount
+  useEffect(() => {
+    return () => {
+      clearTerminalActivity(terminalId);
+    };
+  }, [terminalId, clearTerminalActivity]);
+
   // PTY hook - direct writes
   const { spawn, write, resize } = usePty({
     onData: (data: string) => {
       terminalRef.current?.write(data);
-      // Note: Terminal OUTPUT doesn't reset idle mode
+      // Signal output activity for terminal "finished" detection
+      signalOutput();
+      // Clear finished state when new output arrives
+      setTerminalActivity(terminalId, false, Date.now());
+      // Note: Terminal OUTPUT doesn't reset USER idle mode
       // Only user INPUT (keyboard, mouse) should reset it
     },
     onClose: () => {

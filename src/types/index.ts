@@ -29,6 +29,17 @@ export interface AppConfig {
   backgroundOpacity?: number; // 0-100
   terminalOpacity?: number; // 0-100, opacity of terminal container
   idleTimeout?: number; // Seconds before idle mode (0 = disabled)
+  // Terminal notification settings
+  terminalFinishedSound?: boolean; // Play sound when terminal finishes
+  terminalFinishedThreshold?: number; // Seconds of inactivity before "finished" (1-10)
+  customSoundPath?: string | null; // Custom notification sound file path
+}
+
+// Terminal activity state for tracking "finished" status
+export interface TerminalActivityState {
+  terminalId: string;
+  lastOutputAt: number;
+  isFinished: boolean;
 }
 
 // PTY instance managed by Rust backend
@@ -50,6 +61,8 @@ export interface ClaudeSession {
 export interface AppState extends AppConfig {
   ptyInstances: Map<string, PtyInstance>;
   isLoading: boolean;
+  // Runtime state (not persisted)
+  terminalActivity: Map<string, TerminalActivityState>;
 }
 
 // Actions for context reducer
@@ -74,4 +87,11 @@ export type AppAction =
   | { type: 'SET_BACKGROUND_IMAGE'; payload: string | undefined }
   | { type: 'SET_BACKGROUND_OPACITY'; payload: number }
   | { type: 'SET_TERMINAL_OPACITY'; payload: number }
-  | { type: 'SET_IDLE_TIMEOUT'; payload: number };
+  | { type: 'SET_IDLE_TIMEOUT'; payload: number }
+  // Terminal notification settings actions
+  | { type: 'SET_TERMINAL_FINISHED_SOUND'; payload: boolean }
+  | { type: 'SET_TERMINAL_FINISHED_THRESHOLD'; payload: number }
+  | { type: 'SET_CUSTOM_SOUND_PATH'; payload: string | null }
+  // Terminal activity tracking
+  | { type: 'SET_TERMINAL_ACTIVITY'; payload: { terminalId: string; isFinished: boolean; lastOutputAt: number } }
+  | { type: 'CLEAR_TERMINAL_ACTIVITY'; payload: string };

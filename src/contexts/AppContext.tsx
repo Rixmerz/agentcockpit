@@ -19,8 +19,14 @@ const initialState: AppState = {
   backgroundOpacity: 30, // Default 30%
   terminalOpacity: 15, // Default 15% (semi-transparent)
   idleTimeout: 5, // Default 5 seconds
+  // Terminal notification settings
+  terminalFinishedSound: true, // Default enabled
+  terminalFinishedThreshold: 3, // Default 3 seconds
+  customSoundPath: null,
   ptyInstances: new Map(),
   isLoading: true,
+  // Terminal activity tracking (runtime state, not persisted)
+  terminalActivity: new Map(),
 };
 
 // Reducer
@@ -138,6 +144,33 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_IDLE_TIMEOUT':
       return { ...state, idleTimeout: action.payload };
 
+    // Terminal notification settings
+    case 'SET_TERMINAL_FINISHED_SOUND':
+      return { ...state, terminalFinishedSound: action.payload };
+
+    case 'SET_TERMINAL_FINISHED_THRESHOLD':
+      return { ...state, terminalFinishedThreshold: action.payload };
+
+    case 'SET_CUSTOM_SOUND_PATH':
+      return { ...state, customSoundPath: action.payload };
+
+    // Terminal activity tracking
+    case 'SET_TERMINAL_ACTIVITY': {
+      const newActivity = new Map(state.terminalActivity);
+      newActivity.set(action.payload.terminalId, {
+        terminalId: action.payload.terminalId,
+        isFinished: action.payload.isFinished,
+        lastOutputAt: action.payload.lastOutputAt,
+      });
+      return { ...state, terminalActivity: newActivity };
+    }
+
+    case 'CLEAR_TERMINAL_ACTIVITY': {
+      const newActivity = new Map(state.terminalActivity);
+      newActivity.delete(action.payload);
+      return { ...state, terminalActivity: newActivity };
+    }
+
     default:
       return state;
   }
@@ -216,6 +249,10 @@ export function AppProvider({ children }: AppProviderProps) {
       backgroundOpacity: stateRef.current.backgroundOpacity,
       terminalOpacity: stateRef.current.terminalOpacity,
       idleTimeout: stateRef.current.idleTimeout,
+      // Terminal notification settings
+      terminalFinishedSound: stateRef.current.terminalFinishedSound,
+      terminalFinishedThreshold: stateRef.current.terminalFinishedThreshold,
+      customSoundPath: stateRef.current.customSoundPath,
     }), []),
   });
 
@@ -428,6 +465,10 @@ export function useAppSettings() {
     backgroundOpacity: state.backgroundOpacity ?? 30,
     terminalOpacity: state.terminalOpacity ?? 15,
     idleTimeout: state.idleTimeout ?? 5, // Default 5 seconds
+    // Terminal notification settings
+    terminalFinishedSound: state.terminalFinishedSound ?? true,
+    terminalFinishedThreshold: state.terminalFinishedThreshold ?? 3,
+    customSoundPath: state.customSoundPath ?? null,
 
     setDefaultIDE: (ide: 'cursor' | 'code' | 'antigravity' | undefined) => {
       dispatch({ type: 'SET_DEFAULT_IDE', payload: ide });
@@ -452,6 +493,42 @@ export function useAppSettings() {
     setIdleTimeout: (seconds: number) => {
       dispatch({ type: 'SET_IDLE_TIMEOUT', payload: seconds });
       scheduleSave();
+    },
+
+    setTerminalFinishedSound: (enabled: boolean) => {
+      dispatch({ type: 'SET_TERMINAL_FINISHED_SOUND', payload: enabled });
+      scheduleSave();
+    },
+
+    setTerminalFinishedThreshold: (seconds: number) => {
+      dispatch({ type: 'SET_TERMINAL_FINISHED_THRESHOLD', payload: seconds });
+      scheduleSave();
+    },
+
+    setCustomSoundPath: (path: string | null) => {
+      dispatch({ type: 'SET_CUSTOM_SOUND_PATH', payload: path });
+      scheduleSave();
+    },
+  };
+}
+
+// Hook for terminal activity tracking
+export function useTerminalActivityState() {
+  const { state, dispatch } = useApp();
+
+  return {
+    terminalActivity: state.terminalActivity,
+
+    setTerminalActivity: (terminalId: string, isFinished: boolean, lastOutputAt: number) => {
+      dispatch({ type: 'SET_TERMINAL_ACTIVITY', payload: { terminalId, isFinished, lastOutputAt } });
+    },
+
+    clearTerminalActivity: (terminalId: string) => {
+      dispatch({ type: 'CLEAR_TERMINAL_ACTIVITY', payload: terminalId });
+    },
+
+    isTerminalFinished: (terminalId: string) => {
+      return state.terminalActivity.get(terminalId)?.isFinished ?? false;
     },
   };
 }
