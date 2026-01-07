@@ -26,15 +26,15 @@ export function CursorAgentLauncher({
         className="btn-primary"
         onClick={handleLaunch}
         disabled={!canLaunch}
-        title={!canLaunch ? 'Necesitas un proyecto con terminal activa' : 'Iniciar Cursor Agent'}
+        title={!canLaunch ? 'You need a project with an active terminal' : 'Start Cursor Agent'}
       >
         <Rocket size={16} />
-        Iniciar Cursor Agent
+        Start Cursor Agent
       </button>
 
       {!hasActiveTerminal && (
         <div className="text-center text-xs text-muted opacity-60">
-          Crea una terminal primero
+          Create a terminal first
         </div>
       )}
     </div>

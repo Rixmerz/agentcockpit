@@ -105,12 +105,12 @@ export function McpPanel({
       // Extract first (and should be only) server
       const entries = Object.entries(serversObj);
       if (entries.length === 0) {
-        setJsonError('No se encontró ningún servidor MCP en el JSON');
+        setJsonError('No MCP server found in JSON');
         return null;
       }
 
       if (entries.length > 1) {
-        setJsonError('Solo se puede agregar un servidor a la vez');
+        setJsonError('Only one server can be added at a time');
         return null;
       }
 
@@ -118,14 +118,14 @@ export function McpPanel({
 
       // Validate config structure (at minimum should be an object)
       if (typeof config !== 'object' || config === null) {
-        setJsonError('La configuración debe ser un objeto');
+        setJsonError('Configuration must be an object');
         return null;
       }
 
       // Validate it has at least command or url
       const configObj = config as Record<string, unknown>;
       if (!configObj.command && !configObj.url) {
-        setJsonError('La configuración debe tener "command" o "url"');
+        setJsonError('Configuration must have "command" or "url"');
         return null;
       }
 
@@ -133,9 +133,9 @@ export function McpPanel({
       return { name: name as string, config: config as McpServerConfig };
     } catch (e) {
       if (e instanceof SyntaxError) {
-        setJsonError(`JSON inválido: ${e.message}`);
+        setJsonError(`Invalid JSON: ${e.message}`);
       } else {
-        setJsonError('Error al procesar el JSON');
+        setJsonError('Error processing JSON');
       }
       return null;
     }
@@ -213,13 +213,13 @@ export function McpPanel({
       const existingConfig = await readJsonFile(desktopPath) as { mcpServers?: Record<string, McpServerConfig> } | null;
 
       if (!existingConfig) {
-        showMessage('error', 'No se pudo leer el archivo de configuración');
+        showMessage('error', 'Could not read configuration file');
         return;
       }
 
       // Check if server already exists
       if (existingConfig.mcpServers?.[name]) {
-        showMessage('error', `El servidor "${name}" ya existe`);
+        showMessage('error', `Server "${name}" already exists`);
         return;
       }
 
@@ -234,13 +234,13 @@ export function McpPanel({
 
       const success = await writeJsonFile(desktopPath, newConfig);
       if (success) {
-        showMessage('success', `"${name}" agregado correctamente`);
+        showMessage('success', `"${name}" added successfully`);
         setShowManualInput(false);
         setManualJson('');
         setJsonError(null);
         loadMcps(); // Reload to show new MCP
       } else {
-        showMessage('error', 'Error al guardar la configuración');
+        showMessage('error', 'Error saving configuration');
       }
     } catch (e) {
       console.error('[MCP] Add manual error:', e);
@@ -300,7 +300,7 @@ export function McpPanel({
       const config = await readJsonFile(desktopPath) as { mcpServers?: Record<string, McpServerConfig> } | null;
 
       if (!config?.mcpServers?.[name]) {
-        showMessage('error', `"${name}" no encontrado`);
+        showMessage('error', `"${name}" not found`);
         return;
       }
 
@@ -309,14 +309,14 @@ export function McpPanel({
 
       const success = await writeJsonFile(desktopPath, newConfig);
       if (success) {
-        showMessage('success', `"${name}" eliminado de Desktop`);
+        showMessage('success', `"${name}" removed from Desktop`);
         // Remove from selection if selected
         if (selectedServers.includes(name)) {
           onSelectionChange(selectedServers.filter(s => s !== name));
         }
         loadMcps();
       } else {
-        showMessage('error', 'Error al eliminar');
+        showMessage('error', 'Error removing');
       }
     } catch (e) {
       console.error('[MCP] Remove Desktop error:', e);
@@ -332,12 +332,12 @@ export function McpPanel({
 
       // Validate config was read successfully
       if (config === null) {
-        showMessage('error', 'No se pudo leer la configuración de Claude');
+        showMessage('error', 'Could not read Claude configuration');
         return;
       }
 
       if (!config?.mcpServers?.[name]) {
-        showMessage('error', `"${name}" no encontrado en Code`);
+        showMessage('error', `"${name}" not found in Code`);
         return;
       }
 
@@ -346,13 +346,13 @@ export function McpPanel({
 
       const success = await writeJsonFile(claudeJsonPath, newConfig);
       if (success) {
-        showMessage('success', `"${name}" eliminado de Code`);
+        showMessage('success', `"${name}" removed from Code`);
         if (selectedServers.includes(name)) {
           onSelectionChange(selectedServers.filter(s => s !== name));
         }
         loadMcps();
       } else {
-        showMessage('error', 'Error al guardar configuración');
+        showMessage('error', 'Error saving configuration');
       }
     } catch (e) {
       console.error('[MCP] Remove Code error:', e);
@@ -372,10 +372,10 @@ export function McpPanel({
         cmd: `open "${configPath}"`,
         cwd: '/',
       });
-      showMessage('success', `Abriendo ${configType === 'desktop' ? 'Desktop' : 'Code'} config...`);
+      showMessage('success', `Opening ${configType === 'desktop' ? 'Desktop' : 'Code'} config...`);
     } catch (e) {
       console.error('[MCP] Open config error:', e);
-      showMessage('error', `Error abriendo config: ${e}`);
+      showMessage('error', `Error opening config: ${e}`);
     }
   }, [homePath, showMessage]);
 
@@ -390,7 +390,7 @@ export function McpPanel({
         cwd: '/',
       });
 
-      showMessage('success', `"${server.name}" importado a Code`);
+      showMessage('success', `"${server.name}" imported to Code`);
       loadMcps();
     } catch (e) {
       console.error('[MCP] Import to Code error:', e);
@@ -404,7 +404,7 @@ export function McpPanel({
         <div className="box-title">MCP Servers</div>
         <div className="flex items-center justify-center p-4 text-xs text-muted">
           <RefreshCw size={14} className="animate-spin mr-2" />
-          Cargando...
+          Loading...
         </div>
       </div>
     );
@@ -439,7 +439,7 @@ export function McpPanel({
             e.stopPropagation();
             loadMcps();
           }}
-          title="Recargar"
+          title="Reload"
         >
           <RefreshCw size={12} />
         </button>
@@ -465,14 +465,14 @@ export function McpPanel({
                     e.stopPropagation();
                     handleOpenConfigInIDE('desktop');
                   }}
-                  title="Editar claude_desktop_config.json"
+                  title="Edit claude_desktop_config.json"
                 >
                   <FileEdit size={12} />
                 </button>
                 <button
                   className="btn-icon-sm"
                   onClick={() => setShowManualInput(!showManualInput)}
-                  title="Agregar MCP manualmente"
+                  title="Add MCP manually"
                 >
                   <Plus size={12} />
                 </button>
@@ -482,7 +482,7 @@ export function McpPanel({
             {showManualInput && (
               <div className="manual-mcp-input">
                 <label className="manual-mcp-label">
-                  JSON de MCP Server
+                  MCP Server JSON
                 </label>
                 <textarea
                   className="manual-mcp-textarea"
@@ -496,7 +496,7 @@ export function McpPanel({
                       parseManualMcpJson(manualJson);
                     }
                   }}
-                  placeholder={`Ejemplo:\n{\n  "sequential": {\n    "command": "docker",\n    "args": ["run", "--rm", "-i", "mcp/sequentialthinking"]\n  }\n}`}
+                  placeholder={`Example:\n{\n  "sequential": {\n    "command": "docker",\n    "args": ["run", "--rm", "-i", "mcp/sequentialthinking"]\n  }\n}`}
                   rows={8}
                 />
                 {jsonError && (
@@ -513,14 +513,14 @@ export function McpPanel({
                       setJsonError(null);
                     }}
                   >
-                    Cancelar
+                    Cancel
                   </button>
                   <button
                     className="btn-primary"
                     onClick={handleAddManualMcp}
                     disabled={!manualJson.trim() || !!jsonError}
                   >
-                    Agregar
+                    Add
                   </button>
                 </div>
               </div>
@@ -528,7 +528,7 @@ export function McpPanel({
 
             <div className="mcp-list">
               {desktopMcps.length === 0 ? (
-                <div className="mcp-empty">Sin MCPs</div>
+                <div className="mcp-empty">No MCPs</div>
               ) : (
                 desktopMcps.map(server => {
                   const isSelected = selectedServers.includes(server.name);
@@ -539,7 +539,7 @@ export function McpPanel({
                       <div
                         className="mcp-item-content"
                         onClick={() => handleSingleClick(server.name)}
-                        title="Click para inyectar en sesión"
+                        title="Click to inject in session"
                       >
                         <Server size={14} style={{ color: isMarkedForRemoval ? 'var(--warning)' : isSelected ? 'var(--success)' : 'var(--text-muted)' }} />
                         <span className={`mcp-name ${isMarkedForRemoval ? 'line-through opacity-70' : ''}`}>
@@ -557,7 +557,7 @@ export function McpPanel({
                             e.stopPropagation();
                             handleDoubleClick(server.name);
                           }}
-                          title={isMarkedForRemoval ? 'Cancelar remover de sesión' : 'Remover de sesión activa'}
+                          title={isMarkedForRemoval ? 'Cancel remove from session' : 'Remove from active session'}
                         >
                           <Minus size={12} />
                         </button>
@@ -568,7 +568,7 @@ export function McpPanel({
                               e.stopPropagation();
                               handleImportToCode(server);
                             }}
-                            title="Importar a Code"
+                            title="Import to Code"
                           >
                             <Import size={12} />
                           </button>
@@ -579,7 +579,7 @@ export function McpPanel({
                             e.stopPropagation();
                             handleRemoveDesktop(server.name);
                           }}
-                          title="Eliminar de Desktop"
+                          title="Remove from Desktop"
                         >
                           <X size={12} />
                         </button>
@@ -603,7 +603,7 @@ export function McpPanel({
                     e.stopPropagation();
                     handleOpenConfigInIDE('code');
                   }}
-                  title="Editar .claude.json"
+                  title="Edit .claude.json"
                 >
                   <FileEdit size={12} />
                 </button>
@@ -612,7 +612,7 @@ export function McpPanel({
 
             <div className="mcp-list">
               {codeMcps.length === 0 ? (
-                <div className="mcp-empty">Sin MCPs</div>
+                <div className="mcp-empty">No MCPs</div>
               ) : (
                 codeMcps.map(server => (
                   <div key={`code-${server.name}`} className="mcp-item group">
@@ -627,7 +627,7 @@ export function McpPanel({
                           e.stopPropagation();
                           handleRemoveCode(server.name);
                         }}
-                        title="Eliminar de Code"
+                        title="Remove from Code"
                       >
                         <X size={12} />
                       </button>

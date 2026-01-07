@@ -54,11 +54,11 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleCancel} title="Configuracion">
+    <Modal isOpen={isOpen} onClose={handleCancel} title="Settings">
       <div className="settings-section">
-        <h3 className="settings-section-title">IDE por Defecto</h3>
+        <h3 className="settings-section-title">Default IDE</h3>
         <p className="settings-section-desc">
-          Selecciona el editor que se abrira al hacer click en el icono de abrir proyecto
+          Select the editor that will open when clicking the open project icon
         </p>
 
         <div className="settings-radio-group">
@@ -69,7 +69,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
               checked={!defaultIDE}
               onChange={() => setDefaultIDE(undefined)}
             />
-            <span>Auto-detectar (primero disponible)</span>
+            <span>Auto-detect (first available)</span>
           </label>
 
           {availableIDEs.includes('cursor') && (
@@ -111,15 +111,15 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
       </div>
 
       <div className="settings-section">
-        <h3 className="settings-section-title">Imagen de Fondo</h3>
+        <h3 className="settings-section-title">Background Image</h3>
         <p className="settings-section-desc">
-          Agrega una imagen de fondo (URL o ruta local)
+          Add a background image (URL or local path)
         </p>
 
         <input
           type="text"
           className="settings-input"
-          placeholder="https://example.com/image.jpg o /path/to/image.png"
+          placeholder="https://example.com/image.jpg or /path/to/image.png"
           value={localImage}
           onChange={(e) => setLocalImage(e.target.value)}
         />
@@ -139,9 +139,9 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
       </div>
 
       <div className="settings-section">
-        <h3 className="settings-section-title">Opacidad de Fondo</h3>
+        <h3 className="settings-section-title">Background Opacity</h3>
         <p className="settings-section-desc">
-          Controla la transparencia de la imagen de fondo
+          Control the background image transparency
         </p>
 
         <div className="settings-slider-container">
@@ -158,9 +158,9 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
       </div>
 
       <div className="settings-section">
-        <h3 className="settings-section-title">Opacidad de Terminal</h3>
+        <h3 className="settings-section-title">Terminal Opacity</h3>
         <p className="settings-section-desc">
-          Controla que tan oscuro o claro se ve el fondo de la terminal (0% = transparente, 100% = oscuro)
+          Control how dark the terminal background appears (0% = transparent, 100% = dark)
         </p>
 
         <div className="settings-slider-container">
@@ -177,9 +177,9 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
       </div>
 
       <div className="settings-section">
-        <h3 className="settings-section-title">Modo Inactivo</h3>
+        <h3 className="settings-section-title">Idle Mode</h3>
         <p className="settings-section-desc">
-          Tiempo de inactividad antes de ocultar la interfaz para ver el fondo (0 = deshabilitado)
+          Inactivity time before hiding the interface to show background (0 = disabled)
         </p>
 
         <div className="settings-slider-container">
@@ -192,17 +192,17 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
             className="settings-slider"
           />
           <span className="settings-slider-value">
-            {localIdleTimeout === 0 ? 'Deshabilitado' : `${localIdleTimeout}s`}
+            {localIdleTimeout === 0 ? 'Disabled' : `${localIdleTimeout}s`}
           </span>
         </div>
       </div>
 
       <div className="settings-actions">
         <button className="btn-secondary" onClick={handleCancel}>
-          Cancelar
+          Cancel
         </button>
         <button className="btn-primary" onClick={handleSave}>
-          Guardar
+          Save
         </button>
       </div>
     </Modal>

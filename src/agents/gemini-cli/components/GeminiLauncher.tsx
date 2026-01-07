@@ -26,15 +26,15 @@ export function GeminiLauncher({
         className="btn-primary"
         onClick={handleLaunch}
         disabled={!canLaunch}
-        title={!canLaunch ? 'Necesitas un proyecto con terminal activa' : 'Iniciar Gemini'}
+        title={!canLaunch ? 'You need a project with an active terminal' : 'Start Gemini'}
       >
         <Rocket size={16} />
-        Iniciar Gemini
+        Start Gemini
       </button>
 
       {!hasActiveTerminal && (
         <div className="text-center text-xs text-muted opacity-60">
-          Crea una terminal primero
+          Create a terminal first
         </div>
       )}
     </div>
