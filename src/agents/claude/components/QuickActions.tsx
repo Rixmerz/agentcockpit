@@ -29,13 +29,13 @@ export function ClaudeQuickActions({
 
   return (
     <div className="panel-section">
-      <div className="box-title">Acciones Rapidas</div>
+      <div className="box-title">Quick Actions</div>
       <div className="quick-actions-grid">
         <button
           className="action-card"
           onClick={handleUltrathink}
           disabled={disabled}
-          title="Enviar 'ultrathink'"
+          title="Send 'ultrathink'"
         >
           <Zap size={18} style={{ color: 'var(--warning)' }} />
           <span>Ultrathink</span>
@@ -44,7 +44,7 @@ export function ClaudeQuickActions({
           className="action-card"
           onClick={() => handleAction('/compact')}
           disabled={disabled}
-          title="Compactar contexto"
+          title="Compact context"
         >
           <Archive size={18} style={{ color: 'var(--accent)' }} />
           <span>Compact</span>

@@ -28,7 +28,7 @@ function LoadingScreen() {
     <div className="loading-screen">
       <div className="loading-content">
         <div className="loading-spinner" />
-        <span style={{ marginTop: '12px', fontSize: '13px' }}>Cargando...</span>
+        <span style={{ marginTop: '12px', fontSize: '13px' }}>Loading...</span>
       </div>
     </div>
   );
@@ -198,7 +198,7 @@ function MainContent() {
         <div className="project-tree">
           {state.projects.length === 0 ? (
             <div className="p-4 text-center">
-              <p className="placeholder">Sin proyectos</p>
+              <p className="placeholder">No projects</p>
             </div>
           ) : (
             state.projects.map(project => (
@@ -221,7 +221,7 @@ function MainContent() {
                     <button
                       className="btn-icon"
                       onClick={() => handleAddTerminal(project.id)}
-                      title="Nueva terminal (Cmd+N)"
+                      title="New terminal (Cmd+N)"
                     >
                       <Plus size={14} />
                     </button>
@@ -231,7 +231,7 @@ function MainContent() {
                         e.stopPropagation();
                         removeProject(project.id);
                       }}
-                      title="Eliminar proyecto"
+                      title="Delete project"
                     >
                       <X size={14} />
                     </button>
@@ -291,7 +291,7 @@ function MainContent() {
                           e.stopPropagation();
                           removeTerminal(project.id, terminal.id);
                         }}
-                        title="Cerrar terminal (Cmd+W)"
+                        title="Close terminal (Cmd+W)"
                       >
                         <X size={12} />
                       </button>
@@ -307,7 +307,7 @@ function MainContent() {
         {activeProject && (
           <div className="navigator-section">
             <div className="section-header" style={{ height: '32px', border: 'none', paddingLeft: '8px' }}>
-              VERSIONES
+              VERSIONS
             </div>
             <SnapshotPanel projectPath={activeProject.path} />
           </div>
@@ -315,7 +315,7 @@ function MainContent() {
 
         <div className="navigator-section">
           <div className="section-header" style={{ height: '32px', border: 'none', paddingLeft: '8px' }}>
-            ABRIR PROYECTO
+            OPEN PROJECT
           </div>
           <ProjectOpener
             onCreateProject={handleCreateProject}
@@ -372,7 +372,7 @@ function MainContent() {
               <div className="terminal-placeholder">
                 <div className="flex flex-col items-center gap-4">
                   <TerminalSquare size={48} strokeWidth={1} />
-                  <p>Selecciona o crea una terminal para comenzar</p>
+                  <p>Select or create a terminal to begin</p>
                 </div>
               </div>
             )}

@@ -29,7 +29,7 @@ function formatRelativeTime(timestamp: number): string {
   if (days > 0) return `${days}d`;
   if (hours > 0) return `${hours}h`;
   if (minutes > 0) return `${minutes}m`;
-  return 'ahora';
+  return 'now';
 }
 
 // Truncate commit message to fit in the panel
@@ -62,7 +62,7 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
       setCurrentVersion(current);
     } catch (err) {
       console.error('[SnapshotPanel] Load error:', err);
-      setError('Error cargando historial');
+      setError('Error loading history');
     } finally {
       setIsLoading(false);
     }
@@ -132,7 +132,7 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
       <div className="snapshot-panel">
         <div className="snapshot-panel-header">
           <History size={12} />
-          <span>Historial</span>
+          <span>History</span>
         </div>
         <div className="snapshot-panel-loading">
           <Loader2 size={14} className="animate-spin" />
@@ -146,10 +146,10 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
       <div className="snapshot-panel">
         <div className="snapshot-panel-header">
           <History size={12} />
-          <span>Historial</span>
+          <span>History</span>
         </div>
         <div className="snapshot-panel-empty">
-          Sin historial
+          No history
         </div>
       </div>
     );
@@ -159,7 +159,7 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
     <div className="snapshot-panel">
       <div className="snapshot-panel-header">
         <History size={12} />
-        <span>Historial</span>
+        <span>History</span>
         <span className="snapshot-panel-counts">
           {snapshotCount > 0 && <span className="count-snapshots" title="Snapshots">{snapshotCount}</span>}
           {commitCount > 0 && <span className="count-commits" title="Commits">{commitCount}</span>}
@@ -186,7 +186,7 @@ export function SnapshotPanel({ projectPath, onRestore }: SnapshotPanelProps) {
               onClick={() => canRestore && handleRestore(item)}
               disabled={isRestoring !== null || !canRestore}
               title={isSnapshot
-                ? `V${item.version}: ${item.filesChanged?.length || 0} archivos cambiados`
+                ? `V${item.version}: ${item.filesChanged?.length || 0} files changed`
                 : `${item.shortHash}: ${item.message}`
               }
             >

@@ -115,7 +115,7 @@ export function ClaudeLauncher({
 
   return (
     <div className="panel-section">
-      <div className="box-title">Modelo</div>
+      <div className="box-title">Model</div>
       <div className="model-selector">
         <button
           className={`model-btn ${activeModel === 'haiku' ? 'active' : ''}`}
@@ -156,7 +156,7 @@ export function ClaudeLauncher({
 
       {session && (
         <div className="flex items-center justify-between text-xs mt-2">
-          <span className="text-muted">Sesión:</span>
+          <span className="text-muted">Session:</span>
           <span className="font-mono" title={session.id} style={{ color: 'var(--accent)' }}>
             {session.name}
           </span>
@@ -168,13 +168,13 @@ export function ClaudeLauncher({
         <div className="bg-zinc-800 rounded p-2 text-xs flex flex-col gap-1" style={{ backgroundColor: 'var(--bg-input)' }}>
           {mcpsToRemove.length > 0 && (
             <div className="flex justify-between" style={{ color: 'var(--error)' }}>
-              <span>Remover MCPs:</span>
+              <span>Remove MCPs:</span>
               <span>{mcpsToRemove.length}</span>
             </div>
           )}
           {mcpsToInject.length > 0 && (
             <div className="flex justify-between" style={{ color: 'var(--success)' }}>
-              <span>Inyectar MCPs:</span>
+              <span>Inject MCPs:</span>
               <span>{mcpsToInject.length}</span>
             </div>
           )}
@@ -187,7 +187,7 @@ export function ClaudeLauncher({
           onClick={() => setShowAdvanced(!showAdvanced)}
         >
           {showAdvanced ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-          <span>Opciones avanzadas</span>
+          <span>Advanced options</span>
         </button>
 
         {showAdvanced && (
@@ -197,7 +197,7 @@ export function ClaudeLauncher({
               className="custom-args-input"
               value={customArgs}
               onChange={(e) => setCustomArgs(e.target.value)}
-              placeholder="Args adicionales..."
+              placeholder="Additional args..."
             />
             <div className="flex flex-col gap-1">
               <span className="text-xs text-muted">Preview:</span>
@@ -213,15 +213,15 @@ export function ClaudeLauncher({
         className="btn-primary"
         onClick={handleLaunch}
         disabled={!canLaunch}
-        title={!canLaunch ? 'Necesitas un proyecto con terminal activa' : 'Iniciar Claude'}
+        title={!canLaunch ? 'You need a project with an active terminal' : 'Start Claude'}
       >
         <Rocket size={16} />
-        Iniciar Claude
+        Start Claude
       </button>
 
       {!hasActiveTerminal && (
         <div className="text-center text-xs text-muted opacity-60">
-          Crea una terminal primero
+          Create a terminal first
         </div>
       )}
     </div>

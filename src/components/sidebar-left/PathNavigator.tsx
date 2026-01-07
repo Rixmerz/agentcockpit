@@ -105,7 +105,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
             setCurrentPath(resolvedPath);
             addOutput('output', resolvedPath.replace(HOME, '~'));
           } else {
-            addOutput('error', `cd: no existe: ${targetPath}`);
+            addOutput('error', `cd: does not exist: ${targetPath}`);
           }
           break;
         }
@@ -125,14 +125,14 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
               .join('\n');
             addOutput('output', formatted);
           } else {
-            addOutput('output', '(vacío)');
+            addOutput('output', '(empty)');
           }
           break;
         }
 
         case 'mkdir': {
           if (!args) {
-            addOutput('error', 'mkdir: falta nombre');
+            addOutput('error', 'mkdir: missing name');
             break;
           }
           const newDirPath = resolvePath(currentPath, args);
@@ -142,7 +142,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
               FS_TIMEOUT_MS,
               'create directory'
             );
-            addOutput('output', `Creado: ${args}`);
+            addOutput('output', `Created: ${args}`);
           } catch (err) {
             addOutput('error', `mkdir: ${String(err)}`);
           }
@@ -159,8 +159,8 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
 
         default: {
           // Only support safe file navigation commands
-          addOutput('error', `Comando no soportado: ${command}`);
-          addOutput('output', 'Usa: cd, ls, pwd, mkdir, clear, help');
+          addOutput('error', `Unsupported command: ${command}`);
+          addOutput('output', 'Use: cd, ls, pwd, mkdir, clear, help');
         }
       }
     } catch (error) {
@@ -277,7 +277,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
     const path = await openFolderDialog();
     if (path) {
       setCurrentPath(path);
-      addOutput('output', `Navegado a: ${path.replace(HOME, '~')}`);
+      addOutput('output', `Navigated to: ${path.replace(HOME, '~')}`);
     }
   }, [addOutput]);
 
@@ -285,7 +285,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
   const handleCreateProject = useCallback(() => {
     const folderName = currentPath.split('/').pop() || 'proyecto';
     onCreateProject(folderName, currentPath);
-    addOutput('output', `Proyecto creado: ${folderName}`);
+    addOutput('output', `Project created: ${folderName}`);
   }, [currentPath, onCreateProject, addOutput]);
 
   const displayPath = currentPath.replace(HOME, '~');
@@ -297,7 +297,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
         <button
           className="path-nav-btn"
           onClick={handleOpenDialog}
-          title="Buscar carpeta..."
+          title="Browse folder..."
         >
           <FolderOpen size={14} />
         </button>
@@ -334,7 +334,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
       {/* Create project button */}
       <button className="btn-create-project" onClick={handleCreateProject}>
         <div className="flex items-center justify-center gap-2">
-          <span>Crear Proyecto {displayPath.split('/').pop() || '~'}</span>
+          <span>Create Project {displayPath.split('/').pop() || '~'}</span>
         </div>
       </button>
     </div>

@@ -203,7 +203,7 @@ export function ProjectOpener({ onCreateProject, onNeedLogin }: ProjectOpenerPro
               <Search size={14} />
               <input
                 type="text"
-                placeholder="Buscar repositorios..."
+                placeholder="Search repositories..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
@@ -217,7 +217,7 @@ export function ProjectOpener({ onCreateProject, onNeedLogin }: ProjectOpenerPro
             <div className="github-repo-list-inline">
               {repos.length === 0 && !isLoadingRepos && (
                 <div className="github-empty-inline">
-                  No hay repositorios
+                  No repositories
                 </div>
               )}
 
@@ -249,7 +249,7 @@ export function ProjectOpener({ onCreateProject, onNeedLogin }: ProjectOpenerPro
                     type="text"
                     value={clonePath}
                     onChange={e => setClonePath(e.target.value)}
-                    placeholder="Ruta de destino..."
+                    placeholder="Destination path..."
                   />
                 </div>
 
@@ -263,7 +263,7 @@ export function ProjectOpener({ onCreateProject, onNeedLogin }: ProjectOpenerPro
                 {cloneState.status === 'success' && (
                   <div className="clone-success">
                     <Check size={12} />
-                    <span>Clonado exitosamente</span>
+                    <span>Cloned successfully</span>
                   </div>
                 )}
 
@@ -275,12 +275,12 @@ export function ProjectOpener({ onCreateProject, onNeedLogin }: ProjectOpenerPro
                   {cloneState.status === 'cloning' ? (
                     <>
                       <Loader2 size={14} className="animate-spin" />
-                      Clonando...
+                      Cloning...
                     </>
                   ) : (
                     <>
                       <Download size={14} />
-                      Clonar {selectedRepo.name}
+                      Clone {selectedRepo.name}
                     </>
                   )}
                 </button>

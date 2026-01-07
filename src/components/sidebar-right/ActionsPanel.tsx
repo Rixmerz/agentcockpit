@@ -125,7 +125,7 @@ export function ActionsPanel({
       return newSession;
     } catch (error) {
       console.error('[ActionsPanel] Failed to create session:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Error desconocido al crear sesión';
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error creating session';
       setSessionError(errorMsg);
       return null;
     }
@@ -228,7 +228,7 @@ export function ActionsPanel({
 
       {/* Sidebar Right Header */}
       <div className="sidebar-right-header">
-        <h2>AGENTES</h2>
+        <h2>AGENTS</h2>
         <div className="header-actions">
           {/* GitHub Button / Avatar */}
           <button
@@ -245,7 +245,7 @@ export function ActionsPanel({
               }
               setShowGitHubLogin(true);
             }}
-            title={gitHubUser ? `@${gitHubUser.login}` : 'Iniciar sesión con GitHub'}
+            title={gitHubUser ? `@${gitHubUser.login}` : 'Sign in with GitHub'}
           >
             {gitHubUser ? (
               <img
@@ -261,7 +261,7 @@ export function ActionsPanel({
           <button
             className="settings-btn"
             onClick={() => setShowSettings(true)}
-            title="Configuración"
+            title="Settings"
           >
             <Settings size={16} />
           </button>
@@ -281,7 +281,7 @@ export function ActionsPanel({
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
             <span style={{ fontSize: '14px' }}>⚠️</span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: '12px', marginBottom: '4px' }}>Error de Sesión</div>
+              <div style={{ fontWeight: 600, fontSize: '12px', marginBottom: '4px' }}>Session Error</div>
               <div style={{ fontSize: '11px', opacity: 0.9 }}>{sessionError}</div>
               <button
                 style={{
@@ -297,7 +297,7 @@ export function ActionsPanel({
                 }}
                 onClick={() => setSessionError(null)}
               >
-                Cerrar
+                Close
               </button>
             </div>
           </div>
@@ -355,10 +355,10 @@ export function ActionsPanel({
       {installedPlugins.length === 0 && (
         <div className="panel-section">
           <div className="text-center text-sm text-muted p-4">
-            No hay agentes instalados.
+            No agents installed.
             <br />
             <span className="text-xs opacity-60">
-              Instala Claude CLI: <code>npm install -g @anthropic-ai/claude-code</code>
+              Install Claude CLI: <code>npm install -g @anthropic-ai/claude-code</code>
             </span>
           </div>
         </div>
