@@ -178,8 +178,8 @@ export function ActionsPanel({
     // Wait for Claude to initialize (2 seconds)
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Send "hola" to persist the session (using executeAction for proper PTY interaction)
-    await executeAction(onWriteToTerminal, 'hola');
+    // Send "hi" to persist the session (using executeAction for proper PTY interaction)
+    await executeAction(onWriteToTerminal, 'hi');
 
     // Wait a bit for the message to be processed
     await new Promise(resolve => setTimeout(resolve, 1000));
