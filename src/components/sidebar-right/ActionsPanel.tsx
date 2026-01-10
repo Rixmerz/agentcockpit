@@ -16,6 +16,7 @@ import { SettingsModal } from '../settings/SettingsModal';
 import { GitHubLoginModal } from '../sidebar-left/GitHubLoginModal';
 import { createSession, updateSessionLastUsed, getSessions, markSessionAsPreExisting, type ProjectSession } from '../../services/projectSessionService';
 import { buildClaudeCommand } from '../../services/claudeService';
+import { executeAction } from '../../core/utils/terminalCommands';
 import { getCurrentUser, type GitHubUser } from '../../services/githubService';
 import type { McpServerInfo } from '../../plugins/types/plugin';
 
@@ -185,8 +186,8 @@ export function ActionsPanel({
     // Wait for Claude to initialize (2 seconds)
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Send "hi" to persist the session (use \n to actually send the message)
-    await onWriteToTerminal('hi\n');
+    // Send "hi" to persist the session (using executeAction for proper PTY interaction)
+    await executeAction(onWriteToTerminal, 'hi');
 
     // Wait a bit for the message to be processed
     await new Promise(resolve => setTimeout(resolve, 1000));
