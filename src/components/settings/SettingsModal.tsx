@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { useAppSettings } from '../../contexts/AppContext';
+import { playNotificationSound } from '../../services/soundService';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   availableIDEs: string[];
 }
+
+const SOUND_OPTIONS = [
+  { id: 'default', name: 'Default Beep', description: 'Synthesized two-tone', path: null },
+  { id: 'chime', name: 'Chime', description: 'Crystal bell tone', path: '/sounds/chime.mp3' },
+  { id: 'pop', name: 'Pop', description: 'Short discrete pop', path: '/sounds/pop.mp3' },
+  { id: 'ding', name: 'Ding', description: 'Soft metallic ding', path: '/sounds/ding.mp3' },
+  { id: 'tada', name: 'Tada', description: 'Celebratory fanfare', path: '/sounds/tada.mp3' },
+  { id: 'coin', name: 'Coin', description: 'Retro game coin', path: '/sounds/coin.mp3' },
+];
 
 export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalProps) {
   const {
@@ -17,6 +27,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     idleTimeout,
     terminalFinishedSound,
     terminalFinishedThreshold,
+    customSoundPath,
     setDefaultIDE,
     setBackgroundImage,
     setBackgroundOpacity,
@@ -24,6 +35,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     setIdleTimeout,
     setTerminalFinishedSound,
     setTerminalFinishedThreshold,
+    setCustomSoundPath,
   } = useAppSettings();
 
   const [localImage, setLocalImage] = useState(backgroundImage || '');
@@ -32,6 +44,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
   const [localIdleTimeout, setLocalIdleTimeout] = useState(idleTimeout);
   const [localFinishedSound, setLocalFinishedSound] = useState(terminalFinishedSound);
   const [localFinishedThreshold, setLocalFinishedThreshold] = useState(terminalFinishedThreshold);
+  const [localCustomSoundPath, setLocalCustomSoundPath] = useState<string | null>(customSoundPath || null);
 
   // Sync local state when modal opens
   useEffect(() => {
@@ -42,8 +55,9 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
       setLocalIdleTimeout(idleTimeout);
       setLocalFinishedSound(terminalFinishedSound);
       setLocalFinishedThreshold(terminalFinishedThreshold);
+      setLocalCustomSoundPath(customSoundPath || null);
     }
-  }, [isOpen, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout, terminalFinishedSound, terminalFinishedThreshold]);
+  }, [isOpen, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout, terminalFinishedSound, terminalFinishedThreshold, customSoundPath]);
 
   const handleSave = () => {
     setBackgroundImage(localImage || undefined);
@@ -52,6 +66,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     setIdleTimeout(localIdleTimeout);
     setTerminalFinishedSound(localFinishedSound);
     setTerminalFinishedThreshold(localFinishedThreshold);
+    setCustomSoundPath(localCustomSoundPath);
     onClose();
   };
 
@@ -62,7 +77,16 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     setLocalIdleTimeout(idleTimeout);
     setLocalFinishedSound(terminalFinishedSound);
     setLocalFinishedThreshold(terminalFinishedThreshold);
+    setLocalCustomSoundPath(customSoundPath || null);
     onClose();
+  };
+
+  const handlePreviewSound = async (soundPath: string | null) => {
+    try {
+      await playNotificationSound(soundPath);
+    } catch (error) {
+      console.error('[SettingsModal] Failed to preview sound:', error);
+    }
   };
 
   return (
@@ -235,6 +259,35 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
             className="settings-slider"
           />
           <span className="settings-slider-value">{localFinishedThreshold}s</span>
+        </div>
+
+        <div style={{ marginTop: '20px' }}>
+          <label className="settings-slider-label">Notification Sound</label>
+          <div className="settings-sound-group" style={{ marginTop: '8px' }}>
+            {SOUND_OPTIONS.map(sound => (
+              <div key={sound.id} className="settings-sound-item">
+                <label className="settings-radio-item">
+                  <input
+                    type="radio"
+                    name="notification-sound"
+                    checked={localCustomSoundPath === sound.path}
+                    onChange={() => setLocalCustomSoundPath(sound.path)}
+                  />
+                  <div className="sound-info">
+                    <span className="sound-name">{sound.name}</span>
+                    <span className="sound-description">{sound.description}</span>
+                  </div>
+                </label>
+                <button
+                  className="btn-icon-sm"
+                  onClick={() => handlePreviewSound(sound.path)}
+                  title="Test sound"
+                >
+                  🔊
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
