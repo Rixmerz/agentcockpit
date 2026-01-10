@@ -1,19 +1,170 @@
 {
   "snapshots": [
     {
-      "version": 62,
-      "commitHash": "f184a397501bd6b5dda93cbd7b34567d23d07a42",
-      "tag": "snapshot-v62",
-      "timestamp": 1767399920507,
-      "message": "Snapshot V62",
+      "version": 90,
+      "commitHash": "b26668646c430d46e388c07e70c1a2361bccd6b0",
+      "tag": "snapshot-v90",
+      "timestamp": 1768010194000,
+      "message": "Snapshot V90",
       "filesChanged": [
         "src/agents/claude/components/ClaudeLauncher.tsx",
-        "src/agents/claude/services/claudeService.ts",
+        "src/components/sidebar-right/ActionsPanel.tsx",
+        "src/components/terminal/TerminalView.tsx",
         "src/plugins/types/plugin.ts",
-        "src/services/projectSessionService.ts"
+        "src/services/claudeService.ts"
+      ]
+    },
+    {
+      "version": 91,
+      "commitHash": "d56a41fd26425fcb32f468a5dbf735adadfe31b9",
+      "tag": "snapshot-v91",
+      "timestamp": 1768011036176,
+      "message": "Snapshot V91",
+      "filesChanged": [
+        "src/components/sidebar-right/ActionsPanel.tsx"
+      ]
+    },
+    {
+      "version": 92,
+      "commitHash": "c24f13470c24e45c0896d3656234b1045e88c6d5",
+      "tag": "snapshot-v92",
+      "timestamp": 1768013577000,
+      "message": "Snapshot V92",
+      "filesChanged": [
+        "src/components/terminal/TerminalView.tsx",
+        "src/hooks/useTerminalActivity.ts"
+      ]
+    },
+    {
+      "version": 93,
+      "commitHash": "07e3e010660fdace0515fa62c9bcfe6ee1022139",
+      "tag": "snapshot-v93",
+      "timestamp": 1768019844438,
+      "message": "Snapshot V93",
+      "filesChanged": [
+        "src/components/terminal/TerminalView.tsx",
+        "src/contexts/AppContext.tsx",
+        "src/hooks/useTerminalActivity.ts"
+      ]
+    },
+    {
+      "version": 94,
+      "commitHash": "c3180ddbbb0790d1a6181bdf5fe6000a003d03d3",
+      "tag": "snapshot-v94",
+      "timestamp": 1768035210000,
+      "message": "Snapshot V94",
+      "filesChanged": [
+        "src/contexts/AppContext.tsx"
+      ]
+    },
+    {
+      "version": 95,
+      "commitHash": "4505c9de0a9bf1f0b6a29627f138fe0b3d513826",
+      "tag": "snapshot-v95",
+      "timestamp": 1768036032095,
+      "message": "Snapshot V95",
+      "filesChanged": [
+        "src/App.css",
+        "src/components/settings/SettingsModal.tsx"
+      ]
+    },
+    {
+      "version": 96,
+      "commitHash": "2827348ba9f6fe72dee4d466ec523dfb92dabcd0",
+      "tag": "snapshot-v96",
+      "timestamp": 1768036185242,
+      "message": "Snapshot V96",
+      "filesChanged": [
+        "public/sounds/chime.mp3",
+        "public/sounds/coin.mp3",
+        "public/sounds/ding.mp3",
+        "public/sounds/pop.mp3",
+        "public/sounds/tada.mp3"
+      ]
+    },
+    {
+      "version": 97,
+      "commitHash": "a3d265983122e147baab76280049086a17ed3128",
+      "tag": "snapshot-v97",
+      "timestamp": 1768036318792,
+      "message": "Snapshot V97",
+      "filesChanged": [
+        "src/services/soundService.ts"
+      ]
+    },
+    {
+      "version": 98,
+      "commitHash": "5ef64e88b698afe0e0c3083596270afbc3f3fdb5",
+      "tag": "snapshot-v98",
+      "timestamp": 1768036624000,
+      "message": "Snapshot V98",
+      "filesChanged": [
+        "src/App.tsx"
+      ]
+    },
+    {
+      "version": 99,
+      "commitHash": "9dc7fa70a24ba1d7ee0a95a56e781a9853e09ef4",
+      "tag": "snapshot-v99",
+      "timestamp": 1768037563971,
+      "message": "Snapshot V99",
+      "filesChanged": [
+        "CHANGELOG.md",
+        "CONTRIBUTING.md",
+        "LICENSE",
+        "README.md",
+        "docs/PLUGINS.md",
+        "docs/brainstorming-session-results.md",
+        "docs/opcode-shell-execution-research.md",
+        "package.json",
+        "test-colapssnapshots.txt",
+        "test-snapshot.txt",
+        "test-snapshot5.txt",
+        "test-snapshotcolapsnew.txt",
+        "test-snapshotcolapsnewnew.txt",
+        "test-snapshotcolapsnewnewnewnew.txt",
+        "test-snapshotcolapsnewnewnewnewnenwenwne.txt",
+        "test-snapshottt.txt",
+        "test-snapshotttttttttttttttttttt.txt",
+        "test-v41.txt",
+        "test-v44.txt",
+        "test-v45.txt",
+        "test-v46.txt",
+        "test-v47.txt",
+        "test-v48.txt",
+        "test-v49.txt"
+      ]
+    },
+    {
+      "version": 100,
+      "commitHash": "f7ae42bcf17863de624f644a22d5b51b6826c907",
+      "tag": "snapshot-v100",
+      "timestamp": 1768037864652,
+      "message": "Snapshot V100",
+      "filesChanged": [
+        ".gitignore",
+        "CHANGELOG.md",
+        "CLAUDE.md",
+        "CONTRIBUTING.md",
+        "LICENSE",
+        "README.md",
+        "agentcockpit-project.json",
+        "package.json",
+        "src/services/projectSessionService.ts",
+        "src/services/snapshotService.ts"
+      ]
+    },
+    {
+      "version": 101,
+      "commitHash": "d9f486c6e176ae09c4168736364774afa612f927",
+      "tag": "snapshot-v101",
+      "timestamp": 1768038461769,
+      "message": "Snapshot V101",
+      "filesChanged": [
+        "one-term-project.json"
       ]
     }
   ],
-  "nextVersion": 63,
-  "currentVersion": 62
+  "nextVersion": 102,
+  "currentVersion": 101
 }

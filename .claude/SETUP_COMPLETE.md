@@ -1,7 +1,7 @@
 # CFA v3.2 Setup Complete ✅
 
 **Date**: 2026-01-02
-**Project**: one-term
+**Project**: agentcockpit
 **Status**: Ready to use
 
 ---
@@ -24,7 +24,7 @@
 ## Project Structure
 
 ```
-one-term/
+agentcockpit/
 ├── .claude/
 │   ├── settings.json          (Hook configuration)
 │   ├── settings.local.json    (Permission whitelist)
@@ -106,7 +106,7 @@ After edits, the system automatically detects and suggests:
 
 ## Files Modified
 
-**In one-term project**:
+**In agentcockpit project**:
 - ✅ Created: `.claude/hooks/cfa_validator.py`
 - ✅ Created: `.claude/hooks/cfa_smart_suggestions.py`
 - ✅ Created: `.claude/settings.json`
