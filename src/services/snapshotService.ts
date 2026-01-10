@@ -219,7 +219,7 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
 
     // Individual files that should NOT count as "real changes"
     const EXCLUDED_FILES = [
-      'one-term-project.json', // AgentCockpit project config/sessions
+      'agentcockpit-project.json', // AgentCockpit project config/sessions
     ];
 
     // Match excluded dirs at start OR anywhere in path (for subdirectory projects)

@@ -1,4 +1,4 @@
-# One-Term 🚀
+# AgentCockpit 🚀
 
 <p align="center">
   <strong>Modern, Beautiful Terminal Manager for Developers</strong>
@@ -55,10 +55,10 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/one-term.git
+git clone https://github.com/yourusername/agentcockpit.git
 
 # Navigate to directory
-cd one-term
+cd agentcockpit
 
 # Install dependencies
 npm install
@@ -129,7 +129,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ## 📋 Project Structure
 
 ```
-one-term/
+agentcockpit/
 ├── src/                      # React application
 │   ├── components/           # UI components
 │   ├── services/             # Business logic
@@ -168,11 +168,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/one-term/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/one-term/discussions)
+- **Issues**: [GitHub Issues](https://github.com/yourusername/agentcockpit/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/agentcockpit/discussions)
 
 ---
 
 <p align="center">
-  Made with ❤️ by the One-Term team
+  Made with ❤️ by the AgentCockpit team
 </p>

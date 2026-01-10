@@ -25,7 +25,7 @@ export interface ProjectConfig {
   };
 }
 
-const CONFIG_FILENAME = 'one-term-project.json';
+const CONFIG_FILENAME = 'agentcockpit-project.json';
 
 function generateSessionId(): string {
   return crypto.randomUUID();
