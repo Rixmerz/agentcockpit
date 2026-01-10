@@ -1,6 +1,6 @@
-# Contributing to One-Term
+# Contributing to AgentCockpit
 
-Thank you for your interest in contributing to One-Term! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to AgentCockpit! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 - [Code of Conduct](#code-of-conduct)
@@ -31,8 +31,8 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ### Setup
 ```bash
 # Fork and clone the repository
-git clone https://github.com/yourusername/one-term.git
-cd one-term
+git clone https://github.com/yourusername/agentcockpit.git
+cd agentcockpit
 
 # Install dependencies
 npm install
@@ -201,7 +201,7 @@ Add screenshots for UI changes
 ## Bug Reports
 
 ### Before Reporting
-- Check [existing issues](https://github.com/yourusername/one-term/issues)
+- Check [existing issues](https://github.com/yourusername/agentcockpit/issues)
 - Try reproducing on latest version
 - Gather system information
 
@@ -223,7 +223,7 @@ If applicable
 
 **Environment:**
 - OS: [e.g. macOS 13.5]
-- One-Term Version: [e.g. 1.0.0]
+- AgentCockpit Version: [e.g. 1.0.0]
 - Node Version: [e.g. 18.0.0]
 
 **Additional context**
@@ -280,9 +280,9 @@ src/
 
 ## Questions?
 
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/one-term/discussions)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/one-term/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/agentcockpit/discussions)
+- **Issues**: [GitHub Issues](https://github.com/yourusername/agentcockpit/issues)
 
 ---
 
-Thank you for contributing to One-Term! 🚀
+Thank you for contributing to AgentCockpit! 🚀

@@ -1,12 +1,12 @@
 {
-  "name": "one-term",
+  "name": "agentcockpit",
   "version": "1.0.0",
   "description": "Modern, beautiful terminal manager for developers",
-  "author": "One-Term Contributors",
+  "author": "AgentCockpit Contributors",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/one-term"
+    "url": "https://github.com/yourusername/agentcockpit"
   },
   "keywords": [
     "terminal",
@@ -14,7 +14,8 @@
     "react",
     "typescript",
     "xterm",
-    "developer-tools"
+    "developer-tools",
+    "agent-cockpit"
   ],
   "private": true,
   "type": "module",

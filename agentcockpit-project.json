@@ -1,0 +1,9 @@
+{
+  "sessions": [],
+  "defaultModel": "sonnet",
+  "mcpPreferences": {
+    "enableDesktop": true,
+    "enableCode": true,
+    "selectedServers": []
+  }
+}
