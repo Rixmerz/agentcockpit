@@ -44,7 +44,7 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
   }, [terminalId, terminalFinishedSound, customSoundPath, setTerminalActivity]);
 
   // Terminal activity tracking hook
-  const { signalOutput } = useTerminalActivity({
+  const { signalOutput, signalUserInput } = useTerminalActivity({
     terminalId,
     threshold: terminalFinishedThreshold * 1000,
     onFinished: handleTerminalFinished,
@@ -62,16 +62,12 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
   const { spawn, write, resize } = usePty({
     onData: (data: string) => {
       terminalRef.current?.write(data);
-      // Signal output activity for terminal "finished" detection
-      // Only signal on "significant" output (contains newline or is longer than 2 chars)
-      // This prevents single character echo (user typing) from triggering the timer
-      if (data.includes('\n') || data.includes('\r') || data.length > 2) {
-        signalOutput();
-      }
+      // Signal ALL output - the hook handles filtering based on user input timing
+      // This works because signalUserInput() is called when user types,
+      // and signalOutput() ignores output that occurs within the grace period
+      signalOutput();
       // Clear finished state when new output arrives
       setTerminalActivity(terminalId, false, Date.now());
-      // Note: Terminal OUTPUT doesn't reset USER idle mode
-      // Only user INPUT (keyboard, mouse) should reset it
     },
     onClose: () => {
       terminalRef.current?.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
@@ -151,6 +147,8 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
     // Input
     terminal.onData((data) => {
       write(data).catch(console.error);
+      // Signal user input - prevents shell echo from triggering notification
+      signalUserInput();
       // Signal activity to reset idle timer
       onActivity?.();
     });
@@ -161,7 +159,7 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
     });
 
     return () => {};
-  }, [terminalId, workingDir, spawn, write, resize, registerPtyId]);
+  }, [terminalId, workingDir, spawn, write, resize, registerPtyId, signalUserInput]);
 
   return (
     <div
