@@ -26,9 +26,6 @@ dist-ssr
 # Tauri build artifacts
 src-tauri/target/
 
-# Old projects (removed from repo)
-one-term/
-
 # CFA - Context First Architecture
 # Keep: cfa.yaml, map.md, decisions/*.md (valuable for devs)
 # Ignore: session-specific and generated files
