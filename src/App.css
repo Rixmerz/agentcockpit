@@ -2690,6 +2690,59 @@ input[type="checkbox"] {
   font-weight: 500;
 }
 
+/* Sound selector specific styles */
+.settings-sound-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-sound-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-sound-item .settings-radio-item {
+  flex: 1;
+  margin: 0;
+}
+
+.settings-sound-item .btn-icon-sm {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.settings-sound-item:hover .btn-icon-sm {
+  opacity: 1;
+}
+
+.sound-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sound-name {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sound-description {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.settings-radio-item:has(input:checked) .sound-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.settings-radio-item:has(input:checked) .sound-description {
+  color: var(--text-secondary);
+}
+
 .settings-checkbox-item {
   display: flex;
   align-items: center;
