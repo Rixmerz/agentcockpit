@@ -210,6 +210,12 @@ export interface LauncherProps {
 
   /** Callback to ensure session exists before launch */
   ensureSession: () => Promise<SessionInfo | null>;
+
+  /** Whether to skip permissions (controlled by parent) */
+  skipPermissions?: boolean;
+
+  /** Callback when skip permissions changes */
+  onSkipPermissionsChange?: (value: boolean) => void;
 }
 
 /**

@@ -117,6 +117,7 @@ export function buildClaudeCommand(options: {
   model?: 'haiku' | 'sonnet' | 'opus';
   mcpDesktop?: boolean;
   mcpDefault?: boolean;
+  skipPermissions?: boolean;
   additionalArgs?: string[];
 }): string {
   const args: string[] = ['claude'];
@@ -140,6 +141,10 @@ export function buildClaudeCommand(options: {
 
   if (options.mcpDefault === false) {
     args.push('--no-mcp-default');
+  }
+
+  if (options.skipPermissions) {
+    args.push('--dangerously-skip-permissions');
   }
 
   // Additional args

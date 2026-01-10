@@ -24,11 +24,17 @@ export function ClaudeLauncher({
   ensureSession,
   onLaunch,
   onWriteToTerminal,
+  skipPermissions = false,
+  onSkipPermissionsChange,
 }: LauncherProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customArgs, setCustomArgs] = useState('');
   const [activeModel, setActiveModel] = useState<string | null>(null);
-  const [skipPermissions, setSkipPermissions] = useState(false);
+
+  // Handle skipPermissions change - use prop callback if provided, otherwise noop
+  const handleSkipPermissionsChange = (value: boolean) => {
+    onSkipPermissionsChange?.(value);
+  };
 
   // Send /model command to switch model in running Claude instance
   const handleModelSwitch = useCallback(async (model: string) => {
@@ -146,7 +152,7 @@ export function ClaudeLauncher({
           <input
             type="checkbox"
             checked={skipPermissions}
-            onChange={(e) => setSkipPermissions(e.target.checked)}
+            onChange={(e) => handleSkipPermissionsChange(e.target.checked)}
             disabled={!hasActiveTerminal}
             className="skip-permissions-checkbox cursor-pointer"
           />
