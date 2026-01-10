@@ -1,6 +1,6 @@
-# AgentCockpit Plugin Development Guide
+# One-Term Plugin Development Guide
 
-Esta guia explica como crear plugins de agentes para AgentCockpit.
+This guide explains how to create agent plugins for One-Term.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ Esta guia explica como crear plugins de agentes para AgentCockpit.
 
 ## Overview
 
-AgentCockpit usa una arquitectura de plugins para integrar agentes AI. Cada plugin:
+One-Term usa una arquitectura de plugins para integrar agentes AI. Cada plugin:
 
 - Define metadata en un `manifest.json`
 - Exporta un objeto `AgentPlugin` con componentes React

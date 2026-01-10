@@ -1,7 +1,22 @@
 {
-  "name": "agentcockpit",
+  "name": "one-term",
+  "version": "1.0.0",
+  "description": "Modern, beautiful terminal manager for developers",
+  "author": "One-Term Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/one-term"
+  },
+  "keywords": [
+    "terminal",
+    "tauri",
+    "react",
+    "typescript",
+    "xterm",
+    "developer-tools"
+  ],
   "private": true,
-  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
