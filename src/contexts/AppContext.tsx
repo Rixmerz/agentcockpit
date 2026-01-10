@@ -521,24 +521,27 @@ export function useAppSettings() {
 export function useTerminalActivityState() {
   const { state, dispatch } = useApp();
 
+  const setTerminalActivity = useCallback((terminalId: string, isFinished: boolean, lastOutputAt: number) => {
+    dispatch({ type: 'SET_TERMINAL_ACTIVITY', payload: { terminalId, isFinished, lastOutputAt } });
+  }, [dispatch]);
+
+  const clearTerminalActivity = useCallback((terminalId: string) => {
+    dispatch({ type: 'CLEAR_TERMINAL_ACTIVITY', payload: terminalId });
+  }, [dispatch]);
+
+  const isTerminalFinished = useCallback((terminalId: string) => {
+    const result = state.terminalActivity.get(terminalId)?.isFinished ?? false;
+    // Only log when finished (avoid spam)
+    if (result) {
+      console.log('[AppContext] ✅ Terminal is finished:', terminalId);
+    }
+    return result;
+  }, [state.terminalActivity]);
+
   return {
     terminalActivity: state.terminalActivity,
-
-    setTerminalActivity: (terminalId: string, isFinished: boolean, lastOutputAt: number) => {
-      dispatch({ type: 'SET_TERMINAL_ACTIVITY', payload: { terminalId, isFinished, lastOutputAt } });
-    },
-
-    clearTerminalActivity: (terminalId: string) => {
-      dispatch({ type: 'CLEAR_TERMINAL_ACTIVITY', payload: terminalId });
-    },
-
-    isTerminalFinished: (terminalId: string) => {
-      const result = state.terminalActivity.get(terminalId)?.isFinished ?? false;
-      // Only log when finished (avoid spam)
-      if (result) {
-        console.log('[AppContext] ✅ Terminal is finished:', terminalId);
-      }
-      return result;
-    },
+    setTerminalActivity,
+    clearTerminalActivity,
+    isTerminalFinished,
   };
 }
