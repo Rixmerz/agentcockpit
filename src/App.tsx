@@ -39,7 +39,7 @@ function MainContent() {
   const { state, activeProject, activeTerminal, addProject, addTerminal, setActiveTerminal, removeTerminal, renameTerminal, removeProject } = useApp();
   const { writeToActiveTerminal, hasActiveTerminal } = useTerminalActions();
   const { defaultIDE, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout } = useAppSettings();
-  const { isTerminalFinished } = useTerminalActivityState();
+  const { isTerminalFinished, clearTerminalActivity } = useTerminalActivityState();
 
   // Idle mode - fade UI after configured inactivity (0 = disabled)
   const { isIdle, signalActivity } = useIdleMode({
@@ -246,7 +246,10 @@ function MainContent() {
                     <div
                       key={terminal.id}
                       className={`terminal-item ${state.activeTerminalId === terminal.id ? 'active' : ''}`}
-                      onClick={() => setActiveTerminal(project.id, terminal.id)}
+                      onClick={() => {
+                        setActiveTerminal(project.id, terminal.id);
+                        clearTerminalActivity(terminal.id);
+                      }}
                     >
                       <TerminalSquare size={13} className="terminal-icon" />
                       {editingTerminalId === terminal.id ? (
