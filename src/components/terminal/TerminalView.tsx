@@ -37,6 +37,7 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
 
   // Callback when terminal finishes (no output for threshold duration)
   const handleTerminalFinished = useCallback(() => {
+    console.log('[TerminalView] 🔔 Terminal finished detected:', terminalId);
     setTerminalActivity(terminalId, true, Date.now());
     if (terminalFinishedSound) {
       playNotificationSound(customSoundPath);
@@ -67,6 +68,7 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
       // and signalOutput() ignores output that occurs within the grace period
       signalOutput();
       // Clear finished state when new output arrives
+      console.log('[TerminalView] 📥 PTY output received, clearing finished state');
       setTerminalActivity(terminalId, false, Date.now());
     },
     onClose: () => {

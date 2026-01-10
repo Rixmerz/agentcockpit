@@ -162,6 +162,11 @@ function appReducer(state: AppState, action: AppAction): AppState {
         isFinished: action.payload.isFinished,
         lastOutputAt: action.payload.lastOutputAt,
       });
+      console.log('[AppContext] 📝 Terminal activity updated:', {
+        terminalId: action.payload.terminalId,
+        isFinished: action.payload.isFinished,
+        mapSize: newActivity.size,
+      });
       return { ...state, terminalActivity: newActivity };
     }
 
@@ -528,7 +533,12 @@ export function useTerminalActivityState() {
     },
 
     isTerminalFinished: (terminalId: string) => {
-      return state.terminalActivity.get(terminalId)?.isFinished ?? false;
+      const result = state.terminalActivity.get(terminalId)?.isFinished ?? false;
+      // Only log when finished (avoid spam)
+      if (result) {
+        console.log('[AppContext] ✅ Terminal is finished:', terminalId);
+      }
+      return result;
     },
   };
 }

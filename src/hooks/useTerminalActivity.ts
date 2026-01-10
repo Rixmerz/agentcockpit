@@ -148,7 +148,13 @@ export function useTerminalActivity(options: UseTerminalActivityOptions): UseTer
         }
 
         // All conditions met - terminal is finished
+        console.log('[useTerminalActivity] Checking finish conditions:', {
+          terminalId,
+          hasHadOutput: hasHadOutputRef.current,
+          isFinished: isFinishedRef.current,
+        });
         if (hasHadOutputRef.current && !isFinishedRef.current) {
+          console.log('[useTerminalActivity] ✨ All conditions met! Calling onFinished');
           isFinishedRef.current = true;
           setIsFinished(true);
           onFinishedRef.current?.();
