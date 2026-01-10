@@ -48,7 +48,7 @@
 
 ### Prerequisites
 - **Node.js** 18+
-- **npm** or **pnpm**
+- **pnpm**
 - **Rust** (for Tauri)
 
 ### Installation
@@ -61,13 +61,13 @@ git clone https://github.com/yourusername/agentcockpit.git
 cd agentcockpit
 
 # Install dependencies
-npm install
+pnpm install
 
 # Run in development mode
-npm run tauri dev
+pnpm tauri dev
 
 # Build for production
-npm run tauri build
+pnpm tauri build
 ```
 
 ---
@@ -163,6 +163,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [xterm.js](https://xtermjs.org/) for terminal emulation
 - [Lucide](https://lucide.dev/) for beautiful icons
 - [Mixkit](https://mixkit.co/) for notification sounds
+
+---
+
+## 📝 Author's Note
+
+*Currently running on a system with limited memory capacity. When capacity allows, a video tutorial will be added to this README to help with setup and features.*
 
 ---
 
