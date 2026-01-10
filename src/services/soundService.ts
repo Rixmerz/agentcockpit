@@ -113,8 +113,14 @@ export async function playNotificationSound(customPath?: string | null): Promise
     let soundUrl: string;
 
     if (customPath) {
-      // Convert local file path to Tauri asset URL
-      soundUrl = convertFileSrc(customPath);
+      // Check if it's a web URL or local filesystem path
+      if (customPath.startsWith('http://') || customPath.startsWith('https://') || customPath.startsWith('/')) {
+        // Web URL or bundled asset path - use directly
+        soundUrl = customPath;
+      } else {
+        // Local filesystem path - convert to Tauri asset URL
+        soundUrl = convertFileSrc(customPath);
+      }
     } else {
       // Use bundled default sound
       soundUrl = DEFAULT_SOUND_PATH;
