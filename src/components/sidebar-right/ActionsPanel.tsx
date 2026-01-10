@@ -16,7 +16,6 @@ import { SettingsModal } from '../settings/SettingsModal';
 import { GitHubLoginModal } from '../sidebar-left/GitHubLoginModal';
 import { createSession, updateSessionLastUsed, getSessions, markSessionAsPreExisting, type ProjectSession } from '../../services/projectSessionService';
 import { buildClaudeCommand } from '../../services/claudeService';
-import { executeAction } from '../../core/utils/terminalCommands';
 import { getCurrentUser, type GitHubUser } from '../../services/githubService';
 import type { McpServerInfo } from '../../plugins/types/plugin';
 
@@ -47,6 +46,13 @@ export function ActionsPanel({
   const [showSettings, setShowSettings] = useState(false);
   const [showGitHubLogin, setShowGitHubLogin] = useState(false);
   const [gitHubUser, setGitHubUser] = useState<GitHubUser | null>(null);
+  const [skipPermissions, setSkipPermissions] = useState(false);
+
+  // Clear session when project changes (fixes ghost session bug)
+  useEffect(() => {
+    setSelectedSession(null);
+    setSessionError(null);
+  }, [projectPath]);
 
   // Load GitHub user on mount (non-blocking)
   useEffect(() => {
@@ -148,10 +154,11 @@ export function ActionsPanel({
 
     console.log('[ActionsPanel] Auto-launching Claude for new session:', session.id);
 
-    // Build command with --session-id (new session)
+    // Build command with --session-id (new session) and skipPermissions if enabled
     const claudeCommand = buildClaudeCommand({
       sessionId: session.id,
       resume: false, // New session, use --session-id
+      skipPermissions, // Pass skipPermissions flag
     });
 
     // Build full command with MCP operations
@@ -178,8 +185,8 @@ export function ActionsPanel({
     // Wait for Claude to initialize (2 seconds)
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Send "hi" to persist the session (using executeAction for proper PTY interaction)
-    await executeAction(onWriteToTerminal, 'hi');
+    // Send "hi" to persist the session (use \n to actually send the message)
+    await onWriteToTerminal('hi\n');
 
     // Wait a bit for the message to be processed
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -193,7 +200,7 @@ export function ActionsPanel({
     } catch (error) {
       console.error('[ActionsPanel] Failed to mark session as pre-existing:', error);
     }
-  }, [hasActiveTerminal, projectPath, mcpsToRemove, mcpsToInject, onWriteToTerminal]);
+  }, [hasActiveTerminal, projectPath, mcpsToRemove, mcpsToInject, onWriteToTerminal, skipPermissions]);
 
   // Handle MCP changes from plugin
   const handleMcpsChange = useCallback((toInject: McpServerInfo[], toRemove: string[]) => {
@@ -333,6 +340,8 @@ export function ActionsPanel({
               ensureSession={ensureSession}
               onLaunch={handleLaunch}
               onWriteToTerminal={onWriteToTerminal}
+              skipPermissions={skipPermissions}
+              onSkipPermissionsChange={setSkipPermissions}
             />
           )}
 

@@ -63,7 +63,11 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
     onData: (data: string) => {
       terminalRef.current?.write(data);
       // Signal output activity for terminal "finished" detection
-      signalOutput();
+      // Only signal on "significant" output (contains newline or is longer than 2 chars)
+      // This prevents single character echo (user typing) from triggering the timer
+      if (data.includes('\n') || data.includes('\r') || data.length > 2) {
+        signalOutput();
+      }
       // Clear finished state when new output arrives
       setTerminalActivity(terminalId, false, Date.now());
       // Note: Terminal OUTPUT doesn't reset USER idle mode
