@@ -1,6 +1,6 @@
 {
   "cfa_version": "3.0",
-  "project_name": "one-term",
+  "project_name": "agentcockpit",
   "source_root": "src",
   "hooks": {
     "SessionStart": [
