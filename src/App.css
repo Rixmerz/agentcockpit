@@ -3002,7 +3002,8 @@ input[type="checkbox"] {
 /* Collapsible sections - prevent layout shift */
 .session-manager,
 .mcp-manager,
-.port-manager {
+.port-manager,
+.pipeline-panel {
   contain: layout;
 }
 
@@ -4337,19 +4338,18 @@ input[type="checkbox"] {
 
 /* Pipeline Panel (Sidebar) */
 .pipeline-panel {
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  border-radius: var(--radius-md);
-  margin: 8px;
-  overflow: hidden;
+  padding: 0;
 }
 
 .pipeline-panel-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px 16px;
+  background: rgba(39, 39, 42, 0.15);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--glass-border);
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -4362,7 +4362,10 @@ input[type="checkbox"] {
 }
 
 .pipeline-panel-content {
-  padding: 12px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .pipeline-panel-loading {
