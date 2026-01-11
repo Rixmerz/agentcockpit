@@ -4359,6 +4359,7 @@ input[type="checkbox"] {
 
 .pipeline-panel-header .btn-icon-sm {
   margin-left: auto;
+  opacity: 1;
 }
 
 .pipeline-panel-content {

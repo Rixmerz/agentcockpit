@@ -415,13 +415,14 @@ export async function savePipelineSteps(steps: PipelineStep[]): Promise<boolean>
   }
 }
 
-// Check if pipeline is installed (has controller)
+// Check if pipeline is installed (has steps config)
 export async function isPipelineInstalled(): Promise<boolean> {
   try {
     const dir = await getPipelineDir();
-    const controllerPath = `${dir}/pipeline_controller.py`;
-    const installed = await exists(controllerPath);
-    console.log('[Pipeline] Controller installed:', installed);
+    // Check for steps.yaml instead of controller (more reliable with Tauri)
+    const stepsPath = `${dir}/${STEPS_FILE}`;
+    const installed = await exists(stepsPath);
+    console.log('[Pipeline] Steps file exists:', installed, 'at', stepsPath);
     return installed;
   } catch (e) {
     console.error('[Pipeline] Error checking installation:', e);
