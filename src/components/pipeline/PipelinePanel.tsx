@@ -14,7 +14,8 @@ import {
   ChevronRight,
   Settings,
   CheckCircle2,
-  Circle
+  Circle,
+  AlertCircle
 } from 'lucide-react';
 
 export function PipelinePanel() {
@@ -26,77 +27,54 @@ export function PipelinePanel() {
 
   useEffect(() => {
     loadData();
-    // Refresh every 10 seconds
-    const interval = setInterval(loadData, 10000);
-    return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      setError(null);
-      const [pipelineState, pipelineSteps] = await Promise.all([
-        getPipelineState(),
-        getPipelineSteps()
-      ]);
+      console.log('[PipelinePanel] Loading data...');
+
+      const pipelineState = await getPipelineState();
+      console.log('[PipelinePanel] State loaded:', pipelineState);
+
+      const pipelineSteps = await getPipelineSteps();
+      console.log('[PipelinePanel] Steps loaded:', pipelineSteps);
+
       setState(pipelineState);
       setSteps(pipelineSteps);
     } catch (e) {
-      console.error('[PipelinePanel] Failed to load:', e);
-      setError(e instanceof Error ? e.message : 'Failed to load pipeline');
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error('[PipelinePanel] Error:', errorMsg);
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   const handleReset = async () => {
-    await resetPipeline();
-    await loadData();
+    try {
+      await resetPipeline();
+      await loadData();
+    } catch (e) {
+      console.error('[PipelinePanel] Reset error:', e);
+    }
   };
 
   const handleAdvance = async () => {
-    await advancePipeline();
-    await loadData();
+    try {
+      await advancePipeline();
+      await loadData();
+    } catch (e) {
+      console.error('[PipelinePanel] Advance error:', e);
+    }
   };
 
-  const getCurrentStep = (): PipelineStep | null => {
-    if (!state || !steps.length) return null;
-    return steps[state.current_step] || null;
-  };
-
-  const currentStep = getCurrentStep();
-  const progress = state ? ((state.current_step) / Math.max(steps.length - 1, 1)) * 100 : 0;
-
-  if (loading) {
-    return (
-      <div className="pipeline-panel">
-        <div className="pipeline-panel-header">
-          <Workflow size={16} />
-          <span>Pipeline</span>
-        </div>
-        <div className="pipeline-panel-loading">Loading...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="pipeline-panel">
-        <div className="pipeline-panel-header">
-          <Workflow size={16} />
-          <span>Pipeline Control</span>
-        </div>
-        <div className="pipeline-panel-content">
-          <div style={{ color: 'var(--error)', fontSize: '11px', padding: '8px' }}>
-            Error: {error}
-          </div>
-          <button className="pipeline-action-btn" onClick={loadData}>
-            <RotateCcw size={14} />
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const currentStep = state && steps.length > 0 ? steps[state.current_step] : null;
+  const progress = state && steps.length > 1
+    ? (state.current_step / (steps.length - 1)) * 100
+    : 0;
 
   return (
     <>
@@ -114,71 +92,113 @@ export function PipelinePanel() {
         </div>
 
         <div className="pipeline-panel-content">
-          {/* Progress bar */}
-          <div className="pipeline-progress">
-            <div className="pipeline-progress-bar">
-              <div
-                className="pipeline-progress-fill"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <span className="pipeline-progress-text">
-              Step {state?.current_step || 0} / {steps.length - 1}
-            </span>
-          </div>
+          {/* Loading state */}
+          {loading && (
+            <div className="pipeline-panel-loading">Loading...</div>
+          )}
 
-          {/* Current step */}
-          {currentStep && (
-            <div className="pipeline-current-step">
-              <div className="pipeline-current-icon">
-                <Play size={16} />
+          {/* Error state */}
+          {!loading && error && (
+            <div style={{
+              padding: '12px',
+              color: '#ef4444',
+              fontSize: '11px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              borderRadius: '6px',
+              marginBottom: '8px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                <AlertCircle size={14} />
+                <span>Error loading pipeline</span>
               </div>
-              <div className="pipeline-current-info">
-                <span className="pipeline-current-name">{currentStep.name}</span>
-                <span className="pipeline-current-mcps">
-                  {currentStep.mcps_enabled.join(', ')}
-                </span>
-              </div>
+              <div style={{ opacity: 0.8, fontSize: '10px', marginBottom: '8px' }}>{error}</div>
+              <button
+                className="pipeline-action-btn"
+                onClick={loadData}
+                style={{ width: '100%' }}
+              >
+                <RotateCcw size={14} />
+                Retry
+              </button>
             </div>
           )}
 
-          {/* Quick steps view */}
-          <div className="pipeline-quick-steps">
-            {steps.map((step, index) => {
-              const isCompleted = state && index < state.current_step;
-              const isCurrent = state && index === state.current_step;
-              return (
-                <div
-                  key={step.id}
-                  className={`pipeline-quick-step ${isCompleted ? 'completed' : ''} ${isCurrent ? 'current' : ''}`}
-                  title={step.name}
-                >
-                  {isCompleted ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+          {/* Success state */}
+          {!loading && !error && (
+            <>
+              {/* Progress bar */}
+              <div className="pipeline-progress">
+                <div className="pipeline-progress-bar">
+                  <div
+                    className="pipeline-progress-fill"
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
-              );
-            })}
-          </div>
+                <span className="pipeline-progress-text">
+                  {state?.current_step ?? 0} / {Math.max(steps.length - 1, 0)}
+                </span>
+              </div>
 
-          {/* Actions */}
-          <div className="pipeline-panel-actions">
-            <button
-              className="pipeline-action-btn"
-              onClick={handleReset}
-              title="Reset Pipeline"
-            >
-              <RotateCcw size={14} />
-              Reset
-            </button>
-            <button
-              className="pipeline-action-btn"
-              onClick={handleAdvance}
-              disabled={!state || state.current_step >= steps.length - 1}
-              title="Advance to Next Step"
-            >
-              <ChevronRight size={14} />
-              Advance
-            </button>
-          </div>
+              {/* Current step */}
+              {currentStep ? (
+                <div className="pipeline-current-step">
+                  <div className="pipeline-current-icon">
+                    <Play size={16} />
+                  </div>
+                  <div className="pipeline-current-info">
+                    <span className="pipeline-current-name">{currentStep.name}</span>
+                    <span className="pipeline-current-mcps">
+                      {currentStep.mcps_enabled?.join(', ') || 'none'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '8px 0' }}>
+                  No steps configured
+                </div>
+              )}
+
+              {/* Quick steps view */}
+              {steps.length > 0 && (
+                <div className="pipeline-quick-steps">
+                  {steps.map((step, index) => {
+                    const isCompleted = state && index < state.current_step;
+                    const isCurrent = state && index === state.current_step;
+                    return (
+                      <div
+                        key={step.id || index}
+                        className={`pipeline-quick-step ${isCompleted ? 'completed' : ''} ${isCurrent ? 'current' : ''}`}
+                        title={step.name}
+                      >
+                        {isCompleted ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="pipeline-panel-actions">
+                <button
+                  className="pipeline-action-btn"
+                  onClick={handleReset}
+                  title="Reset Pipeline"
+                >
+                  <RotateCcw size={14} />
+                  Reset
+                </button>
+                <button
+                  className="pipeline-action-btn"
+                  onClick={handleAdvance}
+                  disabled={!state || state.current_step >= steps.length - 1}
+                  title="Advance to Next Step"
+                >
+                  <ChevronRight size={14} />
+                  Advance
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
