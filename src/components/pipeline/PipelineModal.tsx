@@ -6,9 +6,17 @@ import {
   savePipelineSteps,
   resetPipeline,
   advancePipeline,
-  isPipelineInstalled,
+  getPipelineSettings,
+  savePipelineSettings,
+  getAvailableMcps,
+  STANDARD_TOOLS,
 } from '../../services/pipelineService';
-import type { PipelineState, PipelineStep } from '../../services/pipelineService';
+import type {
+  PipelineState,
+  PipelineStep,
+  PipelineSettings,
+  AvailableMcp
+} from '../../services/pipelineService';
 import {
   Play,
   RotateCcw,
@@ -18,10 +26,11 @@ import {
   Edit3,
   Check,
   X,
-  AlertTriangle,
   CheckCircle2,
   Circle,
-  ArrowRight
+  ArrowRight,
+  Settings2,
+  Zap
 } from 'lucide-react';
 
 interface PipelineModalProps {
@@ -29,13 +38,14 @@ interface PipelineModalProps {
   onClose: () => void;
 }
 
-type ViewMode = 'status' | 'steps' | 'edit-step';
+type ViewMode = 'status' | 'steps' | 'edit-step' | 'settings';
 
 export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('status');
   const [state, setState] = useState<PipelineState | null>(null);
   const [steps, setSteps] = useState<PipelineStep[]>([]);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [settings, setSettings] = useState<PipelineSettings | null>(null);
+  const [availableMcps, setAvailableMcps] = useState<AvailableMcp[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingStep, setEditingStep] = useState<PipelineStep | null>(null);
@@ -51,14 +61,16 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [installed, pipelineState, pipelineSteps] = await Promise.all([
-        isPipelineInstalled(),
+      const [pipelineState, pipelineSteps, pipelineSettings, mcps] = await Promise.all([
         getPipelineState(),
-        getPipelineSteps()
+        getPipelineSteps(),
+        getPipelineSettings(),
+        getAvailableMcps()
       ]);
-      setIsInstalled(installed);
       setState(pipelineState);
       setSteps(pipelineSteps);
+      setSettings(pipelineSettings);
+      setAvailableMcps(mcps);
     } catch (e) {
       console.error('[PipelineModal] Failed to load:', e);
     } finally {
@@ -97,6 +109,18 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
     }
   };
 
+  const handleSaveSettings = async () => {
+    if (!settings) return;
+    setSaving(true);
+    try {
+      await savePipelineSettings(settings);
+      await loadData();
+      setViewMode('status');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleAddStep = () => {
     const newStep: PipelineStep = {
       id: `step-${Date.now()}`,
@@ -123,7 +147,6 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
 
   const handleDeleteStep = (index: number) => {
     const newSteps = steps.filter((_, i) => i !== index);
-    // Re-order
     newSteps.forEach((s, i) => s.order = i);
     setSteps(newSteps);
   };
@@ -137,7 +160,6 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
     } else {
       newSteps[editingIndex] = editingStep;
     }
-    // Re-order
     newSteps.forEach((s, i) => s.order = i);
     setSteps(newSteps);
     setEditingStep(null);
@@ -151,6 +173,38 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
     setViewMode('steps');
   };
 
+  const toggleMcp = (mcpName: string) => {
+    if (!editingStep) return;
+    const enabled = editingStep.mcps_enabled;
+    if (enabled.includes(mcpName)) {
+      setEditingStep({
+        ...editingStep,
+        mcps_enabled: enabled.filter(m => m !== mcpName)
+      });
+    } else {
+      setEditingStep({
+        ...editingStep,
+        mcps_enabled: [...enabled, mcpName]
+      });
+    }
+  };
+
+  const toggleTool = (toolName: string) => {
+    if (!editingStep) return;
+    const blocked = editingStep.tools_blocked;
+    if (blocked.includes(toolName)) {
+      setEditingStep({
+        ...editingStep,
+        tools_blocked: blocked.filter(t => t !== toolName)
+      });
+    } else {
+      setEditingStep({
+        ...editingStep,
+        tools_blocked: [...blocked, toolName]
+      });
+    }
+  };
+
   const getStepStatus = (index: number): 'completed' | 'current' | 'pending' => {
     if (!state) return 'pending';
     if (index < state.current_step) return 'completed';
@@ -160,16 +214,16 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
 
   const renderStatusView = () => (
     <>
-      {!isInstalled && (
-        <div className="pipeline-warning">
-          <AlertTriangle size={20} />
-          <span>Pipeline controller not installed. Steps will be saved but won't execute.</span>
-        </div>
-      )}
-
       <div className="pipeline-status-header">
-        <h3>Current Pipeline State</h3>
+        <h3>Pipeline Status</h3>
         <div className="pipeline-actions">
+          <button
+            className="btn-icon"
+            onClick={() => setViewMode('settings')}
+            title="Settings"
+          >
+            <Settings2 size={18} />
+          </button>
           <button
             className="btn-icon"
             onClick={handleReset}
@@ -213,9 +267,21 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
         })}
       </div>
 
+      {settings && (
+        <div className="pipeline-config-summary">
+          <span className="config-badge">{settings.reset_policy}</span>
+          {settings.reset_policy === 'timeout' && (
+            <span className="config-badge">{settings.timeout_minutes}min</span>
+          )}
+          {settings.force_sequential && (
+            <span className="config-badge">sequential</span>
+          )}
+        </div>
+      )}
+
       {state?.last_activity && (
         <div className="pipeline-info">
-          <span>Last activity: {new Date(state.last_activity).toLocaleString()}</span>
+          <span>Last: {new Date(state.last_activity).toLocaleString()}</span>
         </div>
       )}
 
@@ -227,6 +293,103 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
       </div>
     </>
   );
+
+  const renderSettingsView = () => {
+    if (!settings) return null;
+
+    return (
+      <>
+        <div className="pipeline-edit-header">
+          <h3>Pipeline Settings</h3>
+        </div>
+
+        <div className="settings-section">
+          <label className="settings-label">Reset Policy</label>
+          <div className="settings-radio-group">
+            <label className="settings-radio-item">
+              <input
+                type="radio"
+                name="reset-policy"
+                checked={settings.reset_policy === 'manual'}
+                onChange={() => setSettings({ ...settings, reset_policy: 'manual' })}
+              />
+              <div>
+                <span>Manual</span>
+                <small>Only reset with explicit command</small>
+              </div>
+            </label>
+            <label className="settings-radio-item">
+              <input
+                type="radio"
+                name="reset-policy"
+                checked={settings.reset_policy === 'timeout'}
+                onChange={() => setSettings({ ...settings, reset_policy: 'timeout' })}
+              />
+              <div>
+                <span>Timeout</span>
+                <small>Reset after inactivity period</small>
+              </div>
+            </label>
+            <label className="settings-radio-item">
+              <input
+                type="radio"
+                name="reset-policy"
+                checked={settings.reset_policy === 'per_session'}
+                onChange={() => setSettings({ ...settings, reset_policy: 'per_session' })}
+              />
+              <div>
+                <span>Per Session</span>
+                <small>Reset on each new Claude session</small>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {settings.reset_policy === 'timeout' && (
+          <div className="settings-section">
+            <label className="settings-label">Timeout (minutes)</label>
+            <input
+              type="number"
+              className="settings-input"
+              value={settings.timeout_minutes}
+              onChange={(e) => setSettings({
+                ...settings,
+                timeout_minutes: parseInt(e.target.value, 10) || 30
+              })}
+              min={1}
+              max={1440}
+            />
+          </div>
+        )}
+
+        <div className="settings-section">
+          <label className="settings-checkbox-item">
+            <input
+              type="checkbox"
+              checked={settings.force_sequential}
+              onChange={(e) => setSettings({
+                ...settings,
+                force_sequential: e.target.checked
+              })}
+            />
+            <div>
+              <span>Force Sequential</span>
+              <small>Complete all steps in one turn</small>
+            </div>
+          </label>
+        </div>
+
+        <div className="settings-actions">
+          <button className="btn-secondary" onClick={() => setViewMode('status')}>
+            Cancel
+          </button>
+          <button className="btn-primary" onClick={handleSaveSettings} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Settings'}
+          </button>
+        </div>
+      </>
+    );
+  };
 
   const renderStepsView = () => (
     <>
@@ -342,36 +505,45 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
             value={editingStep.prompt_injection}
             onChange={(e) => setEditingStep({ ...editingStep, prompt_injection: e.target.value })}
             placeholder="The prompt to inject when this step is active..."
-            rows={5}
+            rows={4}
           />
         </div>
 
         <div className="settings-section">
-          <label className="settings-label">MCPs Enabled (comma-separated)</label>
-          <input
-            type="text"
-            className="settings-input"
-            value={editingStep.mcps_enabled.join(', ')}
-            onChange={(e) => setEditingStep({
-              ...editingStep,
-              mcps_enabled: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-            })}
-            placeholder="sequential-thinking, Context7, *"
-          />
+          <label className="settings-label">
+            <Zap size={14} style={{ marginRight: '4px' }} />
+            MCPs Enabled
+          </label>
+          <div className="pipeline-checkbox-grid">
+            {availableMcps.map(mcp => (
+              <label key={mcp.name} className="pipeline-checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={editingStep.mcps_enabled.includes(mcp.name)}
+                  onChange={() => toggleMcp(mcp.name)}
+                />
+                <span className={mcp.name === '*' ? 'mcp-wildcard' : ''}>
+                  {mcp.name === '*' ? '* (All)' : mcp.name}
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="settings-section">
-          <label className="settings-label">Tools Blocked (comma-separated)</label>
-          <input
-            type="text"
-            className="settings-input"
-            value={editingStep.tools_blocked.join(', ')}
-            onChange={(e) => setEditingStep({
-              ...editingStep,
-              tools_blocked: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-            })}
-            placeholder="Write, Edit"
-          />
+          <label className="settings-label">Tools Blocked</label>
+          <div className="pipeline-checkbox-grid">
+            {STANDARD_TOOLS.map(tool => (
+              <label key={tool} className="pipeline-checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={editingStep.tools_blocked.includes(tool)}
+                  onChange={() => toggleTool(tool)}
+                />
+                <span>{tool}</span>
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="settings-section">
@@ -384,7 +556,10 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
                 checked={editingStep.gate_type === 'any'}
                 onChange={() => setEditingStep({ ...editingStep, gate_type: 'any' })}
               />
-              <span>Any (tool OR phrase)</span>
+              <div>
+                <span>Any</span>
+                <small>Advance when tool used OR phrase detected</small>
+              </div>
             </label>
             <label className="settings-radio-item">
               <input
@@ -393,7 +568,10 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
                 checked={editingStep.gate_type === 'always'}
                 onChange={() => setEditingStep({ ...editingStep, gate_type: 'always' })}
               />
-              <span>Always (final step)</span>
+              <div>
+                <span>Always</span>
+                <small>Final step, no advancement</small>
+              </div>
             </label>
           </div>
         </div>
@@ -401,18 +579,26 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
         {editingStep.gate_type === 'any' && (
           <>
             <div className="settings-section">
-              <label className="settings-label">Gate Tool (prefix match)</label>
-              <input
-                type="text"
+              <label className="settings-label">Gate Tool</label>
+              <select
                 className="settings-input"
                 value={editingStep.gate_tool}
                 onChange={(e) => setEditingStep({ ...editingStep, gate_tool: e.target.value })}
-                placeholder="mcp__sequential-thinking__"
-              />
+              >
+                <option value="">Select a tool...</option>
+                {availableMcps.filter(m => m.name !== '*').map(mcp => (
+                  <option key={mcp.name} value={`mcp__${mcp.name}__`}>
+                    mcp__{mcp.name}__
+                  </option>
+                ))}
+              </select>
+              <small className="settings-hint">
+                Tool prefix that triggers advancement when used
+              </small>
             </div>
 
             <div className="settings-section">
-              <label className="settings-label">Gate Phrases (comma-separated)</label>
+              <label className="settings-label">Gate Phrases</label>
               <input
                 type="text"
                 className="settings-input"
@@ -423,6 +609,9 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
                 })}
                 placeholder="tarea simple, procedo directamente"
               />
+              <small className="settings-hint">
+                Comma-separated phrases that trigger advancement
+              </small>
             </div>
           </>
         )}
@@ -449,6 +638,7 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
         ) : (
           <>
             {viewMode === 'status' && renderStatusView()}
+            {viewMode === 'settings' && renderSettingsView()}
             {viewMode === 'steps' && renderStepsView()}
             {viewMode === 'edit-step' && renderEditStepView()}
           </>
