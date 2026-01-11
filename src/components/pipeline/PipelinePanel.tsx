@@ -4,9 +4,8 @@ import {
   getPipelineSteps,
   resetPipeline,
   advancePipeline,
-  PipelineState,
-  PipelineStep
 } from '../../services/pipelineService';
+import type { PipelineState, PipelineStep } from '../../services/pipelineService';
 import { PipelineModal } from './PipelineModal';
 import {
   Workflow,
@@ -22,17 +21,19 @@ export function PipelinePanel() {
   const [state, setState] = useState<PipelineState | null>(null);
   const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
-    // Refresh every 5 seconds
-    const interval = setInterval(loadData, 5000);
+    // Refresh every 10 seconds
+    const interval = setInterval(loadData, 10000);
     return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
     try {
+      setError(null);
       const [pipelineState, pipelineSteps] = await Promise.all([
         getPipelineState(),
         getPipelineSteps()
@@ -41,6 +42,7 @@ export function PipelinePanel() {
       setSteps(pipelineSteps);
     } catch (e) {
       console.error('[PipelinePanel] Failed to load:', e);
+      setError(e instanceof Error ? e.message : 'Failed to load pipeline');
     } finally {
       setLoading(false);
     }
@@ -72,6 +74,26 @@ export function PipelinePanel() {
           <span>Pipeline</span>
         </div>
         <div className="pipeline-panel-loading">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="pipeline-panel">
+        <div className="pipeline-panel-header">
+          <Workflow size={16} />
+          <span>Pipeline Control</span>
+        </div>
+        <div className="pipeline-panel-content">
+          <div style={{ color: 'var(--error)', fontSize: '11px', padding: '8px' }}>
+            Error: {error}
+          </div>
+          <button className="pipeline-action-btn" onClick={loadData}>
+            <RotateCcw size={14} />
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
