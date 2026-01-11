@@ -4730,6 +4730,20 @@ input[type="checkbox"] {
   flex-shrink: 0;
 }
 
+.pipeline-step-actions .btn-icon-sm {
+  opacity: 0.5;
+  margin-left: 0;
+}
+
+.pipeline-step-item:hover .pipeline-step-actions .btn-icon-sm {
+  opacity: 1;
+}
+
+.pipeline-step-actions .btn-icon-sm:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+
 /* Edit Step View */
 .pipeline-edit-header {
   margin-bottom: 16px;
@@ -4877,4 +4891,445 @@ select.settings-input {
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 32px;
+}
+
+/* =====================================================
+   MCP Manager Modal Styles
+   ===================================================== */
+
+.mcp-manager-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 400px;
+}
+
+.mcp-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--warning);
+  line-height: 1.5;
+}
+
+.mcp-warning-banner svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.mcp-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.mcp-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mcp-tab:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.mcp-tab.active {
+  background: var(--bg-primary);
+  color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.mcp-modal-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  animation: slideIn 0.2s ease;
+}
+
+.mcp-modal-message.success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--success);
+}
+
+.mcp-modal-message.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--error);
+}
+
+.mcp-modal-message.warning {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--warning);
+}
+
+.mcp-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.mcp-tab-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Active Tab */
+.mcp-active-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mcp-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.mcp-section-header .mcp-section-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.mcp-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.mcp-empty-state svg {
+  opacity: 0.4;
+}
+
+.mcp-empty-state p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.mcp-empty-state .text-muted {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.mcp-manager-modal .mcp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mcp-manager-modal .mcp-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease;
+}
+
+.mcp-manager-modal .mcp-item:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+.mcp-manager-modal .mcp-item.disabled {
+  opacity: 0.5;
+}
+
+.mcp-item-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mcp-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mcp-item-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.mcp-item-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.mcp-item-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.mcp-manager-modal .mcp-item:hover .mcp-item-actions {
+  opacity: 1;
+}
+
+.mcp-item-actions .btn-icon-sm {
+  padding: 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mcp-item-actions .btn-icon-sm:hover {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.mcp-item-actions .btn-icon-sm.active {
+  color: var(--success);
+}
+
+.mcp-item-actions .btn-icon-sm.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--error);
+}
+
+.mcp-config-path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Import Tab */
+.mcp-import-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mcp-import-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mcp-empty-small {
+  padding: 16px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.mcp-import-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.mcp-import-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.mcp-import-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.mcp-import-item.imported {
+  opacity: 0.6;
+}
+
+.mcp-import-item-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.mcp-badge {
+  padding: 2px 6px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius-xs);
+  font-size: 9px;
+  color: var(--success);
+  text-transform: uppercase;
+}
+
+.mcp-import-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.mcp-import-note svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--warning);
+}
+
+/* Add Manual Tab */
+.mcp-add-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mcp-manual-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mcp-manual-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.mcp-manual-textarea {
+  width: 100%;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.15s ease;
+}
+
+.mcp-manual-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.mcp-manual-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.mcp-manual-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--error);
+}
+
+.mcp-manual-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+/* Sidebar MCP Indicator */
+.mcp-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mcp-indicator:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+.mcp-indicator-icon {
+  color: var(--accent);
+}
+
+.mcp-indicator-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.mcp-indicator-count {
+  padding: 2px 8px;
+  background: var(--accent);
+  border-radius: var(--radius-xs);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--bg-primary);
+}
+
+.mcp-indicator-arrow {
+  color: var(--text-muted);
 }
