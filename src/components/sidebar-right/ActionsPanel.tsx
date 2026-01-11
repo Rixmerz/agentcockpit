@@ -14,6 +14,7 @@ import { PortMonitor } from './PortMonitor';
 import { GitSettings } from './GitSettings';
 import { SettingsModal } from '../settings/SettingsModal';
 import { GitHubLoginModal } from '../sidebar-left/GitHubLoginModal';
+import { PipelinePanel } from '../pipeline';
 import { createSession, updateSessionLastUsed, getSessions, markSessionAsPreExisting, type ProjectSession } from '../../services/projectSessionService';
 import { buildClaudeCommand } from '../../services/claudeService';
 import { executeAction } from '../../core/utils/terminalCommands';
@@ -381,6 +382,8 @@ export function ActionsPanel({
         onSessionSelect={setSelectedSession}
         onSessionCreated={handleSessionCreated}
       />
+
+      <PipelinePanel />
 
       <PortMonitor />
 

@@ -4330,3 +4330,444 @@ input[type="checkbox"] {
     transform: translateX(-50%) scaleX(1.5);
   }
 }
+
+/* ==========================================================================
+   PIPELINE CONTROL STYLES
+   ========================================================================== */
+
+/* Pipeline Panel (Sidebar) */
+.pipeline-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  border-radius: var(--radius-md);
+  margin: 8px;
+  overflow: hidden;
+}
+
+.pipeline-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.pipeline-panel-header .btn-icon-sm {
+  margin-left: auto;
+}
+
+.pipeline-panel-content {
+  padding: 12px;
+}
+
+.pipeline-panel-loading {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Progress bar */
+.pipeline-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.pipeline-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pipeline-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.pipeline-progress-text {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Current step display */
+.pipeline-current-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(0, 212, 170, 0.1);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+}
+
+.pipeline-current-icon {
+  color: var(--accent);
+}
+
+.pipeline-current-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pipeline-current-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pipeline-current-mcps {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Quick steps indicators */
+.pipeline-quick-steps {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.pipeline-quick-step {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.pipeline-quick-step.completed {
+  color: var(--success);
+  opacity: 1;
+}
+
+.pipeline-quick-step.current {
+  color: var(--accent);
+  opacity: 1;
+}
+
+/* Panel actions */
+.pipeline-panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pipeline-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pipeline-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.pipeline-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   PIPELINE MODAL STYLES
+   ========================================================================== */
+
+.pipeline-modal {
+  min-width: 500px;
+}
+
+.pipeline-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.pipeline-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* Status View */
+.pipeline-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.pipeline-status-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.pipeline-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Steps status list */
+.pipeline-steps-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.pipeline-step-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+
+.pipeline-step-status.pipeline-step-completed {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.pipeline-step-status.pipeline-step-completed .pipeline-step-icon {
+  color: var(--success);
+}
+
+.pipeline-step-status.pipeline-step-current {
+  border-color: rgba(0, 212, 170, 0.4);
+  background: rgba(0, 212, 170, 0.08);
+}
+
+.pipeline-step-status.pipeline-step-current .pipeline-step-icon {
+  color: var(--accent);
+}
+
+.pipeline-step-status.pipeline-step-pending .pipeline-step-icon {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.pipeline-step-icon {
+  flex-shrink: 0;
+}
+
+.pipeline-step-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pipeline-step-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pipeline-step-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.pipeline-step-arrow {
+  color: var(--text-muted);
+  opacity: 0.3;
+}
+
+.pipeline-info {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.pipeline-mode-switch {
+  display: flex;
+  justify-content: center;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pipeline-mode-switch .btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Steps List View */
+.pipeline-steps-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.pipeline-steps-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.pipeline-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.pipeline-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+}
+
+.pipeline-step-order {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 212, 170, 0.2);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.pipeline-step-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.pipeline-step-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.pipeline-step-gate {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.pipeline-step-gate.gate-any {
+  background: rgba(168, 85, 247, 0.2);
+  color: var(--accent-secondary);
+}
+
+.pipeline-step-gate.gate-always {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--success);
+}
+
+.pipeline-step-details {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  margin-top: 4px;
+}
+
+.pipeline-step-details .detail-label {
+  color: var(--text-muted);
+  min-width: 50px;
+}
+
+.pipeline-step-details .detail-value {
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.pipeline-step-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Edit Step View */
+.pipeline-edit-header {
+  margin-bottom: 16px;
+}
+
+.pipeline-edit-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Additional form elements */
+.settings-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.settings-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.settings-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.settings-textarea::placeholder {
+  color: var(--text-muted);
+}
