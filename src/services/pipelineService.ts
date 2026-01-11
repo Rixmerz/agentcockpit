@@ -415,15 +415,22 @@ export async function savePipelineSteps(steps: PipelineStep[]): Promise<boolean>
   }
 }
 
-// Check if pipeline is installed (has steps config)
+// Check if pipeline is installed (directory exists)
 export async function isPipelineInstalled(): Promise<boolean> {
   try {
     const dir = await getPipelineDir();
-    // Check for steps.yaml instead of controller (more reliable with Tauri)
-    const stepsPath = `${dir}/${STEPS_FILE}`;
-    const installed = await exists(stepsPath);
-    console.log('[Pipeline] Steps file exists:', installed, 'at', stepsPath);
-    return installed;
+    // Check if the pipeline directory exists
+    const dirExists = await exists(dir);
+    console.log('[Pipeline] Directory exists:', dirExists, 'at', dir);
+
+    if (!dirExists) {
+      return false;
+    }
+
+    // If we can read steps (even defaults), consider it "installed"
+    // The actual hooks are configured in ~/.claude/settings.json
+    // which is separate from this UI
+    return true;
   } catch (e) {
     console.error('[Pipeline] Error checking installation:', e);
     return false;
@@ -433,4 +440,188 @@ export async function isPipelineInstalled(): Promise<boolean> {
 // Get pipeline directory for external use
 export async function getPipelinePath(): Promise<string> {
   return await getPipelineDir();
+}
+
+// ============================================
+// Pipeline Configuration
+// ============================================
+
+export interface PipelineSettings {
+  reset_policy: 'manual' | 'timeout' | 'per_session';
+  timeout_minutes: number;
+  force_sequential: boolean;
+}
+
+const DEFAULT_SETTINGS: PipelineSettings = {
+  reset_policy: 'timeout',
+  timeout_minutes: 30,
+  force_sequential: false
+};
+
+// Parse config section from steps.yaml content
+function parseConfigFromYaml(content: string): PipelineSettings {
+  const config = { ...DEFAULT_SETTINGS };
+  const lines = content.split('\n');
+  let inConfig = false;
+
+  for (const line of lines) {
+    const stripped = line.trim();
+
+    if (stripped === 'config:') {
+      inConfig = true;
+      continue;
+    }
+
+    if (stripped === 'steps:') {
+      break;
+    }
+
+    if (inConfig && stripped.includes(':') && !stripped.startsWith('#')) {
+      const [key, ...valueParts] = stripped.split(':');
+      const value = valueParts.join(':').trim().replace(/^["']|["']$/g, '');
+
+      if (key.trim() === 'reset_policy' && ['manual', 'timeout', 'per_session'].includes(value)) {
+        config.reset_policy = value as PipelineSettings['reset_policy'];
+      } else if (key.trim() === 'timeout_minutes') {
+        config.timeout_minutes = parseInt(value, 10) || 30;
+      } else if (key.trim() === 'force_sequential') {
+        config.force_sequential = value.toLowerCase() === 'true';
+      }
+    }
+  }
+
+  return config;
+}
+
+// Get pipeline settings
+export async function getPipelineSettings(): Promise<PipelineSettings> {
+  try {
+    const dir = await getPipelineDir();
+    const stepsPath = `${dir}/${STEPS_FILE}`;
+
+    const fileExists = await exists(stepsPath);
+    if (!fileExists) {
+      return DEFAULT_SETTINGS;
+    }
+
+    const content = await readTextFile(stepsPath);
+    return parseConfigFromYaml(content);
+  } catch (e) {
+    console.error('[Pipeline] Error reading settings:', e);
+    return DEFAULT_SETTINGS;
+  }
+}
+
+// Save pipeline settings
+export async function savePipelineSettings(settings: PipelineSettings): Promise<boolean> {
+  try {
+    const dir = await getPipelineDir();
+    const stepsPath = `${dir}/${STEPS_FILE}`;
+
+    const fileExists = await exists(stepsPath);
+    if (!fileExists) {
+      return false;
+    }
+
+    const content = await readTextFile(stepsPath);
+    const lines = content.split('\n');
+    const newLines: string[] = [];
+    let inConfig = false;
+    let configWritten = false;
+
+    for (const line of lines) {
+      const stripped = line.trim();
+
+      if (stripped === 'config:') {
+        inConfig = true;
+        newLines.push(line);
+        // Write new config values
+        newLines.push(`  reset_policy: "${settings.reset_policy}"`);
+        newLines.push(`  timeout_minutes: ${settings.timeout_minutes}`);
+        newLines.push(`  force_sequential: ${settings.force_sequential}`);
+        configWritten = true;
+        continue;
+      }
+
+      if (inConfig && stripped === 'steps:') {
+        inConfig = false;
+        newLines.push('');
+        newLines.push(line);
+        continue;
+      }
+
+      if (inConfig && !stripped.startsWith('#') && stripped.includes(':')) {
+        // Skip old config lines
+        continue;
+      }
+
+      newLines.push(line);
+    }
+
+    await writeTextFile(stepsPath, newLines.join('\n'));
+    return true;
+  } catch (e) {
+    console.error('[Pipeline] Error saving settings:', e);
+    return false;
+  }
+}
+
+// ============================================
+// Available MCPs Discovery
+// ============================================
+
+export interface AvailableMcp {
+  name: string;
+  source: 'claude_desktop' | 'claude_code';
+  command?: string;
+}
+
+// Standard Claude tools that are always available
+export const STANDARD_TOOLS = [
+  'Read',
+  'Write',
+  'Edit',
+  'Bash',
+  'Glob',
+  'Grep',
+  'WebFetch',
+  'WebSearch',
+  'Task',
+  'TodoWrite',
+  'NotebookEdit',
+  'AskUserQuestion'
+];
+
+// Get available MCPs from Claude Desktop config
+export async function getAvailableMcps(): Promise<AvailableMcp[]> {
+  const mcps: AvailableMcp[] = [];
+
+  try {
+    // Try Claude Desktop config
+    const home = await homeDir();
+    const claudeDesktopPath = `${home}/Library/Application Support/Claude/claude_desktop_config.json`;
+
+    const desktopExists = await exists(claudeDesktopPath);
+    if (desktopExists) {
+      const content = await readTextFile(claudeDesktopPath);
+      const config = JSON.parse(content);
+
+      if (config.mcpServers) {
+        for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
+          mcps.push({
+            name,
+            source: 'claude_desktop',
+            command: (serverConfig as { command?: string }).command
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[Pipeline] Error reading Claude Desktop config:', e);
+  }
+
+  // Add wildcard option
+  mcps.unshift({ name: '*', source: 'claude_desktop' });
+
+  return mcps;
 }
