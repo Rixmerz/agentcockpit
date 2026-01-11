@@ -48,24 +48,53 @@ const PIPELINE_DIR = '.claude/pipeline';
 const STATE_FILE = 'state.json';
 const STEPS_FILE = 'steps.yaml';
 
+// Cache the home directory
+let cachedHomeDir: string | null = null;
+
 // Get pipeline directory path
 async function getPipelineDir(): Promise<string> {
-  const home = await homeDir();
-  if (!home) {
-    throw new Error('Could not determine home directory');
+  if (!cachedHomeDir) {
+    console.log('[Pipeline] Getting home directory...');
+    const home = await homeDir();
+    console.log('[Pipeline] Home directory:', home);
+
+    if (!home) {
+      throw new Error('Could not determine home directory');
+    }
+    // Normalize: remove trailing slash if present
+    cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
   }
-  // Normalize: remove trailing slash from home if present, then add our path
-  const normalizedHome = home.endsWith('/') ? home.slice(0, -1) : home;
-  return `${normalizedHome}/${PIPELINE_DIR}`;
+
+  return `${cachedHomeDir}/${PIPELINE_DIR}`;
 }
 
 // Ensure pipeline directory exists
 export async function ensurePipelineDir(): Promise<void> {
   const dir = await getPipelineDir();
-  const dirExists = await exists(dir);
-  if (!dirExists) {
-    await mkdir(dir, { recursive: true });
+  console.log('[Pipeline] Checking directory:', dir);
+
+  try {
+    const dirExists = await exists(dir);
+    if (!dirExists) {
+      console.log('[Pipeline] Creating directory:', dir);
+      await mkdir(dir, { recursive: true });
+    }
+  } catch (e) {
+    console.error('[Pipeline] Error ensuring directory:', e);
+    throw e;
   }
+}
+
+// Get default state
+function getDefaultState(): PipelineState {
+  return {
+    current_step: 0,
+    completed_steps: [],
+    session_id: null,
+    started_at: new Date().toISOString(),
+    last_activity: new Date().toISOString(),
+    step_history: []
+  };
 }
 
 // Read pipeline state
@@ -73,16 +102,21 @@ export async function getPipelineState(): Promise<PipelineState> {
   try {
     const dir = await getPipelineDir();
     const statePath = `${dir}/${STATE_FILE}`;
+    console.log('[Pipeline] Reading state from:', statePath);
 
     const fileExists = await exists(statePath);
     if (!fileExists) {
+      console.log('[Pipeline] State file not found, using defaults');
       return getDefaultState();
     }
 
     const content = await readTextFile(statePath);
-    return JSON.parse(content) as PipelineState;
+    console.log('[Pipeline] State content length:', content.length);
+
+    const parsed = JSON.parse(content) as PipelineState;
+    return parsed;
   } catch (e) {
-    console.error('[Pipeline] Failed to read state:', e);
+    console.error('[Pipeline] Error reading state:', e);
     return getDefaultState();
   }
 }
@@ -95,45 +129,38 @@ export async function savePipelineState(state: PipelineState): Promise<boolean> 
     const statePath = `${dir}/${STATE_FILE}`;
 
     state.last_activity = new Date().toISOString();
-    await writeTextFile(statePath, JSON.stringify(state, null, 2));
+    const content = JSON.stringify(state, null, 2);
+
+    console.log('[Pipeline] Saving state to:', statePath);
+    await writeTextFile(statePath, content);
     return true;
   } catch (e) {
-    console.error('[Pipeline] Failed to save state:', e);
+    console.error('[Pipeline] Error saving state:', e);
     return false;
   }
 }
 
-// Get default state
-function getDefaultState(): PipelineState {
-  return {
-    current_step: 0,
-    completed_steps: [],
-    session_id: null,
-    started_at: null,
-    last_activity: null,
-    step_history: []
-  };
-}
-
 // Reset pipeline to step 0
 export async function resetPipeline(): Promise<boolean> {
+  console.log('[Pipeline] Resetting pipeline...');
   const state = getDefaultState();
-  state.started_at = new Date().toISOString();
   return savePipelineState(state);
 }
 
 // Advance to next step manually
 export async function advancePipeline(): Promise<PipelineState> {
+  console.log('[Pipeline] Advancing pipeline...');
   const state = await getPipelineState();
   const steps = await getPipelineSteps();
 
   if (state.current_step >= steps.length - 1) {
-    return state; // Already at last step
+    console.log('[Pipeline] Already at last step');
+    return state;
   }
 
   const currentStep = steps[state.current_step];
   state.completed_steps.push({
-    id: currentStep.id,
+    id: currentStep?.id || `step-${state.current_step}`,
     completed_at: new Date().toISOString(),
     reason: 'Manual advance'
   });
@@ -160,7 +187,10 @@ function parseStepsYaml(content: string): PipelineStep[] {
   let multilineContent: string[] = [];
   let indentLevel = 0;
 
-  for (const line of content.split('\n')) {
+  const lines = content.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const stripped = line.trim();
 
     // Skip comments and empty lines (but capture in multiline)
@@ -203,7 +233,7 @@ function parseStepsYaml(content: string): PipelineStep[] {
       }
       const idMatch = stripped.match(/["']([^"']+)["']/);
       currentStep = {
-        id: idMatch ? idMatch[1] : stripped.split(':')[1].trim(),
+        id: idMatch ? idMatch[1] : stripped.split(':')[1]?.trim() || `step-${steps.length}`,
         order: steps.length,
         name: '',
         description: '',
@@ -248,6 +278,7 @@ function parseStepsYaml(content: string): PipelineStep[] {
     }
   }
 
+  // Don't forget the last step
   if (currentStep && currentStep.id) {
     steps.push(currentStep as PipelineStep);
   }
@@ -255,21 +286,75 @@ function parseStepsYaml(content: string): PipelineStep[] {
   return steps;
 }
 
+// Get default steps (MVP)
+function getDefaultSteps(): PipelineStep[] {
+  return [
+    {
+      id: 'complexity-check',
+      order: 0,
+      name: 'Complexity Gate',
+      description: 'Evalúa si la tarea requiere razonamiento estructurado',
+      prompt_injection: '🔍 STEP 0 - COMPLEXITY CHECK\nAntes de responder, evalúa la complejidad.',
+      mcps_enabled: ['sequential-thinking'],
+      tools_blocked: ['Write', 'Edit'],
+      gate_type: 'any',
+      gate_tool: 'mcp__sequential-thinking__sequentialthinking',
+      gate_phrases: ['Tarea simple', 'procedo directamente']
+    },
+    {
+      id: 'library-context',
+      order: 1,
+      name: 'Library Context Gate',
+      description: 'Verifica si necesita documentación de librerías',
+      prompt_injection: '📚 STEP 1 - LIBRARY CONTEXT\n¿Necesitas documentación externa?',
+      mcps_enabled: ['Context7'],
+      tools_blocked: ['Write', 'Edit'],
+      gate_type: 'any',
+      gate_tool: 'mcp__Context7__',
+      gate_phrases: ['No requiere documentación', 'sin librerías externas']
+    },
+    {
+      id: 'implementation',
+      order: 2,
+      name: 'Implementation Gate',
+      description: 'Habilita escritura después de validar contexto',
+      prompt_injection: '✅ CONTEXTO VALIDADO\nPuedes implementar.',
+      mcps_enabled: ['*'],
+      tools_blocked: [],
+      gate_type: 'always',
+      gate_tool: '',
+      gate_phrases: []
+    }
+  ];
+}
+
 // Get pipeline steps configuration
 export async function getPipelineSteps(): Promise<PipelineStep[]> {
   try {
     const dir = await getPipelineDir();
     const stepsPath = `${dir}/${STEPS_FILE}`;
+    console.log('[Pipeline] Reading steps from:', stepsPath);
 
     const fileExists = await exists(stepsPath);
     if (!fileExists) {
+      console.log('[Pipeline] Steps file not found, using defaults');
       return getDefaultSteps();
     }
 
     const content = await readTextFile(stepsPath);
-    return parseStepsYaml(content);
+    console.log('[Pipeline] Steps content length:', content.length);
+
+    const parsed = parseStepsYaml(content);
+    console.log('[Pipeline] Parsed steps count:', parsed.length);
+
+    if (parsed.length === 0) {
+      console.log('[Pipeline] No steps parsed, using defaults');
+      return getDefaultSteps();
+    }
+
+    return parsed;
   } catch (e) {
-    console.error('[Pipeline] Failed to read steps:', e);
+    console.error('[Pipeline] Error reading steps:', e);
     return getDefaultSteps();
   }
 }
@@ -277,7 +362,7 @@ export async function getPipelineSteps(): Promise<PipelineStep[]> {
 // Generate YAML from steps
 function stepsToYaml(steps: PipelineStep[]): string {
   let yaml = `# Flow-Controlled MCP Pipeline
-# Generado por AgentCockpit
+# Generated by AgentCockpit
 
 steps:\n`;
 
@@ -290,12 +375,12 @@ steps:\n`;
 ${step.prompt_injection.split('\n').map(l => `      ${l}`).join('\n')}
     mcps_enabled:\n`;
 
-    for (const mcp of step.mcps_enabled) {
+    for (const mcp of step.mcps_enabled || []) {
       yaml += `      - "${mcp}"\n`;
     }
 
     yaml += `    tools_blocked:\n`;
-    for (const tool of step.tools_blocked) {
+    for (const tool of step.tools_blocked || []) {
       yaml += `      - "${tool}"\n`;
     }
 
@@ -303,7 +388,7 @@ ${step.prompt_injection.split('\n').map(l => `      ${l}`).join('\n')}
     gate_tool: "${step.gate_tool}"
     gate_phrases:\n`;
 
-    for (const phrase of step.gate_phrases) {
+    for (const phrase of step.gate_phrases || []) {
       yaml += `      - "${phrase}"\n`;
     }
 
@@ -321,66 +406,13 @@ export async function savePipelineSteps(steps: PipelineStep[]): Promise<boolean>
     const stepsPath = `${dir}/${STEPS_FILE}`;
 
     const yaml = stepsToYaml(steps);
+    console.log('[Pipeline] Saving steps to:', stepsPath);
     await writeTextFile(stepsPath, yaml);
     return true;
   } catch (e) {
-    console.error('[Pipeline] Failed to save steps:', e);
+    console.error('[Pipeline] Error saving steps:', e);
     return false;
   }
-}
-
-// Get default steps (MVP)
-function getDefaultSteps(): PipelineStep[] {
-  return [
-    {
-      id: 'complexity-check',
-      order: 0,
-      name: 'Complexity Gate',
-      description: 'Evalúa si la tarea requiere razonamiento estructurado',
-      prompt_injection: `🔍 STEP 0 - COMPLEXITY CHECK
-Antes de responder, evalúa:
-- ¿Esta tarea tiene múltiples pasos interdependientes?
-- ¿Hay ambigüedad que requiere descomponer?
-- ¿El problema es complejo (>3 decisiones)?
-Si SÍ → Usa sequential-thinking para estructurar tu razonamiento.
-Si NO → Di "Tarea simple, procedo directamente" y continúa.`,
-      mcps_enabled: ['sequential-thinking'],
-      tools_blocked: ['Write', 'Edit'],
-      gate_type: 'any',
-      gate_tool: 'mcp__sequential-thinking__sequentialthinking',
-      gate_phrases: ['Tarea simple, procedo directamente', 'tarea simple', 'procedo directamente']
-    },
-    {
-      id: 'library-context',
-      order: 1,
-      name: 'Library Context Gate',
-      description: 'Verifica si necesita documentación de librerías externas',
-      prompt_injection: `📚 STEP 1 - LIBRARY CONTEXT
-¿Esta tarea involucra librerías/frameworks externos?
-(React, Vue, Node, Python libs, APIs, etc.)
-Si SÍ → Consulta Context7 para obtener docs actualizadas.
-Si NO → Di "No requiere documentación externa" y continúa.`,
-      mcps_enabled: ['Context7'],
-      tools_blocked: ['Write', 'Edit'],
-      gate_type: 'any',
-      gate_tool: 'mcp__Context7__',
-      gate_phrases: ['No requiere documentación externa', 'no necesito documentación', 'sin librerías externas']
-    },
-    {
-      id: 'implementation',
-      order: 2,
-      name: 'Implementation Gate',
-      description: 'Habilita escritura después de validar contexto',
-      prompt_injection: `✅ CONTEXTO VALIDADO
-Steps completados. Puedes implementar.
-Recuerda: Lee antes de escribir (FFD).`,
-      mcps_enabled: ['*'],
-      tools_blocked: [],
-      gate_type: 'always',
-      gate_tool: '',
-      gate_phrases: []
-    }
-  ];
 }
 
 // Check if pipeline is installed (has controller)
@@ -388,8 +420,11 @@ export async function isPipelineInstalled(): Promise<boolean> {
   try {
     const dir = await getPipelineDir();
     const controllerPath = `${dir}/pipeline_controller.py`;
-    return await exists(controllerPath);
-  } catch {
+    const installed = await exists(controllerPath);
+    console.log('[Pipeline] Controller installed:', installed);
+    return installed;
+  } catch (e) {
+    console.error('[Pipeline] Error checking installation:', e);
     return false;
   }
 }
