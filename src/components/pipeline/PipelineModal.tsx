@@ -176,10 +176,38 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
   const toggleMcp = (mcpName: string) => {
     if (!editingStep) return;
     const enabled = editingStep.mcps_enabled;
+
+    // Special handling for "*" (All) - select/deselect all MCPs
+    if (mcpName === '*') {
+      if (enabled.includes('*')) {
+        // Deselect all
+        setEditingStep({
+          ...editingStep,
+          mcps_enabled: [],
+          gate_tool: ''  // Clear gate_tool since no MCPs are enabled
+        });
+      } else {
+        // Select all - add "*" and all individual MCPs
+        const allMcpNames = availableMcps.map(m => m.name);
+        setEditingStep({
+          ...editingStep,
+          mcps_enabled: allMcpNames
+        });
+      }
+      return;
+    }
+
+    // Regular MCP toggle
     if (enabled.includes(mcpName)) {
+      // When disabling an MCP, also clear gate_tool if it was using this MCP
+      const newGateTool = editingStep.gate_tool?.includes(`mcp__${mcpName}__`)
+        ? ''
+        : editingStep.gate_tool;
+      // Also remove "*" if it was selected (since we're now not selecting all)
       setEditingStep({
         ...editingStep,
-        mcps_enabled: enabled.filter(m => m !== mcpName)
+        mcps_enabled: enabled.filter(m => m !== mcpName && m !== '*'),
+        gate_tool: newGateTool
       });
     } else {
       setEditingStep({
@@ -586,14 +614,16 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
                 onChange={(e) => setEditingStep({ ...editingStep, gate_tool: e.target.value })}
               >
                 <option value="">Select a tool...</option>
-                {availableMcps.filter(m => m.name !== '*').map(mcp => (
-                  <option key={mcp.name} value={`mcp__${mcp.name}__`}>
-                    mcp__{mcp.name}__
-                  </option>
-                ))}
+                {availableMcps
+                  .filter(m => m.name !== '*' && editingStep.mcps_enabled.includes(m.name))
+                  .map(mcp => (
+                    <option key={mcp.name} value={`mcp__${mcp.name}__`}>
+                      mcp__{mcp.name}__
+                    </option>
+                  ))}
               </select>
               <small className="settings-hint">
-                Tool prefix that triggers advancement when used
+                Tool prefix that triggers advancement when used (only shows enabled MCPs)
               </small>
             </div>
 
