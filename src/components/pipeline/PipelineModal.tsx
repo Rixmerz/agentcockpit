@@ -7,9 +7,8 @@ import {
   resetPipeline,
   advancePipeline,
   isPipelineInstalled,
-  PipelineState,
-  PipelineStep
 } from '../../services/pipelineService';
+import type { PipelineState, PipelineStep } from '../../services/pipelineService';
 import {
   Play,
   RotateCcw,
