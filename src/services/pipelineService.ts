@@ -54,7 +54,9 @@ async function getPipelineDir(): Promise<string> {
   if (!home) {
     throw new Error('Could not determine home directory');
   }
-  return `${home}${PIPELINE_DIR}`;
+  // Normalize: remove trailing slash from home if present, then add our path
+  const normalizedHome = home.endsWith('/') ? home.slice(0, -1) : home;
+  return `${normalizedHome}/${PIPELINE_DIR}`;
 }
 
 // Ensure pipeline directory exists
