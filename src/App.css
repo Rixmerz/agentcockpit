@@ -5293,6 +5293,85 @@ select.settings-input {
   padding-top: 8px;
 }
 
+/* Settings Tab */
+.mcp-settings-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mcp-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mcp-setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease;
+}
+
+.mcp-setting-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.mcp-setting-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.mcp-setting-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.mcp-setting-description {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  max-width: 280px;
+}
+
+.mcp-toggle-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+
+.mcp-toggle-btn:hover {
+  transform: scale(1.1);
+}
+
+.mcp-settings-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mcp-settings-note svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
 /* Sidebar MCP Indicator */
 .mcp-indicator {
   display: flex;

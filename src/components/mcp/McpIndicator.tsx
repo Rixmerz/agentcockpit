@@ -8,8 +8,13 @@ import { useState, useEffect } from 'react';
 import { Server, ChevronRight } from 'lucide-react';
 import { getActiveMcpCount } from '../../services/mcpConfigService';
 import { McpManagerModal } from './McpManagerModal';
+import type { ClaudePluginConfig } from '../../services/pluginConfigService';
 
-export function McpIndicator() {
+interface McpIndicatorProps {
+  onPluginConfigChanged?: (config: ClaudePluginConfig) => void;
+}
+
+export function McpIndicator({ onPluginConfigChanged }: McpIndicatorProps) {
   const [count, setCount] = useState<number>(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -43,6 +48,7 @@ export function McpIndicator() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onMcpsChanged={handleMcpsChanged}
+        onPluginConfigChanged={onPluginConfigChanged}
       />
     </>
   );
