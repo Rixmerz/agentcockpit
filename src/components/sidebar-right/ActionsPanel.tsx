@@ -20,6 +20,7 @@ import { createSession, updateSessionLastUsed, getSessions, markSessionAsPreExis
 import { buildClaudeCommand } from '../../services/claudeService';
 import { executeAction } from '../../core/utils/terminalCommands';
 import { getCurrentUser, type GitHubUser } from '../../services/githubService';
+import { getClaudePluginConfig, type ClaudePluginConfig } from '../../services/pluginConfigService';
 import type { McpServerInfo } from '../../plugins/types/plugin';
 
 interface ActionsPanelProps {
@@ -50,6 +51,7 @@ export function ActionsPanel({
   const [showGitHubLogin, setShowGitHubLogin] = useState(false);
   const [gitHubUser, setGitHubUser] = useState<GitHubUser | null>(null);
   const [skipPermissions, setSkipPermissions] = useState(false);
+  const [showLegacyMcpPanel, setShowLegacyMcpPanel] = useState(true);
 
   // Clear session when project changes (fixes ghost session bug)
   useEffect(() => {
@@ -70,6 +72,26 @@ export function ActionsPanel({
         console.warn('[ActionsPanel] Failed to load GitHub user on mount:', err);
       });
     return () => { cancelled = true; };
+  }, []);
+
+  // Load plugin config on mount (non-blocking)
+  useEffect(() => {
+    let cancelled = false;
+    getClaudePluginConfig()
+      .then(config => {
+        if (!cancelled) {
+          setShowLegacyMcpPanel(config.showLegacyMcpPanel);
+        }
+      })
+      .catch(err => {
+        console.warn('[ActionsPanel] Failed to load plugin config:', err);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Handle plugin config changed from MCP Manager
+  const handlePluginConfigChanged = useCallback((config: ClaudePluginConfig) => {
+    setShowLegacyMcpPanel(config.showLegacyMcpPanel);
   }, []);
 
   // Ensure session exists BEFORE building command
@@ -348,8 +370,8 @@ export function ActionsPanel({
             />
           )}
 
-          {/* MCP Panel */}
-          {activePlugin.McpPanel && (
+          {/* MCP Panel (conditionally shown based on plugin settings) */}
+          {activePlugin.McpPanel && showLegacyMcpPanel && (
             <activePlugin.McpPanel
               projectPath={projectPath}
               onMcpsChange={handleMcpsChange}
@@ -386,7 +408,7 @@ export function ActionsPanel({
 
       <PipelinePanel />
 
-      <McpIndicator />
+      <McpIndicator onPluginConfigChanged={handlePluginConfigChanged} />
 
       <PortMonitor />
 

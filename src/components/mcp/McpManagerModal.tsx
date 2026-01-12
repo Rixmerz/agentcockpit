@@ -26,7 +26,10 @@ import {
   X,
   Power,
   PowerOff,
-  Info
+  Info,
+  Settings,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 import {
   loadMcpConfig,
@@ -44,16 +47,22 @@ import {
   type ManagedMcp,
   type McpServerConfig
 } from '../../services/mcpConfigService';
+import {
+  getClaudePluginConfig,
+  updateClaudePluginConfig,
+  type ClaudePluginConfig
+} from '../../services/pluginConfigService';
 
 interface McpManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onMcpsChanged?: () => void;
+  onPluginConfigChanged?: (config: ClaudePluginConfig) => void;
 }
 
-type TabType = 'active' | 'import' | 'add';
+type TabType = 'active' | 'import' | 'add' | 'settings';
 
-export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerModalProps) {
+export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfigChanged }: McpManagerModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [activeMcps, setActiveMcps] = useState<ManagedMcp[]>([]);
   const [desktopMcps, setDesktopMcps] = useState<Record<string, McpServerConfig>>({});
@@ -66,6 +75,9 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
   const [manualJson, setManualJson] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
 
+  // Plugin config state
+  const [pluginConfig, setPluginConfig] = useState<ClaudePluginConfig>({ showLegacyMcpPanel: true });
+
   // Show temporary message
   const showMessage = useCallback((type: 'success' | 'error' | 'warning', text: string) => {
     setMessage({ type, text });
@@ -76,17 +88,19 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [config, desktop, code, path] = await Promise.all([
+      const [config, desktop, code, path, claudeConfig] = await Promise.all([
         loadMcpConfig(),
         loadDesktopMcps(),
         loadCodeMcps(),
-        getConfigFilePath()
+        getConfigFilePath(),
+        getClaudePluginConfig()
       ]);
 
       setActiveMcps(Object.values(config.mcpServers));
       setDesktopMcps(desktop);
       setCodeMcps(code);
       setConfigPath(path);
+      setPluginConfig(claudeConfig);
     } catch (e) {
       console.error('[McpManager] Load error:', e);
       showMessage('error', `Error loading MCPs: ${e}`);
@@ -94,6 +108,21 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
       setIsLoading(false);
     }
   }, [showMessage]);
+
+  // Handle toggle legacy MCP panel
+  const handleToggleLegacyPanel = useCallback(async () => {
+    const newValue = !pluginConfig.showLegacyMcpPanel;
+    const result = await updateClaudePluginConfig({ showLegacyMcpPanel: newValue });
+
+    if (result.success) {
+      const updatedConfig = { ...pluginConfig, showLegacyMcpPanel: newValue };
+      setPluginConfig(updatedConfig);
+      showMessage('success', `Legacy MCP panel ${newValue ? 'enabled' : 'disabled'}`);
+      onPluginConfigChanged?.(updatedConfig);
+    } else {
+      showMessage('error', result.message);
+    }
+  }, [pluginConfig, showMessage, onPluginConfigChanged]);
 
   useEffect(() => {
     if (isOpen) {
@@ -268,6 +297,13 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
           >
             <Plus size={14} />
             Add Manual
+          </button>
+          <button
+            className={`mcp-tab ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <Settings size={14} />
+            Settings
           </button>
         </div>
 
@@ -521,6 +557,46 @@ Or with mcpServers wrapper:
                       Add MCP
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Settings Tab */}
+            {activeTab === 'settings' && (
+              <div className="mcp-settings-tab">
+                <div className="mcp-section-header">
+                  <span>Plugin Settings</span>
+                </div>
+
+                <div className="mcp-settings-list">
+                  {/* Legacy MCP Panel Toggle */}
+                  <div className="mcp-setting-item">
+                    <div className="mcp-setting-info">
+                      <span className="mcp-setting-label">Show Legacy MCP Panel</span>
+                      <span className="mcp-setting-description">
+                        Display the inline MCP panel in the Claude plugin sidebar.
+                        When disabled, use only this centralized MCP Manager.
+                      </span>
+                    </div>
+                    <button
+                      className="mcp-toggle-btn"
+                      onClick={handleToggleLegacyPanel}
+                      title={pluginConfig.showLegacyMcpPanel ? 'Disable' : 'Enable'}
+                    >
+                      {pluginConfig.showLegacyMcpPanel ? (
+                        <ToggleRight size={28} style={{ color: 'var(--accent)' }} />
+                      ) : (
+                        <ToggleLeft size={28} style={{ color: 'var(--text-muted)' }} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mcp-settings-note">
+                  <Info size={14} />
+                  <span>
+                    Settings are stored in ~/.agentcockpit/plugins.json
+                  </span>
                 </div>
               </div>
             )}
