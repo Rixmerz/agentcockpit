@@ -1,5 +1,5 @@
 import { homeDir } from '@tauri-apps/api/path';
-import { readTextFile, writeTextFile, exists, mkdir } from '@tauri-apps/plugin-fs';
+import { readTextFile, writeTextFile, exists, mkdir, readDir } from '@tauri-apps/plugin-fs';
 
 // Pipeline state interface
 export interface PipelineState {
@@ -9,6 +9,10 @@ export interface PipelineState {
   started_at: string | null;
   last_activity: string | null;
   step_history: StepHistoryEntry[];
+  // MCP pipeline-manager fields
+  active_pipeline?: string | null;
+  pipeline_version?: string | null;
+  pipeline_source?: 'local' | 'global' | null;
 }
 
 export interface CompletedStep {
@@ -33,7 +37,7 @@ export interface PipelineStep {
   prompt_injection: string;
   mcps_enabled: string[];
   tools_blocked: string[];
-  gate_type: 'any' | 'always';
+  gate_type: 'any' | 'tool' | 'phrase' | 'always';
   gate_tool: string;
   gate_phrases: string[];
 }
@@ -102,7 +106,10 @@ function getDefaultState(): PipelineState {
     session_id: null,
     started_at: new Date().toISOString(),
     last_activity: new Date().toISOString(),
-    step_history: []
+    step_history: [],
+    active_pipeline: null,
+    pipeline_version: null,
+    pipeline_source: null
   };
 }
 
@@ -711,19 +718,17 @@ export async function listGlobalPipelines(): Promise<GlobalPipelineInfo[]> {
       return pipelines;
     }
 
-    // Read directory contents using Tauri
-    // Since Tauri doesn't have a direct readDir, we'll use a workaround
-    // by checking for known pipeline files or using invoke
-    // For now, we'll try to read common pipeline names
+    // Read directory contents using Tauri readDir
+    const entries = await readDir(dir);
+    console.log('[Pipeline] Directory entries:', entries.length);
 
-    // Try to read pipeline files by attempting to access them
-    const commonNames = ['ffd-standard', 'quick-fix', 'feature-development', 'refactoring', 'research'];
+    for (const entry of entries) {
+      // Only process .yaml files
+      if (entry.name && entry.name.endsWith('.yaml')) {
+        const name = entry.name.replace('.yaml', '');
+        const filePath = `${dir}/${entry.name}`;
 
-    for (const name of commonNames) {
-      const filePath = `${dir}/${name}.yaml`;
-      try {
-        const fileExists = await exists(filePath);
-        if (fileExists) {
+        try {
           const content = await readTextFile(filePath);
           const metadata = parsePipelineMetadata(content);
           pipelines.push({
@@ -732,9 +737,9 @@ export async function listGlobalPipelines(): Promise<GlobalPipelineInfo[]> {
             description: metadata.description || '',
             stepsCount: metadata.stepsCount
           });
+        } catch (e) {
+          console.error('[Pipeline] Error reading pipeline file:', filePath, e);
         }
-      } catch {
-        // File doesn't exist or can't be read
       }
     }
 
@@ -776,7 +781,7 @@ export async function activatePipeline(projectPath: string, pipelineName: string
     const statePath = `${dir}/${STATE_FILE}`;
 
     // Load existing state or create new
-    let state: PipelineState & { active_pipeline?: string; pipeline_version?: string };
+    let state: PipelineState;
 
     const fileExists = await exists(statePath);
     if (fileExists) {
