@@ -73,20 +73,25 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
       setGlobalPipelines(globalList);
       console.log('[PipelinePanel] Global pipelines:', globalList);
 
-      // Load active pipeline for this project
-      const activeName = await getActivePipelineName(projectPath);
-      setActivePipelineName(activeName);
-      console.log('[PipelinePanel] Active pipeline:', activeName);
-
-      // Load pipeline state and steps
+      // Load pipeline state first (contains active_pipeline from MCP)
       const pipelineState = await getPipelineState(projectPath);
       console.log('[PipelinePanel] State loaded:', pipelineState);
+
+      // Use active_pipeline from state (set by MCP pipeline-manager)
+      const activeName = pipelineState.active_pipeline || await getActivePipelineName(projectPath);
+      setActivePipelineName(activeName);
+      console.log('[PipelinePanel] Active pipeline:', activeName);
 
       // If there's an active global pipeline, load its steps
       let pipelineSteps: PipelineStep[];
       if (activeName) {
         pipelineSteps = await getGlobalPipelineSteps(activeName);
         console.log('[PipelinePanel] Global pipeline steps loaded:', pipelineSteps.length);
+        // Fallback to local if global pipeline file not found
+        if (pipelineSteps.length === 0) {
+          console.log('[PipelinePanel] Global pipeline empty, falling back to local');
+          pipelineSteps = await getPipelineSteps(projectPath);
+        }
       } else {
         pipelineSteps = await getPipelineSteps(projectPath);
         console.log('[PipelinePanel] Local steps loaded:', pipelineSteps);
