@@ -1,0 +1,42 @@
+[
+  {
+    "key": "pipeline-per-project-implementation",
+    "value": "## Pipeline Per-Project Implementation (Jan 2026)\n\n### Objetivo\nMejorar el sistema de Pipeline para que:\n1. Tenga switch de activar/desactivar\n2. Soporte m\u00faltiples pipelines (templates) - tipos definidos, UI pendiente\n3. Se instale por proyecto (no global)\n4. Bot\u00f3n para aplicar hooks a Claude Code\n\n### Archivos Modificados\n\n**Nuevos tipos en `src/types/index.ts`:**\n- `PipelineStep` - Configuraci\u00f3n de un step\n- `PipelineSettings` - Configuraci\u00f3n del pipeline\n- `PipelineTemplate` - Template reutilizable\n- `ProjectPipelineConfig` - Config per-project (enabled, activePipelineId, installedAt)\n\n**Nuevo servicio `src/services/hookService.ts`:**\n- `readClaudeSettings()` / `writeClaudeSettings()` - Lee/escribe .claude/settings.json\n- `generatePipelineEnforcerScript()` - Genera script Python para hooks\n- `installPipelineHooks()` / `uninstallPipelineHooks()` - Instala/remueve hooks\n- `isPipelineHooksInstalled()` - Verifica instalaci\u00f3n\n- `syncPipelineHooks()` - Sincroniza seg\u00fan estado enabled\n\n**Modificado `src/services/projectSessionService.ts`:**\n- Agregado campo `pipeline?: ProjectPipelineConfig` a `ProjectConfig`\n- Nuevas funciones: `getProjectPipelineConfig()`, `updateProjectPipelineConfig()`\n\n**Modificado `src/services/pipelineService.ts`:**\n- Todas las funciones aceptan `projectPath?: string | null`\n- Si projectPath \u2192 usa `{projectPath}/.claude/pipeline/`\n- Si no \u2192 fallback a `~/.claude/pipeline/`\n\n**Modificado `src/components/pipeline/PipelinePanel.tsx`:**\n- Props: `projectPath`, `terminalId`\n- Toggle enable/disable cuando est\u00e1 instalado\n- Bot\u00f3n \"Install to Project\" / badge \"Installed\" con uninstall\n\n**Modificado `src/components/sidebar-right/ActionsPanel.tsx`:**\n- Pasa `projectPath` y `terminalId` a `PipelinePanel`\n\n**CSS en `src/App.css`:**\n- `.pipeline-header-actions`, `.pipeline-toggle`\n- `.pipeline-install-section`, `.pipeline-install-btn`\n- `.pipeline-installed-badge`, `.pipeline-uninstall-btn`\n\n### Estructura de archivos generados por Install\n\n```\n{project}/\n\u251c\u2500\u2500 .claude/\n\u2502   \u251c\u2500\u2500 settings.json          # Hooks de Claude Code\n\u2502   \u251c\u2500\u2500 hooks/\n\u2502   \u2502   \u2514\u2500\u2500 pipeline_enforcer.py  # Script que valida tools\n\u2502   \u2514\u2500\u2500 pipeline/\n\u2502       \u251c\u2500\u2500 state.json         # Estado actual del pipeline\n\u2502       \u2514\u2500\u2500 steps.yaml         # Configuraci\u00f3n de steps\n```",
+    "tags": [
+      "architecture",
+      "pattern"
+    ],
+    "created_at": "2026-01-21T09:31:49.666542",
+    "updated_at": "2026-01-21T09:31:49.666542"
+  },
+  {
+    "key": "pipeline-manager-mcp-per-project",
+    "value": "## Pipeline-Manager MCP - Soporte Per-Project\n\n### Ubicaci\u00f3n\n`~/.claude/pipeline/src/pipeline_manager/server.py`\n\n### Cambio Principal\nEl MCP ahora detecta autom\u00e1ticamente si usar ruta per-project o global via `CLAUDE_PROJECT_DIR`:\n\n```python\ndef get_pipeline_dir() -> Path:\n    \"\"\"Get pipeline directory, supporting per-project paths.\"\"\"\n    project_dir = os.environ.get(\"CLAUDE_PROJECT_DIR\")\n    if project_dir:\n        project_path = Path(project_dir)\n        if project_path.exists():\n            return project_path / \".claude\" / \"pipeline\"\n    return Path.home() / \".claude\" / \"pipeline\"\n```\n\n### Funciones Actualizadas\n- `get_pipeline_dir()` - Nueva funci\u00f3n central\n- `get_state_file()` - Usa get_pipeline_dir()\n- `get_steps_file()` - Usa get_pipeline_dir()\n- `load_state()` / `save_state()`\n- `load_steps()` / `load_config()`\n- `pipeline_set_config()` / `pipeline_create_step()`\n\n### pipeline_status() ahora retorna:\n```json\n{\n  \"pipeline_path\": \"/path/to/.claude/pipeline\",\n  \"is_per_project\": true/false,\n  \"project_dir\": \"/path/to/project\"\n}\n```\n\n### C\u00f3mo funciona\n1. Claude Code setea `CLAUDE_PROJECT_DIR` autom\u00e1ticamente cuando hay proyecto activo\n2. El MCP detecta esta variable y usa la ruta del proyecto\n3. Si no existe, fallback a la ruta global `~/.claude/pipeline/`",
+    "tags": [
+      "architecture",
+      "config"
+    ],
+    "created_at": "2026-01-21T09:32:01.732261",
+    "updated_at": "2026-01-21T09:32:01.732261"
+  },
+  {
+    "key": "claude-code-agents-vs-skills",
+    "value": "## Claude Code: Agents vs Skills (Enero 2026)\n\n### Skills (`/skill-name`)\n- **Qu\u00e9 son**: Prompt templates + instrucciones especializadas\n- **Contexto**: Comparten el contexto de la conversaci\u00f3n\n- **Ubicaci\u00f3n**: `.claude/skills/<name>/SKILL.md`\n- **Uso**: Conocimiento especializado reutilizable\n- **Invocaci\u00f3n**: `/skill-name args` o auto-invocaci\u00f3n por Claude\n\n### Agents/Subagents (`--agent`)\n- **Qu\u00e9 son**: Workers aut\u00f3nomos con su propio contexto\n- **Contexto**: Aislado (fork), retornan resultado al finalizar\n- **Ubicaci\u00f3n**: `.claude/agents/<name>.md` o via CLI JSON\n- **Uso**: Delegaci\u00f3n de tareas complejas\n- **Invocaci\u00f3n**: `--agent name` o auto-delegaci\u00f3n\n\n### CLI Flags Nuevos\n```bash\n# Agent espec\u00edfico para la sesi\u00f3n\nclaude --agent code-reviewer \"Review this PR\"\n\n# Agents din\u00e1micos via JSON (solo para esa sesi\u00f3n)\nclaude --agents '{\"reviewer\": {\"description\": \"...\", \"prompt\": \"...\", \"tools\": [\"Read\",\"Grep\"]}}'\n```\n\n### Relaci\u00f3n\n- Agents pueden INVOCAR skills\n- Skills ense\u00f1an conocimiento, Agents ejecutan trabajo\n- Un agent puede tener `context: fork` en su SKILL.md\n\n### Fase 2 para AgentCockpit\nPendiente: UI para deploy de agents con pipeline + skills espec\u00edficos\n- Seleccionar pipeline template\n- Configurar tools permitidas\n- Generar comando claude con --agents JSON\n- Guardar como preset reutilizable",
+    "tags": [
+      "pattern",
+      "architecture"
+    ],
+    "created_at": "2026-01-21T09:32:13.537925",
+    "updated_at": "2026-01-21T09:32:13.537925"
+  },
+  {
+    "key": "ultrathink-deprecated-removed",
+    "value": "## Ultrathink Deprecado y Removido (Enero 2026)\n\n### Cambio\nEl bot\u00f3n \"Ultrathink\" fue removido de `src/agents/claude/components/QuickActions.tsx`\n\n### Raz\u00f3n\n- Feature deprecada en Claude Code\n- Ya no es necesario enviar \"ultrathink\" manualmente\n- Claude usa thinking extendido autom\u00e1ticamente cuando es necesario\n\n### Reemplazo\nSe agreg\u00f3 bot\u00f3n \"Clear\" (`/clear`) en su lugar para limpiar conversaci\u00f3n.\n\n### Archivo modificado\n`src/agents/claude/components/QuickActions.tsx`:\n- Removido: import `Zap`, `executeMultiline`, handler `handleUltrathink`\n- Agregado: import `RotateCcw`, bot\u00f3n Clear con `/clear`",
+    "tags": [
+      "gotcha",
+      "config"
+    ],
+    "created_at": "2026-01-21T09:32:23.744570",
+    "updated_at": "2026-01-21T09:32:23.744570"
+  }
+]
