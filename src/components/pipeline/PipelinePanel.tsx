@@ -60,6 +60,7 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
   const [activePipelineName, setActivePipelineName] = useState<string | null>(null);
   const [pipelineDropdownOpen, setPipelineDropdownOpen] = useState(false);
   const [changingPipeline, setChangingPipeline] = useState(false);
+  const [refreshingDropdown, setRefreshingDropdown] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -265,6 +266,36 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
       setError(errorMsg);
     } finally {
       setChangingPipeline(false);
+    }
+  };
+
+  // Handle opening dropdown - refresh data to catch external changes (MCP)
+  const handleToggleDropdown = async () => {
+    if (pipelineDropdownOpen) {
+      // Just close
+      setPipelineDropdownOpen(false);
+      return;
+    }
+
+    // Opening - refresh global pipelines and active pipeline
+    setPipelineDropdownOpen(true);
+    setRefreshingDropdown(true);
+
+    try {
+      // Refresh global pipelines list
+      const globalList = await listGlobalPipelines();
+      setGlobalPipelines(globalList);
+
+      // Refresh active pipeline from state (may have changed via MCP)
+      const pipelineState = await getPipelineState(projectPath);
+      const activeName = pipelineState.active_pipeline || await getActivePipelineName(projectPath);
+      setActivePipelineName(activeName);
+
+      console.log('[PipelinePanel] Dropdown refreshed - pipelines:', globalList.length, 'active:', activeName);
+    } catch (e) {
+      console.error('[PipelinePanel] Dropdown refresh error:', e);
+    } finally {
+      setRefreshingDropdown(false);
     }
   };
 
