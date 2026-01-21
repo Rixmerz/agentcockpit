@@ -1,0 +1,475 @@
+#!/usr/bin/env python3
+"""
+Flow-Controlled MCP Pipeline Controller
+
+Controla el flujo del agente via hooks, habilitando/bloqueando
+MCPs y tools según el step actual del pipeline.
+
+Exit codes:
+- 0: Allow action (puede incluir JSON para modificar)
+- 2: Block action
+
+Uso:
+- PreToolUse: Bloquea tools no permitidos en el step actual
+- PostToolUse: Detecta completación de gates y avanza steps
+- UserPromptSubmit: Inyecta prompt del step actual
+"""
+
+import json
+import os
+import sys
+import re
+from pathlib import Path
+from datetime import datetime
+from typing import Optional
+
+# Rutas de configuración
+PIPELINE_DIR = Path.home() / ".claude" / "pipeline"
+STATE_FILE = PIPELINE_DIR / "state.json"
+STEPS_FILE = PIPELINE_DIR / "steps.yaml"
+
+
+def load_yaml_simple(path: Path) -> dict:
+    """Parser YAML simplificado (sin dependencia externa)."""
+    if not path.exists():
+        return {}
+
+    content = path.read_text()
+    result = {
+        "steps": [],
+        "config": {
+            "reset_policy": "timeout",
+            "timeout_minutes": 30,
+            "force_sequential": False
+        }
+    }
+    current_step = None
+    current_key = None
+    current_list = None
+    in_multiline = False
+    multiline_key = None
+    multiline_content = []
+    indent_level = 0
+    in_config = False
+
+    for line in content.split('\n'):
+        stripped = line.strip()
+
+        # Skip comments and empty lines
+        if not stripped or stripped.startswith('#'):
+            if in_multiline:
+                multiline_content.append("")
+            continue
+
+        # Detect config section
+        if stripped == "config:":
+            in_config = True
+            current_step = None
+            continue
+
+        # Detect steps section
+        if stripped == "steps:":
+            in_config = False
+            continue
+
+        # Parse config values
+        if in_config and ':' in stripped and not stripped.startswith('-'):
+            key, _, value = stripped.partition(':')
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if value:
+                # Convert to appropriate type
+                if value.lower() == "true":
+                    result["config"][key] = True
+                elif value.lower() == "false":
+                    result["config"][key] = False
+                elif value.isdigit():
+                    result["config"][key] = int(value)
+                else:
+                    result["config"][key] = value
+            continue
+
+        # Detect multiline start
+        if stripped.endswith('|'):
+            in_multiline = True
+            multiline_key = stripped[:-1].rstrip().rstrip(':')
+            multiline_content = []
+            indent_level = len(line) - len(line.lstrip())
+            continue
+
+        # Collect multiline content
+        if in_multiline:
+            current_indent = len(line) - len(line.lstrip())
+            if current_indent > indent_level or stripped == "":
+                multiline_content.append(stripped)
+                continue
+            else:
+                # End of multiline
+                if current_step and multiline_key:
+                    current_step[multiline_key] = '\n'.join(multiline_content)
+                in_multiline = False
+                multiline_key = None
+
+        # New step
+        if stripped.startswith('- id:'):
+            in_config = False
+            if current_step:
+                result["steps"].append(current_step)
+            current_step = {"id": stripped.split('"')[1] if '"' in stripped else stripped.split(':')[1].strip()}
+            current_list = None
+            continue
+
+        # Step properties
+        if current_step:
+            if stripped.startswith('- '):
+                # List item
+                if current_list:
+                    value = stripped[2:].strip().strip('"').strip("'")
+                    current_step[current_list].append(value)
+            elif ':' in stripped:
+                key, _, value = stripped.partition(':')
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+
+                if not value:
+                    # Start of list or nested object
+                    current_list = key
+                    if key not in current_step:
+                        current_step[key] = []
+                else:
+                    current_step[key] = value
+                    current_list = None
+
+    if current_step:
+        result["steps"].append(current_step)
+
+    return result
+
+
+def load_state() -> dict:
+    """Carga el estado actual del pipeline."""
+    try:
+        if STATE_FILE.exists():
+            return json.loads(STATE_FILE.read_text())
+    except Exception:
+        pass
+    return {
+        "current_step": 0,
+        "completed_steps": [],
+        "session_id": None,
+        "started_at": None,
+        "last_activity": None,
+        "step_history": []
+    }
+
+
+def save_state(state: dict):
+    """Guarda el estado del pipeline."""
+    state["last_activity"] = datetime.now().isoformat()
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(json.dumps(state, indent=2))
+
+
+def get_current_step(config: dict, state: dict) -> Optional[dict]:
+    """Obtiene la configuración del step actual."""
+    steps = config.get("steps", [])
+    current_idx = state.get("current_step", 0)
+    if 0 <= current_idx < len(steps):
+        return steps[current_idx]
+    return None
+
+
+def is_tool_blocked(tool_name: str, step: dict) -> bool:
+    """Verifica si un tool está bloqueado en el step actual."""
+    blocked = step.get("tools_blocked", [])
+    for pattern in blocked:
+        if pattern == tool_name:
+            return True
+        if pattern == "*":
+            # Check if in enabled list
+            enabled = step.get("mcps_enabled", [])
+            for e in enabled:
+                if e == "*":
+                    return False
+                if tool_name.startswith(f"mcp__{e}__") or tool_name == e:
+                    return False
+            return True
+    return False
+
+
+def is_mcp_enabled(tool_name: str, step: dict) -> bool:
+    """Verifica si un MCP está habilitado en el step actual."""
+    enabled = step.get("mcps_enabled", [])
+
+    # Si no hay lista de enabled, todos están permitidos
+    if not enabled:
+        return True
+
+    # Wildcard
+    if "*" in enabled:
+        return True
+
+    # Check específico
+    for pattern in enabled:
+        if tool_name.startswith(f"mcp__{pattern}__"):
+            return True
+        if pattern in tool_name:
+            return True
+
+    return False
+
+
+def check_gate_condition(response_text: str, tool_name: str, step: dict) -> bool:
+    """Verifica si se cumple la condición del gate para avanzar."""
+    gate_type = step.get("gate_type", "any")
+
+    # Gate "always" siempre pasa (step final)
+    if gate_type == "always":
+        return True
+
+    # Verificar si el tool usado matchea
+    gate_tool = step.get("gate_tool", "")
+    if gate_tool and tool_name:
+        if tool_name.startswith(gate_tool) or tool_name == gate_tool:
+            return True
+
+    # Verificar frases
+    gate_phrases = step.get("gate_phrases", [])
+    for phrase in gate_phrases:
+        if isinstance(phrase, str) and phrase.lower() in response_text.lower():
+            return True
+
+    return False
+
+
+def advance_step(state: dict, config: dict, reason: str):
+    """Avanza al siguiente step del pipeline."""
+    current = state.get("current_step", 0)
+    steps = config.get("steps", [])
+
+    if current < len(steps):
+        step_id = steps[current].get("id", f"step_{current}")
+        state["completed_steps"].append({
+            "id": step_id,
+            "completed_at": datetime.now().isoformat(),
+            "reason": reason
+        })
+
+    state["current_step"] = current + 1
+    state["step_history"].append({
+        "from_step": current,
+        "to_step": current + 1,
+        "timestamp": datetime.now().isoformat(),
+        "reason": reason
+    })
+    save_state(state)
+
+
+def handle_pre_tool_use(data: dict) -> tuple[int, Optional[dict]]:
+    """Maneja PreToolUse: bloquea tools no permitidos."""
+    tool_name = data.get("tool_name", "")
+
+    config = load_yaml_simple(STEPS_FILE)
+    state = load_state()
+    step = get_current_step(config, state)
+
+    if not step:
+        # No hay steps configurados o ya completamos todos
+        return 0, None
+
+    # Verificar si el tool está bloqueado
+    if is_tool_blocked(tool_name, step):
+        step_name = step.get("name", f"Step {state['current_step']}")
+        step_id = step.get("id", "")
+        return 2, {
+            "decision": "block",
+            "reason": f"⚠️ FFD Pipeline [{step_name}]: '{tool_name}' está bloqueado en este step. Completa el step actual primero."
+        }
+
+    # Para MCPs, verificar si está habilitado
+    if tool_name.startswith("mcp__"):
+        if not is_mcp_enabled(tool_name, step):
+            step_name = step.get("name", f"Step {state['current_step']}")
+            enabled = step.get("mcps_enabled", [])
+            return 2, {
+                "decision": "block",
+                "reason": f"⚠️ FFD Pipeline [{step_name}]: Este MCP no está habilitado en el step actual. MCPs disponibles: {enabled}"
+            }
+
+    return 0, None
+
+
+def handle_post_tool_use(data: dict) -> tuple[int, Optional[dict]]:
+    """Maneja PostToolUse: detecta completación de gates."""
+    tool_name = data.get("tool_name", "")
+    tool_result = data.get("tool_result", "")
+
+    config = load_yaml_simple(STEPS_FILE)
+    state = load_state()
+    step = get_current_step(config, state)
+
+    if not step:
+        return 0, None
+
+    # Verificar si el uso del tool completa el gate
+    if check_gate_condition(str(tool_result), tool_name, step):
+        advance_step(state, config, f"Tool usado: {tool_name}")
+        next_step = get_current_step(config, state)
+        if next_step:
+            return 0, {
+                "message": f"✅ Step completado. Avanzando a: {next_step.get('name', 'siguiente step')}"
+            }
+
+    return 0, None
+
+
+def should_reset(config: dict, state: dict) -> bool:
+    """Determina si el pipeline debe resetearse según la configuración."""
+    pipeline_config = config.get("config", {})
+    reset_policy = pipeline_config.get("reset_policy", "timeout")
+    timeout_minutes = pipeline_config.get("timeout_minutes", 30)
+
+    if reset_policy == "manual":
+        # Solo reset manual, nunca automático
+        return False
+
+    if reset_policy == "per_session":
+        # Reset si no hay session_id (nueva sesión)
+        # Esto se detectaría por un nuevo started_at
+        return state.get("current_step", 0) > 0 and not state.get("session_id")
+
+    if reset_policy == "timeout":
+        last_activity = state.get("last_activity")
+        if last_activity:
+            try:
+                last = datetime.fromisoformat(last_activity)
+                seconds_inactive = (datetime.now() - last).total_seconds()
+                if seconds_inactive > (timeout_minutes * 60):
+                    return True
+            except Exception:
+                pass
+
+    return False
+
+
+def get_mcp_tool_manifest(enabled_mcps: list) -> str:
+    """Generate tool manifest info for enabled MCPs."""
+    if not enabled_mcps or "*" in enabled_mcps:
+        return ""
+
+    manifest = "\n📋 MCPs disponibles en este step:\n"
+    for mcp_name in enabled_mcps:
+        manifest += f"  - {mcp_name}\n"
+    manifest += "\nUsa `execute_mcp_tool(mcp_name, tool_name, arguments)` para llamar herramientas de estos MCPs.\n"
+    manifest += "Usa `list_configured_mcps()` para ver todos los MCPs configurados.\n"
+
+    return manifest
+
+
+def handle_user_prompt_submit(data: dict) -> tuple[int, Optional[dict]]:
+    """Maneja UserPromptSubmit: inyecta prompt del step actual."""
+    config = load_yaml_simple(STEPS_FILE)
+    state = load_state()
+    pipeline_config = config.get("config", {})
+
+    # Check reset policy
+    if should_reset(config, state):
+        state = {
+            "current_step": 0,
+            "completed_steps": [],
+            "session_id": None,
+            "started_at": datetime.now().isoformat(),
+            "last_activity": None,
+            "step_history": []
+        }
+        save_state(state)
+
+    step = get_current_step(config, state)
+
+    if not step:
+        return 0, None
+
+    # Build prompt injection
+    prompt = step.get("prompt_injection", "")
+
+    # Add MCP tool manifest for execute_mcp_tool proxy
+    enabled_mcps = step.get("mcps_enabled", [])
+    if enabled_mcps and "*" not in enabled_mcps:
+        prompt += get_mcp_tool_manifest(enabled_mcps)
+
+    # If force_sequential is enabled, add instruction to complete all steps
+    if pipeline_config.get("force_sequential", False):
+        prompt += "\n\n⚠️ IMPORTANTE: Debes completar TODOS los steps del pipeline en este turno antes de implementar."
+
+    if prompt:
+        return 0, {
+            "additionalContext": prompt
+        }
+
+    return 0, None
+
+
+def handle_text_response(data: dict) -> tuple[int, Optional[dict]]:
+    """Detecta frases en la respuesta para avanzar gates."""
+    response_text = data.get("response", "")
+
+    config = load_yaml_simple(STEPS_FILE)
+    state = load_state()
+    step = get_current_step(config, state)
+
+    if not step:
+        return 0, None
+
+    # Verificar frases que completan el gate
+    if check_gate_condition(response_text, "", step):
+        advance_step(state, config, f"Frase detectada en respuesta")
+
+    return 0, None
+
+
+def main():
+    """Entry point del controlador."""
+    try:
+        # Leer input del hook
+        input_data = sys.stdin.read()
+        if not input_data.strip():
+            sys.exit(0)
+
+        data = json.loads(input_data)
+    except json.JSONDecodeError:
+        sys.exit(0)
+    except Exception:
+        sys.exit(0)
+
+    # Determinar el tipo de hook basado en los datos
+    hook_type = os.environ.get("CLAUDE_HOOK_TYPE", "")
+
+    if not hook_type:
+        # Inferir del contenido
+        if "tool_name" in data and "tool_result" not in data:
+            hook_type = "PreToolUse"
+        elif "tool_result" in data:
+            hook_type = "PostToolUse"
+        elif "prompt" in data or "user_prompt" in data:
+            hook_type = "UserPromptSubmit"
+
+    # Procesar según el tipo
+    exit_code = 0
+    output = None
+
+    if hook_type == "PreToolUse":
+        exit_code, output = handle_pre_tool_use(data)
+    elif hook_type == "PostToolUse":
+        exit_code, output = handle_post_tool_use(data)
+    elif hook_type == "UserPromptSubmit":
+        exit_code, output = handle_user_prompt_submit(data)
+
+    # Emitir resultado
+    if output:
+        print(json.dumps(output))
+
+    sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()
