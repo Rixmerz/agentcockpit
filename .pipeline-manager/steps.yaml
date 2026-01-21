@@ -1,0 +1,79 @@
+# Flow-Controlled MCP Pipeline - MVP
+# Formato simplificado para parser básico
+
+# ============ CONFIGURACIÓN ============
+config:
+  reset_policy: "timeout"
+  timeout_minutes: 30
+  force_sequential: false
+  # Reset policy: "manual" | "timeout" | "per_session"
+  # - manual: Solo reset con comando explícito
+  # - timeout: Reset después de X minutos de inactividad
+  # - per_session: Reset cada nueva sesión de Claude
+
+  # Minutos de inactividad antes de reset (solo si reset_policy = "timeout")
+
+  # Si true, el prompt injection incluye instrucción para completar todos los steps
+
+# ============ STEPS ============
+
+
+steps:
+  - id: "complexity-check"
+    order: 0
+    name: "Complexity Gate"
+    description: "Evalúa si la tarea requiere razonamiento estructurado"
+    prompt_injection: |
+      🔍 STEP 0 - COMPLEXITY CHECK
+      Antes de responder, evalúa:
+      - ¿Esta tarea tiene múltiples pasos interdependientes?
+      - ¿Hay ambigüedad que requiere descomponer?
+      - ¿El problema es complejo (>3 decisiones)?
+      Si SÍ → Usa sequential-thinking para estructurar tu razonamiento.
+      Si NO → Di "Tarea simple, procedo directamente" y continúa.
+    mcps_enabled:
+      - "sequential-thinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+    gate_type: "any"
+    gate_tool: "mcp__sequential-thinking__sequentialthinking"
+    gate_phrases:
+      - "Tarea simple, procedo directamente"
+      - "tarea simple"
+      - "procedo directamente"
+
+  - id: "library-context"
+    order: 1
+    name: "Library Context Gate"
+    description: "Verifica si necesita documentación de librerías externas"
+    prompt_injection: |
+      📚 STEP 1 - LIBRARY CONTEXT
+      ¿Esta tarea involucra librerías/frameworks externos?
+      (React, Vue, Node, Python libs, APIs, etc.)
+      Si SÍ → Consulta Context7 para obtener docs actualizadas.
+      Si NO → Di "No requiere documentación externa" y continúa.
+    mcps_enabled:
+      - "Context7"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+    gate_type: "any"
+    gate_tool: "mcp__Context7__"
+    gate_phrases:
+      - "No requiere documentación externa"
+      - "no necesito documentación"
+      - "sin librerías externas"
+
+  - id: "implementation"
+    order: 2
+    name: "Implementation Gate"
+    description: "Habilita escritura después de validar contexto"
+    prompt_injection: |
+      ✅ CONTEXTO VALIDADO
+      Steps completados. Puedes implementar.
+      Recuerda: Lee antes de escribir (FFD).
+    mcps_enabled:
+      - "*"
+    tools_blocked: []
+    gate_type: "always"
