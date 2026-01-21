@@ -32,6 +32,7 @@
         "$HOME/**",
         "$HOME/**/.*",
         "$HOME/**/.agentcockpit/**",
+        "$HOME/**/.claude/**",
         "$HOME/.claude.json",
         "$HOME/Library/Application Support/**",
         "$HOME/Library/Application Support/Claude/**"
