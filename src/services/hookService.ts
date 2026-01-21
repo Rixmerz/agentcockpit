@@ -7,6 +7,7 @@
 
 import { readTextFile, writeTextFile, exists, mkdir, remove } from '@tauri-apps/plugin-fs';
 import type { PipelineStep } from '../types';
+import { resetPipeline } from './pipelineService';
 
 // Claude settings.json structure
 export interface ClaudeHookConfig {
@@ -86,6 +87,69 @@ export async function writeClaudeSettings(
 }
 
 // ============================================
+// Pipeline Skill Generation
+// ============================================
+
+/**
+ * Generate the /pipeline skill for Claude Code
+ */
+export function generatePipelineSkill(projectPath: string): string {
+  return `# Pipeline Management Skill
+
+Gestiona el pipeline de flujo controlado para este proyecto.
+
+## Uso
+
+Este comando acepta los siguientes subcomandos:
+
+- \`/pipeline\` o \`/pipeline status\` - Muestra el estado actual del pipeline
+- \`/pipeline advance\` - Avanza al siguiente step
+- \`/pipeline reset\` - Resetea el pipeline al Step 0
+- \`/pipeline set <n>\` - Va directamente al step n (ej: \`/pipeline set 2\`)
+
+## Instrucciones
+
+Cuando el usuario invoque este comando:
+
+1. **Obtener el project_dir**: Usa \`${projectPath}\` como \`project_dir\`
+
+2. **Ejecutar la acción solicitada** usando el MCP \`pipeline-manager\`:
+
+   - Para **status** (default): Llama a \`mcp__pipeline-manager__pipeline_status\` con \`project_dir="${projectPath}"\`
+   - Para **advance**: Llama a \`mcp__pipeline-manager__pipeline_advance\` con \`project_dir="${projectPath}"\`
+   - Para **reset**: Llama a \`mcp__pipeline-manager__pipeline_reset\` con \`project_dir="${projectPath}"\`
+   - Para **set N**: Llama a \`mcp__pipeline-manager__pipeline_set_step\` con \`project_dir="${projectPath}"\` y \`step_index=N\`
+
+3. **Mostrar el resultado** de forma clara:
+
+   Para status, muestra una tabla con:
+   \`\`\`
+   Pipeline Status: Step {n} - {nombre}
+
+   | Step | Nombre | Estado | Tools Bloqueados |
+   |------|--------|--------|------------------|
+   | 0    | ...    | ...    | ...              |
+   \`\`\`
+
+   Para otras acciones, confirma la acción realizada.
+
+## Ejemplo de respuesta para status
+
+\`\`\`
+Pipeline Status: Step 0 - Complexity Gate
+
+| Step | Nombre              | Estado    | Bloqueados   |
+|------|---------------------|-----------|--------------|
+| 0    | Complexity Gate     | current   | Write, Edit  |
+| 1    | Library Context     | pending   | Write, Edit  |
+| 2    | Implementation      | pending   | -            |
+
+Write/Edit bloqueados hasta completar Step 0.
+Usa \`/pipeline advance\` para avanzar manualmente.
+\`\`\`
+`;
+}
+
 // Pipeline Enforcer Script Generation
 // ============================================
 
@@ -231,6 +295,21 @@ export async function installPipelineHooks(
     const enforcerPath = `${hooksDir}/pipeline_enforcer.py`;
     const enforcerScript = generatePipelineEnforcerScript(projectPath);
     await writeTextFile(enforcerPath, enforcerScript);
+
+    // 2.5. Initialize pipeline state (state.json at step 0)
+    await resetPipeline(projectPath);
+    console.log('[HookService] Pipeline state initialized at step 0');
+
+    // 2.6. Create /pipeline skill for Claude Code
+    const commandsDir = `${projectPath}/.claude/commands`;
+    const commandsDirExists = await exists(commandsDir);
+    if (!commandsDirExists) {
+      await mkdir(commandsDir, { recursive: true });
+    }
+    const skillPath = `${commandsDir}/pipeline.md`;
+    const skillContent = generatePipelineSkill(projectPath);
+    await writeTextFile(skillPath, skillContent);
+    console.log('[HookService] Pipeline skill created');
 
     // 3. Read existing settings (preserve other hooks)
     let settings = await readClaudeSettings(projectPath) || {};
