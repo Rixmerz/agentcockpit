@@ -5192,7 +5192,7 @@ select.settings-input {
 }
 
 .mcp-import-item.imported {
-  opacity: 0.6;
+  background: var(--bg-tertiary);
 }
 
 .mcp-import-item-info {
@@ -5201,6 +5201,12 @@ select.settings-input {
   gap: 8px;
   font-size: 12px;
   color: var(--text-primary);
+}
+
+.mcp-import-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .mcp-badge {

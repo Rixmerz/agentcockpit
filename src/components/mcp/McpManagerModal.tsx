@@ -423,14 +423,25 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
                               <span>{name}</span>
                               {imported && <span className="mcp-badge">imported</span>}
                             </div>
-                            <button
-                              className="btn-icon-sm"
-                              onClick={() => handleImportSingle(name, 'desktop')}
-                              disabled={imported}
-                              title={imported ? 'Already imported' : 'Import'}
-                            >
-                              <Download size={14} />
-                            </button>
+                            <div className="mcp-import-item-actions">
+                              {imported ? (
+                                <button
+                                  className="btn-icon-sm danger"
+                                  onClick={() => handleRemove(name)}
+                                  title="Remove from config"
+                                >
+                                  <X size={14} />
+                                </button>
+                              ) : (
+                                <button
+                                  className="btn-icon-sm"
+                                  onClick={() => handleImportSingle(name, 'desktop')}
+                                  title="Import"
+                                >
+                                  <Download size={14} />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -464,14 +475,25 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
                               <span>{name}</span>
                               {imported && <span className="mcp-badge">imported</span>}
                             </div>
-                            <button
-                              className="btn-icon-sm"
-                              onClick={() => handleImportSingle(name, 'code')}
-                              disabled={imported}
-                              title={imported ? 'Already imported' : 'Import'}
-                            >
-                              <Download size={14} />
-                            </button>
+                            <div className="mcp-import-item-actions">
+                              {imported ? (
+                                <button
+                                  className="btn-icon-sm danger"
+                                  onClick={() => handleRemove(name)}
+                                  title="Remove from config"
+                                >
+                                  <X size={14} />
+                                </button>
+                              ) : (
+                                <button
+                                  className="btn-icon-sm"
+                                  onClick={() => handleImportSingle(name, 'code')}
+                                  title="Import"
+                                >
+                                  <Download size={14} />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
