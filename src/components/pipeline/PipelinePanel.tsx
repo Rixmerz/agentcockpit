@@ -5,8 +5,13 @@ import {
   resetPipeline,
   advancePipeline,
   savePipelineSteps,
+  listGlobalPipelines,
+  getActivePipelineName,
+  activatePipeline,
+  deactivatePipeline,
+  getGlobalPipelineSteps,
 } from '../../services/pipelineService';
-import type { PipelineState, PipelineStep } from '../../services/pipelineService';
+import type { PipelineState, PipelineStep, GlobalPipelineInfo } from '../../services/pipelineService';
 import {
   getProjectPipelineConfig,
   updateProjectPipelineConfig,
@@ -29,7 +34,10 @@ import {
   AlertCircle,
   Download,
   Trash2,
-  Power
+  Power,
+  ChevronDown,
+  GitBranch,
+  X
 } from 'lucide-react';
 
 interface PipelinePanelProps {
@@ -47,6 +55,12 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
   const [isInstalled, setIsInstalled] = useState(false);
   const [installing, setInstalling] = useState(false);
 
+  // Global pipelines state
+  const [globalPipelines, setGlobalPipelines] = useState<GlobalPipelineInfo[]>([]);
+  const [activePipelineName, setActivePipelineName] = useState<string | null>(null);
+  const [pipelineDropdownOpen, setPipelineDropdownOpen] = useState(false);
+  const [changingPipeline, setChangingPipeline] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -54,12 +68,29 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
     try {
       console.log('[PipelinePanel] Loading data for project:', projectPath);
 
+      // Load global pipelines list
+      const globalList = await listGlobalPipelines();
+      setGlobalPipelines(globalList);
+      console.log('[PipelinePanel] Global pipelines:', globalList);
+
+      // Load active pipeline for this project
+      const activeName = await getActivePipelineName(projectPath);
+      setActivePipelineName(activeName);
+      console.log('[PipelinePanel] Active pipeline:', activeName);
+
       // Load pipeline state and steps
       const pipelineState = await getPipelineState(projectPath);
       console.log('[PipelinePanel] State loaded:', pipelineState);
 
-      const pipelineSteps = await getPipelineSteps(projectPath);
-      console.log('[PipelinePanel] Steps loaded:', pipelineSteps);
+      // If there's an active global pipeline, load its steps
+      let pipelineSteps: PipelineStep[];
+      if (activeName) {
+        pipelineSteps = await getGlobalPipelineSteps(activeName);
+        console.log('[PipelinePanel] Global pipeline steps loaded:', pipelineSteps.length);
+      } else {
+        pipelineSteps = await getPipelineSteps(projectPath);
+        console.log('[PipelinePanel] Local steps loaded:', pipelineSteps);
+      }
 
       setState(pipelineState);
       setSteps(pipelineSteps);
@@ -183,6 +214,55 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
     }
   };
 
+  // Handle selecting a global pipeline
+  const handleSelectPipeline = async (pipelineName: string) => {
+    if (!projectPath) return;
+
+    setChangingPipeline(true);
+    setPipelineDropdownOpen(false);
+
+    try {
+      const success = await activatePipeline(projectPath, pipelineName);
+      if (success) {
+        setActivePipelineName(pipelineName);
+        // Reload data to get new steps
+        await loadData();
+      } else {
+        setError('Failed to activate pipeline');
+      }
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error('[PipelinePanel] Activate pipeline error:', errorMsg);
+      setError(errorMsg);
+    } finally {
+      setChangingPipeline(false);
+    }
+  };
+
+  // Handle deactivating pipeline (use local)
+  const handleDeactivatePipeline = async () => {
+    if (!projectPath) return;
+
+    setChangingPipeline(true);
+    setPipelineDropdownOpen(false);
+
+    try {
+      const success = await deactivatePipeline(projectPath);
+      if (success) {
+        setActivePipelineName(null);
+        await loadData();
+      } else {
+        setError('Failed to deactivate pipeline');
+      }
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error('[PipelinePanel] Deactivate pipeline error:', errorMsg);
+      setError(errorMsg);
+    } finally {
+      setChangingPipeline(false);
+    }
+  };
+
   const currentStep = state && steps.length > 0 ? steps[state.current_step] : null;
   const progress = state && steps.length > 1
     ? (state.current_step / (steps.length - 1)) * 100
@@ -217,6 +297,65 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
             </button>
           </div>
         </div>
+
+        {/* Pipeline Selector */}
+        {projectPath && globalPipelines.length > 0 && (
+          <div className="pipeline-selector">
+            <div
+              className={`pipeline-selector-trigger ${pipelineDropdownOpen ? 'open' : ''}`}
+              onClick={() => setPipelineDropdownOpen(!pipelineDropdownOpen)}
+            >
+              <GitBranch size={14} />
+              <span className="pipeline-selector-label">
+                {changingPipeline ? 'Changing...' : (activePipelineName || 'Local Pipeline')}
+              </span>
+              <ChevronDown size={14} className={`pipeline-selector-arrow ${pipelineDropdownOpen ? 'open' : ''}`} />
+            </div>
+
+            {pipelineDropdownOpen && (
+              <div className="pipeline-selector-dropdown">
+                {/* Option to use local pipeline */}
+                <div
+                  className={`pipeline-selector-option ${!activePipelineName ? 'active' : ''}`}
+                  onClick={handleDeactivatePipeline}
+                >
+                  <div className="pipeline-option-info">
+                    <span className="pipeline-option-name">Local Pipeline</span>
+                    <span className="pipeline-option-desc">Use project's local steps.yaml</span>
+                  </div>
+                  {!activePipelineName && <CheckCircle2 size={14} />}
+                </div>
+
+                {/* Global pipelines */}
+                {globalPipelines.map((pipeline) => (
+                  <div
+                    key={pipeline.name}
+                    className={`pipeline-selector-option ${activePipelineName === pipeline.name ? 'active' : ''}`}
+                    onClick={() => handleSelectPipeline(pipeline.name)}
+                  >
+                    <div className="pipeline-option-info">
+                      <span className="pipeline-option-name">{pipeline.displayName}</span>
+                      <span className="pipeline-option-desc">
+                        {pipeline.stepsCount} steps
+                        {pipeline.description && ` • ${pipeline.description}`}
+                      </span>
+                    </div>
+                    {activePipelineName === pipeline.name && <CheckCircle2 size={14} />}
+                  </div>
+                ))}
+
+                {/* Close button */}
+                <div
+                  className="pipeline-selector-close"
+                  onClick={() => setPipelineDropdownOpen(false)}
+                >
+                  <X size={14} />
+                  Close
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="pipeline-panel-content">
           {/* Loading state */}
