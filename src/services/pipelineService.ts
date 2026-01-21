@@ -632,3 +632,221 @@ export async function getAvailableMcps(): Promise<AvailableMcp[]> {
 
   return mcps;
 }
+
+// ============================================
+// Global Pipelines Management
+// ============================================
+
+const GLOBAL_PIPELINES_DIR = '.claude/pipelines';
+
+export interface GlobalPipelineInfo {
+  name: string;
+  displayName: string;
+  description: string;
+  stepsCount: number;
+}
+
+// Get global pipelines directory path
+async function getGlobalPipelinesDir(): Promise<string> {
+  if (!cachedHomeDir) {
+    const home = await homeDir();
+    if (!home) {
+      throw new Error('Could not determine home directory');
+    }
+    cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
+  }
+  return `${cachedHomeDir}/${GLOBAL_PIPELINES_DIR}`;
+}
+
+// Parse pipeline metadata from YAML content
+function parsePipelineMetadata(content: string): { displayName: string; description: string; stepsCount: number } {
+  let displayName = '';
+  let description = '';
+  let stepsCount = 0;
+  let inMetadata = false;
+
+  const lines = content.split('\n');
+  for (const line of lines) {
+    const stripped = line.trim();
+
+    if (stripped === 'metadata:') {
+      inMetadata = true;
+      continue;
+    }
+
+    if (stripped === 'config:' || stripped === 'steps:') {
+      inMetadata = false;
+    }
+
+    if (inMetadata && stripped.includes(':')) {
+      const [key, ...valueParts] = stripped.split(':');
+      const value = valueParts.join(':').trim().replace(/^["']|["']$/g, '');
+
+      if (key.trim() === 'name') {
+        displayName = value;
+      } else if (key.trim() === 'description') {
+        description = value;
+      }
+    }
+
+    // Count steps
+    if (stripped.startsWith('- id:')) {
+      stepsCount++;
+    }
+  }
+
+  return { displayName, description, stepsCount };
+}
+
+// List all global pipelines
+export async function listGlobalPipelines(): Promise<GlobalPipelineInfo[]> {
+  const pipelines: GlobalPipelineInfo[] = [];
+
+  try {
+    const dir = await getGlobalPipelinesDir();
+    const dirExists = await exists(dir);
+
+    if (!dirExists) {
+      console.log('[Pipeline] Global pipelines directory does not exist');
+      return pipelines;
+    }
+
+    // Read directory contents using Tauri
+    // Since Tauri doesn't have a direct readDir, we'll use a workaround
+    // by checking for known pipeline files or using invoke
+    // For now, we'll try to read common pipeline names
+
+    // Try to read pipeline files by attempting to access them
+    const commonNames = ['ffd-standard', 'quick-fix', 'feature-development', 'refactoring', 'research'];
+
+    for (const name of commonNames) {
+      const filePath = `${dir}/${name}.yaml`;
+      try {
+        const fileExists = await exists(filePath);
+        if (fileExists) {
+          const content = await readTextFile(filePath);
+          const metadata = parsePipelineMetadata(content);
+          pipelines.push({
+            name,
+            displayName: metadata.displayName || name,
+            description: metadata.description || '',
+            stepsCount: metadata.stepsCount
+          });
+        }
+      } catch {
+        // File doesn't exist or can't be read
+      }
+    }
+
+    console.log('[Pipeline] Found global pipelines:', pipelines.length);
+    return pipelines;
+  } catch (e) {
+    console.error('[Pipeline] Error listing global pipelines:', e);
+    return pipelines;
+  }
+}
+
+// Get active pipeline name for a project
+export async function getActivePipelineName(projectPath: string | null): Promise<string | null> {
+  if (!projectPath) return null;
+
+  try {
+    const dir = await getPipelineDir(projectPath);
+    const statePath = `${dir}/${STATE_FILE}`;
+
+    const fileExists = await exists(statePath);
+    if (!fileExists) {
+      return null;
+    }
+
+    const content = await readTextFile(statePath);
+    const state = JSON.parse(content);
+    return state.active_pipeline || null;
+  } catch (e) {
+    console.error('[Pipeline] Error getting active pipeline:', e);
+    return null;
+  }
+}
+
+// Activate a global pipeline for a project
+export async function activatePipeline(projectPath: string, pipelineName: string): Promise<boolean> {
+  try {
+    await ensurePipelineDir(projectPath);
+    const dir = await getPipelineDir(projectPath);
+    const statePath = `${dir}/${STATE_FILE}`;
+
+    // Load existing state or create new
+    let state: PipelineState & { active_pipeline?: string; pipeline_version?: string };
+
+    const fileExists = await exists(statePath);
+    if (fileExists) {
+      const content = await readTextFile(statePath);
+      state = JSON.parse(content);
+    } else {
+      state = getDefaultState();
+    }
+
+    // Update with new active pipeline
+    state.active_pipeline = pipelineName;
+    state.pipeline_version = '1.0.0';
+    state.current_step = 0;
+    state.completed_steps = [];
+    state.step_history = [];
+    state.started_at = new Date().toISOString();
+    state.last_activity = new Date().toISOString();
+
+    await writeTextFile(statePath, JSON.stringify(state, null, 2));
+    console.log('[Pipeline] Activated pipeline:', pipelineName, 'for project:', projectPath);
+    return true;
+  } catch (e) {
+    console.error('[Pipeline] Error activating pipeline:', e);
+    return false;
+  }
+}
+
+// Deactivate pipeline for a project
+export async function deactivatePipeline(projectPath: string): Promise<boolean> {
+  try {
+    const dir = await getPipelineDir(projectPath);
+    const statePath = `${dir}/${STATE_FILE}`;
+
+    const fileExists = await exists(statePath);
+    if (!fileExists) {
+      return true;
+    }
+
+    const content = await readTextFile(statePath);
+    const state = JSON.parse(content);
+
+    state.active_pipeline = null;
+    state.pipeline_version = null;
+    state.last_activity = new Date().toISOString();
+
+    await writeTextFile(statePath, JSON.stringify(state, null, 2));
+    console.log('[Pipeline] Deactivated pipeline for project:', projectPath);
+    return true;
+  } catch (e) {
+    console.error('[Pipeline] Error deactivating pipeline:', e);
+    return false;
+  }
+}
+
+// Get global pipeline steps by name
+export async function getGlobalPipelineSteps(pipelineName: string): Promise<PipelineStep[]> {
+  try {
+    const dir = await getGlobalPipelinesDir();
+    const filePath = `${dir}/${pipelineName}.yaml`;
+
+    const fileExists = await exists(filePath);
+    if (!fileExists) {
+      console.log('[Pipeline] Global pipeline not found:', pipelineName);
+      return [];
+    }
+
+    const content = await readTextFile(filePath);
+    return parseStepsYaml(content);
+  } catch (e) {
+    console.error('[Pipeline] Error reading global pipeline:', e);
+    return [];
+  }
+}
