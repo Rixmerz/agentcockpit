@@ -141,18 +141,29 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
     }
   }, [pluginConfig, showMessage, onPluginConfigChanged]);
 
-  // Handle install Pipeline Manager
+  // Handle install Pipeline Manager (auto-detects path)
   const handleInstallPipelineManager = useCallback(async (pathOverride?: string) => {
-    const pathToUse = pathOverride || agentcockpitPath;
-
-    // If no path configured, show input
-    if (!pathToUse) {
-      setShowPathInput(true);
-      return;
-    }
-
     setPipelineManagerLoading(true);
     try {
+      // First try to auto-detect path if not provided
+      let pathToUse = pathOverride || agentcockpitPath;
+
+      if (!pathToUse) {
+        // Try auto-detection
+        const detected = await getAgentcockpitPath();
+        if (detected) {
+          pathToUse = detected;
+          setAgentcockpitPathState(detected);
+        }
+      }
+
+      // If still no path, show manual input
+      if (!pathToUse) {
+        setShowPathInput(true);
+        setPipelineManagerLoading(false);
+        return;
+      }
+
       const result = await installPipelineManagerMcp(pathToUse);
       if (result.success) {
         showMessage('success', result.message);
@@ -161,6 +172,10 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
         loadData();
         onMcpsChanged?.();
       } else {
+        // If failed because path not found, show input
+        if (result.message.includes('not found') || result.message.includes('not configured')) {
+          setShowPathInput(true);
+        }
         showMessage('error', result.message);
       }
     } finally {
@@ -168,7 +183,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
     }
   }, [agentcockpitPath, showMessage, loadData, onMcpsChanged]);
 
-  // Handle save AgentCockpit path
+  // Handle save AgentCockpit path (manual fallback)
   const handleSaveAgentcockpitPath = useCallback(async () => {
     if (!agentcockpitPath.trim()) {
       showMessage('error', 'Please enter a valid path');

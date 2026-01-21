@@ -493,9 +493,50 @@ async function saveAppConfig(config: AppConfig): Promise<boolean> {
 }
 
 /**
- * Get the AgentCockpit installation path
+ * Auto-detect AgentCockpit path by checking common locations
+ */
+async function autoDetectAgentcockpitPath(): Promise<string | null> {
+  try {
+    // Try to get cwd via Tauri command
+    const cwd = await invoke<string>('execute_command', { cmd: 'pwd', cwd: '/' });
+    const cwdPath = cwd.trim();
+
+    // Check if .pipeline-manager exists in cwd (development mode)
+    const pipelinePath = `${cwdPath}/.pipeline-manager`;
+    if (await exists(pipelinePath)) {
+      return cwdPath;
+    }
+
+    // Fallback: check saved config
+    const config = await loadAppConfig();
+    if (config.agentcockpitPath) {
+      const savedPipelinePath = `${config.agentcockpitPath}/.pipeline-manager`;
+      if (await exists(savedPipelinePath)) {
+        return config.agentcockpitPath;
+      }
+    }
+
+    return null;
+  } catch {
+    // Fallback to saved config
+    const config = await loadAppConfig();
+    return config.agentcockpitPath || null;
+  }
+}
+
+/**
+ * Get the AgentCockpit installation path (auto-detects if not saved)
  */
 export async function getAgentcockpitPath(): Promise<string | null> {
+  // Try auto-detection first
+  const detected = await autoDetectAgentcockpitPath();
+  if (detected) {
+    // Save for future use
+    await setAgentcockpitPath(detected);
+    return detected;
+  }
+
+  // Fallback to saved config
   const config = await loadAppConfig();
   return config.agentcockpitPath || null;
 }
