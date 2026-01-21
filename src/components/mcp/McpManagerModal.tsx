@@ -49,6 +49,8 @@ import {
   isPipelineManagerInstalled,
   installPipelineManagerMcp,
   uninstallPipelineManagerMcp,
+  getAgentcockpitPath,
+  setAgentcockpitPath,
   type ManagedMcp,
   type McpServerConfig
 } from '../../services/mcpConfigService';
@@ -86,6 +88,8 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
   // Pipeline Manager state
   const [pipelineManagerInstalled, setPipelineManagerInstalled] = useState(false);
   const [pipelineManagerLoading, setPipelineManagerLoading] = useState(false);
+  const [agentcockpitPath, setAgentcockpitPathState] = useState<string>('');
+  const [showPathInput, setShowPathInput] = useState(false);
 
   // Show temporary message
   const showMessage = useCallback((type: 'success' | 'error' | 'warning', text: string) => {
@@ -97,13 +101,14 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [config, desktop, code, path, claudeConfig, pipelineInstalled] = await Promise.all([
+      const [config, desktop, code, path, claudeConfig, pipelineInstalled, acPath] = await Promise.all([
         loadMcpConfig(),
         loadDesktopMcps(),
         loadCodeMcps(),
         getConfigFilePath(),
         getClaudePluginConfig(),
-        isPipelineManagerInstalled()
+        isPipelineManagerInstalled(),
+        getAgentcockpitPath()
       ]);
 
       setActiveMcps(Object.values(config.mcpServers));
@@ -112,6 +117,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
       setConfigPath(path);
       setPluginConfig(claudeConfig);
       setPipelineManagerInstalled(pipelineInstalled);
+      setAgentcockpitPathState(acPath || '');
     } catch (e) {
       console.error('[McpManager] Load error:', e);
       showMessage('error', `Error loading MCPs: ${e}`);
@@ -136,13 +142,22 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
   }, [pluginConfig, showMessage, onPluginConfigChanged]);
 
   // Handle install Pipeline Manager
-  const handleInstallPipelineManager = useCallback(async () => {
+  const handleInstallPipelineManager = useCallback(async (pathOverride?: string) => {
+    const pathToUse = pathOverride || agentcockpitPath;
+
+    // If no path configured, show input
+    if (!pathToUse) {
+      setShowPathInput(true);
+      return;
+    }
+
     setPipelineManagerLoading(true);
     try {
-      const result = await installPipelineManagerMcp();
+      const result = await installPipelineManagerMcp(pathToUse);
       if (result.success) {
         showMessage('success', result.message);
         setPipelineManagerInstalled(true);
+        setShowPathInput(false);
         loadData();
         onMcpsChanged?.();
       } else {
@@ -151,7 +166,22 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
     } finally {
       setPipelineManagerLoading(false);
     }
-  }, [showMessage, loadData, onMcpsChanged]);
+  }, [agentcockpitPath, showMessage, loadData, onMcpsChanged]);
+
+  // Handle save AgentCockpit path
+  const handleSaveAgentcockpitPath = useCallback(async () => {
+    if (!agentcockpitPath.trim()) {
+      showMessage('error', 'Please enter a valid path');
+      return;
+    }
+
+    const saved = await setAgentcockpitPath(agentcockpitPath.trim());
+    if (saved) {
+      handleInstallPipelineManager(agentcockpitPath.trim());
+    } else {
+      showMessage('error', 'Failed to save path');
+    }
+  }, [agentcockpitPath, handleInstallPipelineManager, showMessage]);
 
   // Handle uninstall Pipeline Manager
   const handleUninstallPipelineManager = useCallback(async () => {
@@ -700,7 +730,7 @@ Or with mcpServers wrapper:
                     ) : (
                       <button
                         className="btn-primary btn-sm"
-                        onClick={handleInstallPipelineManager}
+                        onClick={() => handleInstallPipelineManager()}
                         disabled={pipelineManagerLoading}
                       >
                         {pipelineManagerLoading ? (
@@ -712,6 +742,44 @@ Or with mcpServers wrapper:
                     )}
                   </div>
                 </div>
+
+                {/* Path configuration input */}
+                {showPathInput && !pipelineManagerInstalled && (
+                  <div className="mcp-path-config" style={{ marginTop: '1rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      AgentCockpit project path (where .pipeline-manager is located):
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        type="text"
+                        value={agentcockpitPath}
+                        onChange={(e) => setAgentcockpitPathState(e.target.value)}
+                        placeholder="/path/to/agentcockpit"
+                        style={{
+                          flex: 1,
+                          padding: '0.5rem',
+                          borderRadius: '4px',
+                          border: '1px solid var(--border)',
+                          background: 'var(--bg-primary)',
+                          color: 'var(--text-primary)'
+                        }}
+                      />
+                      <button
+                        className="btn-primary btn-sm"
+                        onClick={handleSaveAgentcockpitPath}
+                        disabled={pipelineManagerLoading || !agentcockpitPath.trim()}
+                      >
+                        {pipelineManagerLoading ? <Loader2 size={14} className="animate-spin" /> : 'Save & Install'}
+                      </button>
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={() => setShowPathInput(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mcp-settings-note">
                   <Info size={14} />
