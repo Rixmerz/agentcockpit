@@ -95,3 +95,45 @@ export type AppAction =
   // Terminal activity tracking
   | { type: 'SET_TERMINAL_ACTIVITY'; payload: { terminalId: string; isFinished: boolean; lastOutputAt: number } }
   | { type: 'CLEAR_TERMINAL_ACTIVITY'; payload: string };
+
+// ============================================
+// Pipeline Types
+// ============================================
+
+// Pipeline step configuration (for reference in templates)
+export interface PipelineStep {
+  id: string;
+  order: number;
+  name: string;
+  description: string;
+  prompt_injection: string;
+  mcps_enabled: string[];
+  tools_blocked: string[];
+  gate_type: 'any' | 'always';
+  gate_tool: string;
+  gate_phrases: string[];
+}
+
+// Pipeline settings
+export interface PipelineSettings {
+  reset_policy: 'manual' | 'timeout' | 'per_session';
+  timeout_minutes: number;
+  force_sequential: boolean;
+}
+
+// Template for reusable pipeline configurations
+export interface PipelineTemplate {
+  id: string;
+  name: string;
+  description: string;
+  isDefault: boolean;
+  steps: PipelineStep[];
+  settings: PipelineSettings;
+}
+
+// Per-project pipeline configuration stored in agentcockpit-project.json
+export interface ProjectPipelineConfig {
+  enabled: boolean;
+  activePipelineId: string | null;
+  installedAt: number | null;
+}

@@ -36,11 +36,12 @@ import {
 interface PipelineModalProps {
   isOpen: boolean;
   onClose: () => void;
+  projectPath?: string | null;
 }
 
 type ViewMode = 'status' | 'steps' | 'edit-step' | 'settings';
 
-export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
+export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('status');
   const [state, setState] = useState<PipelineState | null>(null);
   const [steps, setSteps] = useState<PipelineStep[]>([]);
@@ -62,9 +63,9 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
     setLoading(true);
     try {
       const [pipelineState, pipelineSteps, pipelineSettings, mcps] = await Promise.all([
-        getPipelineState(),
-        getPipelineSteps(),
-        getPipelineSettings(),
+        getPipelineState(projectPath),
+        getPipelineSteps(projectPath),
+        getPipelineSettings(projectPath),
         getAvailableMcps()
       ]);
       setState(pipelineState);
@@ -81,7 +82,7 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
   const handleReset = async () => {
     setSaving(true);
     try {
-      await resetPipeline();
+      await resetPipeline(projectPath);
       await loadData();
     } finally {
       setSaving(false);
@@ -91,7 +92,7 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
   const handleAdvance = async () => {
     setSaving(true);
     try {
-      await advancePipeline();
+      await advancePipeline(projectPath);
       await loadData();
     } finally {
       setSaving(false);
@@ -101,7 +102,7 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
   const handleSaveSteps = async () => {
     setSaving(true);
     try {
-      await savePipelineSteps(steps);
+      await savePipelineSteps(steps, projectPath);
       await loadData();
       setViewMode('status');
     } finally {
@@ -113,7 +114,7 @@ export function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
     if (!settings) return;
     setSaving(true);
     try {
-      await savePipelineSettings(settings);
+      await savePipelineSettings(settings, projectPath);
       await loadData();
       setViewMode('status');
     } finally {

@@ -4856,6 +4856,137 @@ input[type="checkbox"] {
   text-transform: lowercase;
 }
 
+/* Pipeline Header Actions */
+.pipeline-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* Pipeline Toggle Switch */
+.pipeline-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.pipeline-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.pipeline-toggle .toggle-slider {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 3px;
+}
+
+.pipeline-toggle .toggle-slider svg {
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.pipeline-toggle input:checked + .toggle-slider {
+  background: rgba(0, 212, 170, 0.3);
+  border-color: var(--accent);
+}
+
+.pipeline-toggle input:checked + .toggle-slider svg {
+  color: var(--accent);
+  transform: translateX(14px);
+}
+
+.pipeline-toggle:hover .toggle-slider {
+  border-color: var(--accent);
+}
+
+/* Pipeline Install Section */
+.pipeline-install-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pipeline-install-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(0, 212, 170, 0.15);
+  border: 1px solid rgba(0, 212, 170, 0.3);
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pipeline-install-btn:hover:not(:disabled) {
+  background: rgba(0, 212, 170, 0.25);
+  border-color: var(--accent);
+}
+
+.pipeline-install-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Pipeline Installed Badge */
+.pipeline-installed-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 6px;
+  color: #22c55e;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.pipeline-installed-badge span {
+  flex: 1;
+}
+
+.pipeline-uninstall-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.pipeline-uninstall-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.pipeline-uninstall-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Settings hint */
 .settings-hint {
   display: block;

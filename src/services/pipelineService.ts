@@ -52,7 +52,16 @@ const STEPS_FILE = 'steps.yaml';
 let cachedHomeDir: string | null = null;
 
 // Get pipeline directory path
-async function getPipelineDir(): Promise<string> {
+// If projectPath is provided, uses per-project path: {projectPath}/.claude/pipeline/
+// Otherwise uses global path: ~/.claude/pipeline/
+async function getPipelineDir(projectPath?: string | null): Promise<string> {
+  if (projectPath) {
+    // Per-project pipeline directory
+    const normalizedPath = projectPath.endsWith('/') ? projectPath.slice(0, -1) : projectPath;
+    return `${normalizedPath}/${PIPELINE_DIR}`;
+  }
+
+  // Global fallback
   if (!cachedHomeDir) {
     console.log('[Pipeline] Getting home directory...');
     const home = await homeDir();
@@ -69,8 +78,8 @@ async function getPipelineDir(): Promise<string> {
 }
 
 // Ensure pipeline directory exists
-export async function ensurePipelineDir(): Promise<void> {
-  const dir = await getPipelineDir();
+export async function ensurePipelineDir(projectPath?: string | null): Promise<void> {
+  const dir = await getPipelineDir(projectPath);
   console.log('[Pipeline] Checking directory:', dir);
 
   try {
@@ -98,9 +107,9 @@ function getDefaultState(): PipelineState {
 }
 
 // Read pipeline state
-export async function getPipelineState(): Promise<PipelineState> {
+export async function getPipelineState(projectPath?: string | null): Promise<PipelineState> {
   try {
-    const dir = await getPipelineDir();
+    const dir = await getPipelineDir(projectPath);
     const statePath = `${dir}/${STATE_FILE}`;
     console.log('[Pipeline] Reading state from:', statePath);
 
@@ -122,10 +131,10 @@ export async function getPipelineState(): Promise<PipelineState> {
 }
 
 // Save pipeline state
-export async function savePipelineState(state: PipelineState): Promise<boolean> {
+export async function savePipelineState(state: PipelineState, projectPath?: string | null): Promise<boolean> {
   try {
-    await ensurePipelineDir();
-    const dir = await getPipelineDir();
+    await ensurePipelineDir(projectPath);
+    const dir = await getPipelineDir(projectPath);
     const statePath = `${dir}/${STATE_FILE}`;
 
     state.last_activity = new Date().toISOString();
@@ -141,17 +150,17 @@ export async function savePipelineState(state: PipelineState): Promise<boolean> 
 }
 
 // Reset pipeline to step 0
-export async function resetPipeline(): Promise<boolean> {
+export async function resetPipeline(projectPath?: string | null): Promise<boolean> {
   console.log('[Pipeline] Resetting pipeline...');
   const state = getDefaultState();
-  return savePipelineState(state);
+  return savePipelineState(state, projectPath);
 }
 
 // Advance to next step manually
-export async function advancePipeline(): Promise<PipelineState> {
+export async function advancePipeline(projectPath?: string | null): Promise<PipelineState> {
   console.log('[Pipeline] Advancing pipeline...');
-  const state = await getPipelineState();
-  const steps = await getPipelineSteps();
+  const state = await getPipelineState(projectPath);
+  const steps = await getPipelineSteps(projectPath);
 
   if (state.current_step >= steps.length - 1) {
     console.log('[Pipeline] Already at last step');
@@ -173,7 +182,7 @@ export async function advancePipeline(): Promise<PipelineState> {
   });
 
   state.current_step += 1;
-  await savePipelineState(state);
+  await savePipelineState(state, projectPath);
   return state;
 }
 
@@ -329,9 +338,9 @@ function getDefaultSteps(): PipelineStep[] {
 }
 
 // Get pipeline steps configuration
-export async function getPipelineSteps(): Promise<PipelineStep[]> {
+export async function getPipelineSteps(projectPath?: string | null): Promise<PipelineStep[]> {
   try {
-    const dir = await getPipelineDir();
+    const dir = await getPipelineDir(projectPath);
     const stepsPath = `${dir}/${STEPS_FILE}`;
     console.log('[Pipeline] Reading steps from:', stepsPath);
 
@@ -399,10 +408,10 @@ ${step.prompt_injection.split('\n').map(l => `      ${l}`).join('\n')}
 }
 
 // Save pipeline steps
-export async function savePipelineSteps(steps: PipelineStep[]): Promise<boolean> {
+export async function savePipelineSteps(steps: PipelineStep[], projectPath?: string | null): Promise<boolean> {
   try {
-    await ensurePipelineDir();
-    const dir = await getPipelineDir();
+    await ensurePipelineDir(projectPath);
+    const dir = await getPipelineDir(projectPath);
     const stepsPath = `${dir}/${STEPS_FILE}`;
 
     const yaml = stepsToYaml(steps);
@@ -416,9 +425,9 @@ export async function savePipelineSteps(steps: PipelineStep[]): Promise<boolean>
 }
 
 // Check if pipeline is installed (directory exists)
-export async function isPipelineInstalled(): Promise<boolean> {
+export async function isPipelineInstalled(projectPath?: string | null): Promise<boolean> {
   try {
-    const dir = await getPipelineDir();
+    const dir = await getPipelineDir(projectPath);
     // Check if the pipeline directory exists
     const dirExists = await exists(dir);
     console.log('[Pipeline] Directory exists:', dirExists, 'at', dir);
@@ -428,7 +437,7 @@ export async function isPipelineInstalled(): Promise<boolean> {
     }
 
     // If we can read steps (even defaults), consider it "installed"
-    // The actual hooks are configured in ~/.claude/settings.json
+    // The actual hooks are configured in .claude/settings.json
     // which is separate from this UI
     return true;
   } catch (e) {
@@ -438,8 +447,8 @@ export async function isPipelineInstalled(): Promise<boolean> {
 }
 
 // Get pipeline directory for external use
-export async function getPipelinePath(): Promise<string> {
-  return await getPipelineDir();
+export async function getPipelinePath(projectPath?: string | null): Promise<string> {
+  return await getPipelineDir(projectPath);
 }
 
 // ============================================
@@ -494,9 +503,9 @@ function parseConfigFromYaml(content: string): PipelineSettings {
 }
 
 // Get pipeline settings
-export async function getPipelineSettings(): Promise<PipelineSettings> {
+export async function getPipelineSettings(projectPath?: string | null): Promise<PipelineSettings> {
   try {
-    const dir = await getPipelineDir();
+    const dir = await getPipelineDir(projectPath);
     const stepsPath = `${dir}/${STEPS_FILE}`;
 
     const fileExists = await exists(stepsPath);
@@ -513,9 +522,9 @@ export async function getPipelineSettings(): Promise<PipelineSettings> {
 }
 
 // Save pipeline settings
-export async function savePipelineSettings(settings: PipelineSettings): Promise<boolean> {
+export async function savePipelineSettings(settings: PipelineSettings, projectPath?: string | null): Promise<boolean> {
   try {
-    const dir = await getPipelineDir();
+    const dir = await getPipelineDir(projectPath);
     const stepsPath = `${dir}/${STEPS_FILE}`;
 
     const fileExists = await exists(stepsPath);
@@ -527,7 +536,6 @@ export async function savePipelineSettings(settings: PipelineSettings): Promise<
     const lines = content.split('\n');
     const newLines: string[] = [];
     let inConfig = false;
-    let configWritten = false;
 
     for (const line of lines) {
       const stripped = line.trim();
@@ -539,7 +547,6 @@ export async function savePipelineSettings(settings: PipelineSettings): Promise<
         newLines.push(`  reset_policy: "${settings.reset_policy}"`);
         newLines.push(`  timeout_minutes: ${settings.timeout_minutes}`);
         newLines.push(`  force_sequential: ${settings.force_sequential}`);
-        configWritten = true;
         continue;
       }
 

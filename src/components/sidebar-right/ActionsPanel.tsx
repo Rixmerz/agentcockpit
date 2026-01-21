@@ -406,7 +406,7 @@ export function ActionsPanel({
         onSessionCreated={handleSessionCreated}
       />
 
-      <PipelinePanel />
+      <PipelinePanel projectPath={projectPath} terminalId={terminalId} />
 
       <McpIndicator onPluginConfigChanged={handlePluginConfigChanged} />
 
