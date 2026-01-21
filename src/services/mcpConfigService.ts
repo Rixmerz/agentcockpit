@@ -15,6 +15,12 @@ import { withTimeout } from '../core/utils/promiseTimeout';
 const INVOKE_TIMEOUT_MS = 5000;
 const CONFIG_DIR = '.agentcockpit';
 const CONFIG_FILE = 'mcps.json';
+const APP_CONFIG_FILE = 'app-config.json';
+
+interface AppConfig {
+  agentcockpitPath?: string;
+  installedAt?: string;
+}
 
 export interface McpServerConfig {
   command?: string;
@@ -454,17 +460,76 @@ export async function getActiveMcpCount(): Promise<number> {
 }
 
 // =====================================================
+// App Configuration (AgentCockpit installation path)
+// =====================================================
+
+/**
+ * Load app configuration from ~/.agentcockpit/app-config.json
+ */
+async function loadAppConfig(): Promise<AppConfig> {
+  try {
+    const configPath = await getConfigFilePath(APP_CONFIG_FILE);
+    const fileExists = await exists(configPath);
+    if (!fileExists) return {};
+    const content = await readTextFile(configPath);
+    return JSON.parse(content);
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Save app configuration to ~/.agentcockpit/app-config.json
+ */
+async function saveAppConfig(config: AppConfig): Promise<boolean> {
+  try {
+    const configPath = await getConfigFilePath(APP_CONFIG_FILE);
+    await writeTextFile(configPath, JSON.stringify(config, null, 2));
+    return true;
+  } catch (e) {
+    console.error('[mcpConfigService] Failed to save app config:', e);
+    return false;
+  }
+}
+
+/**
+ * Get the AgentCockpit installation path
+ */
+export async function getAgentcockpitPath(): Promise<string | null> {
+  const config = await loadAppConfig();
+  return config.agentcockpitPath || null;
+}
+
+/**
+ * Set the AgentCockpit installation path
+ */
+export async function setAgentcockpitPath(path: string): Promise<boolean> {
+  const config = await loadAppConfig();
+  config.agentcockpitPath = path;
+  config.installedAt = new Date().toISOString();
+  return saveAppConfig(config);
+}
+
+// =====================================================
 // Pipeline Manager MCP Installation
 // =====================================================
 
 const PIPELINE_MANAGER_NAME = 'pipeline-manager';
-const PIPELINE_MANAGER_CONFIG: McpServerConfig = {
-  command: 'uvx',
-  args: [
-    '--from', 'git+https://github.com/Rixmerz/agentcockpit-pipeline-manager.git',
-    'pipeline-manager'
-  ]
-};
+
+/**
+ * Build Pipeline Manager MCP config with dynamic path
+ */
+function buildPipelineManagerConfig(agentcockpitPath: string): McpServerConfig {
+  return {
+    command: 'uv',
+    args: [
+      'run',
+      '--directory',
+      `${agentcockpitPath}/.pipeline-manager`,
+      'pipeline-manager'
+    ]
+  };
+}
 
 /**
  * Check if Pipeline Manager MCP is installed
@@ -486,27 +551,55 @@ export async function isPipelineManagerEnabled(): Promise<boolean> {
 /**
  * Install Pipeline Manager MCP
  * Adds the pipeline-manager configuration to ~/.agentcockpit/mcps.json
+ * Uses the local .pipeline-manager directory inside the AgentCockpit project
+ *
+ * @param agentcockpitPath - Path to the AgentCockpit project (e.g., /Users/user/agentcockpit)
  */
-export async function installPipelineManagerMcp(): Promise<{ success: boolean; message: string }> {
+export async function installPipelineManagerMcp(agentcockpitPath?: string): Promise<{ success: boolean; message: string }> {
   try {
+    // Get or validate the agentcockpit path
+    let installPath = agentcockpitPath;
+    if (!installPath) {
+      installPath = await getAgentcockpitPath();
+    }
+
+    if (!installPath) {
+      return {
+        success: false,
+        message: 'AgentCockpit path not configured. Please set it first.'
+      };
+    }
+
+    // Verify .pipeline-manager exists
+    const pipelineManagerPath = `${installPath}/.pipeline-manager`;
+    const pipelineExists = await exists(pipelineManagerPath);
+    if (!pipelineExists) {
+      return {
+        success: false,
+        message: `Pipeline Manager not found at ${pipelineManagerPath}`
+      };
+    }
+
+    // Save the path for future use
+    await setAgentcockpitPath(installPath);
+
     const config = await loadMcpConfig();
+    const mcpConfig = buildPipelineManagerConfig(installPath);
 
     if (config.mcpServers[PIPELINE_MANAGER_NAME]) {
-      // Already exists, just enable it if disabled
-      if (config.mcpServers[PIPELINE_MANAGER_NAME].config.disabled) {
-        config.mcpServers[PIPELINE_MANAGER_NAME].config.disabled = false;
-        await saveMcpConfig(config);
-        return { success: true, message: 'Pipeline Manager MCP enabled' };
-      }
-      return { success: true, message: 'Pipeline Manager MCP already installed' };
+      // Already exists, update config and enable
+      config.mcpServers[PIPELINE_MANAGER_NAME].config = mcpConfig;
+      config.mcpServers[PIPELINE_MANAGER_NAME].config.disabled = false;
+      await saveMcpConfig(config);
+      return { success: true, message: 'Pipeline Manager MCP updated and enabled' };
     }
 
     config.mcpServers[PIPELINE_MANAGER_NAME] = {
       name: PIPELINE_MANAGER_NAME,
-      config: PIPELINE_MANAGER_CONFIG,
+      config: mcpConfig,
       importedFrom: 'manual',
       importedAt: new Date().toISOString(),
-      notes: 'Auto-installed by AgentCockpit for pipeline flow control'
+      notes: `Auto-installed by AgentCockpit from ${pipelineManagerPath}`
     };
 
     const saved = await saveMcpConfig(config);
