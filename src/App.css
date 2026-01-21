@@ -4545,12 +4545,15 @@ input[type="checkbox"] {
   left: 8px;
   right: 8px;
   margin-top: 4px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: rgb(24, 24, 27);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(63, 63, 70, 0.8);
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  z-index: 100;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
   overflow: hidden;
+  animation: dropdownFadeIn 0.15s ease-out;
 }
 
 .pipeline-selector-option {
