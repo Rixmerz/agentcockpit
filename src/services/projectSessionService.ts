@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { readTextFile, writeTextFile, exists } from '@tauri-apps/plugin-fs';
 import { withTimeout, TimeoutError } from '../core/utils/promiseTimeout';
+import type { ProjectPipelineConfig } from '../types';
 
 // Timeout for execute_command operations (prevents infinite hangs in bundled app)
 const INVOKE_TIMEOUT_MS = 5000;
@@ -23,6 +24,7 @@ export interface ProjectConfig {
     enableCode: boolean;
     selectedServers: string[];
   };
+  pipeline?: ProjectPipelineConfig;
 }
 
 const CONFIG_FILENAME = 'agentcockpit-project.json';
@@ -386,4 +388,39 @@ export async function cleanStaleSessionsOnStartup(
     await saveProjectConfig(projectPath, config);
     console.log(`[SessionCleanup] Cleaned ${staleCount.value} stale sessions, killed ${totalKilled} zombie processes`);
   }
+}
+
+// ============================================
+// Pipeline Configuration
+// ============================================
+
+/**
+ * Get pipeline configuration for a project
+ */
+export async function getProjectPipelineConfig(projectPath: string): Promise<ProjectPipelineConfig> {
+  const config = await getProjectConfig(projectPath);
+  return config.pipeline || {
+    enabled: false,
+    activePipelineId: null,
+    installedAt: null
+  };
+}
+
+/**
+ * Update pipeline configuration for a project
+ */
+export async function updateProjectPipelineConfig(
+  projectPath: string,
+  pipelineConfig: Partial<ProjectPipelineConfig>
+): Promise<void> {
+  const config = await getProjectConfig(projectPath);
+  config.pipeline = {
+    ...config.pipeline || {
+      enabled: false,
+      activePipelineId: null,
+      installedAt: null
+    },
+    ...pipelineConfig
+  };
+  await saveProjectConfig(projectPath, config);
 }
