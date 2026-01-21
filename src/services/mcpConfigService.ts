@@ -312,6 +312,68 @@ export async function loadCodeMcps(): Promise<Record<string, McpServerConfig>> {
 }
 
 /**
+ * Add or update an MCP in Claude Code config (~/.claude.json)
+ * This makes the MCP available to Claude Code directly
+ */
+export async function addMcpToClaudeCode(name: string, config: McpServerConfig): Promise<boolean> {
+  try {
+    const home = await getHomePath();
+    const codePath = `${home}/.claude.json`;
+
+    // Read existing config
+    let claudeConfig: Record<string, unknown> = {};
+    const fileExists = await exists(codePath);
+    if (fileExists) {
+      const content = await readTextFile(codePath);
+      claudeConfig = JSON.parse(content);
+    }
+
+    // Ensure mcpServers exists
+    if (!claudeConfig.mcpServers) {
+      claudeConfig.mcpServers = {};
+    }
+
+    // Add/update the MCP
+    (claudeConfig.mcpServers as Record<string, McpServerConfig>)[name] = config;
+
+    // Write back
+    await writeTextFile(codePath, JSON.stringify(claudeConfig, null, 2));
+    console.log(`[McpConfig] Added ${name} to Claude Code config`);
+    return true;
+  } catch (e) {
+    console.error('[McpConfig] Error adding MCP to Claude Code:', e);
+    return false;
+  }
+}
+
+/**
+ * Remove an MCP from Claude Code config (~/.claude.json)
+ */
+export async function removeMcpFromClaudeCode(name: string): Promise<boolean> {
+  try {
+    const home = await getHomePath();
+    const codePath = `${home}/.claude.json`;
+
+    const fileExists = await exists(codePath);
+    if (!fileExists) return true;
+
+    const content = await readTextFile(codePath);
+    const claudeConfig = JSON.parse(content);
+
+    if (claudeConfig.mcpServers && claudeConfig.mcpServers[name]) {
+      delete claudeConfig.mcpServers[name];
+      await writeTextFile(codePath, JSON.stringify(claudeConfig, null, 2));
+      console.log(`[McpConfig] Removed ${name} from Claude Code config`);
+    }
+
+    return true;
+  } catch (e) {
+    console.error('[McpConfig] Error removing MCP from Claude Code:', e);
+    return false;
+  }
+}
+
+/**
  * Import MCP from Desktop config (copies, does NOT remove from original)
  */
 export async function importFromDesktop(name: string): Promise<{ success: boolean; message: string }> {
@@ -632,6 +694,8 @@ export async function installPipelineManagerMcp(agentcockpitPath?: string): Prom
       config.mcpServers[PIPELINE_MANAGER_NAME].config = mcpConfig;
       config.mcpServers[PIPELINE_MANAGER_NAME].config.disabled = false;
       await saveMcpConfig(config);
+      // Also update Claude Code config
+      await addMcpToClaudeCode(PIPELINE_MANAGER_NAME, mcpConfig);
       return { success: true, message: 'Pipeline Manager MCP updated and enabled' };
     }
 
@@ -645,6 +709,8 @@ export async function installPipelineManagerMcp(agentcockpitPath?: string): Prom
 
     const saved = await saveMcpConfig(config);
     if (saved) {
+      // Also add to Claude Code config so it's available immediately
+      await addMcpToClaudeCode(PIPELINE_MANAGER_NAME, mcpConfig);
       return { success: true, message: 'Pipeline Manager MCP installed successfully' };
     }
     return { success: false, message: 'Failed to save configuration' };
@@ -658,5 +724,9 @@ export async function installPipelineManagerMcp(agentcockpitPath?: string): Prom
  * Removes the pipeline-manager from ~/.agentcockpit/mcps.json
  */
 export async function uninstallPipelineManagerMcp(): Promise<{ success: boolean; message: string }> {
-  return removeMcp(PIPELINE_MANAGER_NAME);
+  // Remove from AgentCockpit config
+  const result = await removeMcp(PIPELINE_MANAGER_NAME);
+  // Also remove from Claude Code config
+  await removeMcpFromClaudeCode(PIPELINE_MANAGER_NAME);
+  return result;
 }
