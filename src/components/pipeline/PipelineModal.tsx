@@ -594,6 +594,30 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
               <input
                 type="radio"
                 name="gate-type"
+                checked={editingStep.gate_type === 'tool'}
+                onChange={() => setEditingStep({ ...editingStep, gate_type: 'tool' })}
+              />
+              <div>
+                <span>Tool</span>
+                <small>Advance only when specific tool is used</small>
+              </div>
+            </label>
+            <label className="settings-radio-item">
+              <input
+                type="radio"
+                name="gate-type"
+                checked={editingStep.gate_type === 'phrase'}
+                onChange={() => setEditingStep({ ...editingStep, gate_type: 'phrase' })}
+              />
+              <div>
+                <span>Phrase</span>
+                <small>Advance only when phrase is detected</small>
+              </div>
+            </label>
+            <label className="settings-radio-item">
+              <input
+                type="radio"
+                name="gate-type"
                 checked={editingStep.gate_type === 'always'}
                 onChange={() => setEditingStep({ ...editingStep, gate_type: 'always' })}
               />
@@ -605,46 +629,46 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
           </div>
         </div>
 
-        {editingStep.gate_type === 'any' && (
-          <>
-            <div className="settings-section">
-              <label className="settings-label">Gate Tool</label>
-              <select
-                className="settings-input"
-                value={editingStep.gate_tool}
-                onChange={(e) => setEditingStep({ ...editingStep, gate_tool: e.target.value })}
-              >
-                <option value="">Select a tool...</option>
-                {availableMcps
-                  .filter(m => m.name !== '*' && editingStep.mcps_enabled.includes(m.name))
-                  .map(mcp => (
-                    <option key={mcp.name} value={`mcp__${mcp.name}__`}>
-                      mcp__{mcp.name}__
-                    </option>
-                  ))}
-              </select>
-              <small className="settings-hint">
-                Tool prefix that triggers advancement when used (only shows enabled MCPs)
-              </small>
-            </div>
+        {(editingStep.gate_type === 'any' || editingStep.gate_type === 'tool') && (
+          <div className="settings-section">
+            <label className="settings-label">Gate Tool</label>
+            <select
+              className="settings-input"
+              value={editingStep.gate_tool}
+              onChange={(e) => setEditingStep({ ...editingStep, gate_tool: e.target.value })}
+            >
+              <option value="">Select a tool...</option>
+              {availableMcps
+                .filter(m => m.name !== '*' && editingStep.mcps_enabled.includes(m.name))
+                .map(mcp => (
+                  <option key={mcp.name} value={`mcp__${mcp.name}__`}>
+                    mcp__{mcp.name}__
+                  </option>
+                ))}
+            </select>
+            <small className="settings-hint">
+              Tool prefix that triggers advancement when used (only shows enabled MCPs)
+            </small>
+          </div>
+        )}
 
-            <div className="settings-section">
-              <label className="settings-label">Gate Phrases</label>
-              <input
-                type="text"
-                className="settings-input"
-                value={editingStep.gate_phrases.join(', ')}
-                onChange={(e) => setEditingStep({
-                  ...editingStep,
-                  gate_phrases: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-                })}
-                placeholder="tarea simple, procedo directamente"
-              />
-              <small className="settings-hint">
-                Comma-separated phrases that trigger advancement
-              </small>
-            </div>
-          </>
+        {(editingStep.gate_type === 'any' || editingStep.gate_type === 'phrase') && (
+          <div className="settings-section">
+            <label className="settings-label">Gate Phrases</label>
+            <input
+              type="text"
+              className="settings-input"
+              value={editingStep.gate_phrases.join(', ')}
+              onChange={(e) => setEditingStep({
+                ...editingStep,
+                gate_phrases: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+              })}
+              placeholder="tarea simple, procedo directamente"
+            />
+            <small className="settings-hint">
+              Comma-separated phrases that trigger advancement
+            </small>
+          </div>
         )}
 
         <div className="settings-actions">
