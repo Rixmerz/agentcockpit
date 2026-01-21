@@ -414,7 +414,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
                     <div className="mcp-empty-small">No MCPs in Desktop config</div>
                   ) : (
                     <div className="mcp-import-list">
-                      {Object.entries(desktopMcps).map(([name, config]) => {
+                      {Object.entries(desktopMcps).map(([name, _config]) => {
                         const imported = isAlreadyImported(name);
                         return (
                           <div key={name} className={`mcp-import-item ${imported ? 'imported' : ''}`}>
@@ -466,7 +466,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
                     <div className="mcp-empty-small">No MCPs in Code config</div>
                   ) : (
                     <div className="mcp-import-list">
-                      {Object.entries(codeMcps).map(([name, config]) => {
+                      {Object.entries(codeMcps).map(([name, _config]) => {
                         const imported = isAlreadyImported(name);
                         return (
                           <div key={name} className={`mcp-import-item ${imported ? 'imported' : ''}`}>
