@@ -256,6 +256,12 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
       const success = await deactivatePipeline(projectPath);
       if (success) {
         setActivePipelineName(null);
+        // Also disable the pipeline enforcer when deactivating
+        setEnabled(false);
+        await updateProjectPipelineConfig(projectPath, { enabled: false });
+        if (isInstalled) {
+          await syncPipelineHooks(projectPath, false, steps);
+        }
         await loadData();
       } else {
         setError('Failed to deactivate pipeline');
@@ -339,11 +345,11 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
           <div className="pipeline-selector">
             <div
               className={`pipeline-selector-trigger ${pipelineDropdownOpen ? 'open' : ''}`}
-              onClick={() => setPipelineDropdownOpen(!pipelineDropdownOpen)}
+              onClick={handleToggleDropdown}
             >
               <GitBranch size={14} />
               <span className="pipeline-selector-label">
-                {changingPipeline ? 'Changing...' : (activePipelineName || 'Local Pipeline')}
+                {changingPipeline ? 'Changing...' : refreshingDropdown ? 'Loading...' : (activePipelineName || 'Local Pipeline')}
               </span>
               <ChevronDown size={14} className={`pipeline-selector-arrow ${pipelineDropdownOpen ? 'open' : ''}`} />
             </div>
