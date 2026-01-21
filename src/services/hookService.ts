@@ -94,59 +94,56 @@ export async function writeClaudeSettings(
  * Generate the /pipeline skill for Claude Code
  */
 export function generatePipelineSkill(projectPath: string): string {
-  return `# Pipeline Management Skill
+  return `---
+name: pipeline
+description: Gestiona el pipeline de flujo controlado. Usa para ver estado, avanzar, resetear o ir a un step específico del pipeline.
+user-invocable: true
+---
+
+# Pipeline Management
 
 Gestiona el pipeline de flujo controlado para este proyecto.
 
-## Uso
+## Subcomandos
 
-Este comando acepta los siguientes subcomandos:
+Parsea \`$ARGUMENTS\` para determinar la acción:
 
-- \`/pipeline\` o \`/pipeline status\` - Muestra el estado actual del pipeline
-- \`/pipeline advance\` - Avanza al siguiente step
-- \`/pipeline reset\` - Resetea el pipeline al Step 0
-- \`/pipeline set <n>\` - Va directamente al step n (ej: \`/pipeline set 2\`)
+- **vacío o "status"** → Mostrar estado actual
+- **"advance"** → Avanzar al siguiente step
+- **"reset"** → Resetear a step 0
+- **"set N"** → Ir directamente al step N
 
-## Instrucciones
+## Ejecución
 
-Cuando el usuario invoque este comando:
+El \`project_dir\` para este proyecto es: \`${projectPath}\`
 
-1. **Obtener el project_dir**: Usa \`${projectPath}\` como \`project_dir\`
+### Para status (default):
+Llama a \`mcp__pipeline-manager__pipeline_status\` con \`project_dir="${projectPath}"\`.
 
-2. **Ejecutar la acción solicitada** usando el MCP \`pipeline-manager\`:
-
-   - Para **status** (default): Llama a \`mcp__pipeline-manager__pipeline_status\` con \`project_dir="${projectPath}"\`
-   - Para **advance**: Llama a \`mcp__pipeline-manager__pipeline_advance\` con \`project_dir="${projectPath}"\`
-   - Para **reset**: Llama a \`mcp__pipeline-manager__pipeline_reset\` con \`project_dir="${projectPath}"\`
-   - Para **set N**: Llama a \`mcp__pipeline-manager__pipeline_set_step\` con \`project_dir="${projectPath}"\` y \`step_index=N\`
-
-3. **Mostrar el resultado** de forma clara:
-
-   Para status, muestra una tabla con:
-   \`\`\`
-   Pipeline Status: Step {n} - {nombre}
-
-   | Step | Nombre | Estado | Tools Bloqueados |
-   |------|--------|--------|------------------|
-   | 0    | ...    | ...    | ...              |
-   \`\`\`
-
-   Para otras acciones, confirma la acción realizada.
-
-## Ejemplo de respuesta para status
-
+Muestra el resultado en formato tabla:
 \`\`\`
-Pipeline Status: Step 0 - Complexity Gate
+Pipeline: Step {current_step} - {step_name}
 
-| Step | Nombre              | Estado    | Bloqueados   |
-|------|---------------------|-----------|--------------|
-| 0    | Complexity Gate     | current   | Write, Edit  |
-| 1    | Library Context     | pending   | Write, Edit  |
-| 2    | Implementation      | pending   | -            |
-
-Write/Edit bloqueados hasta completar Step 0.
-Usa \`/pipeline advance\` para avanzar manualmente.
+| # | Nombre | Estado | Bloqueados |
+|---|--------|--------|------------|
 \`\`\`
+
+### Para advance:
+Llama a \`mcp__pipeline-manager__pipeline_advance\` con \`project_dir="${projectPath}"\`.
+Confirma: "Avanzado a Step N - {nombre}"
+
+### Para reset:
+Llama a \`mcp__pipeline-manager__pipeline_reset\` con \`project_dir="${projectPath}"\`.
+Confirma: "Pipeline reseteado a Step 0"
+
+### Para set N:
+Llama a \`mcp__pipeline-manager__pipeline_set_step\` con \`project_dir="${projectPath}"\` y \`step_index=N\`.
+Confirma: "Pipeline en Step N - {nombre}"
+
+## Notas
+
+- Write/Edit están bloqueados en steps 0 y 1
+- Usa \`/pipeline advance\` o \`/pipeline set 2\` para desbloquear
 `;
 }
 
@@ -301,15 +298,15 @@ export async function installPipelineHooks(
     console.log('[HookService] Pipeline state initialized at step 0');
 
     // 2.6. Create /pipeline skill for Claude Code
-    const commandsDir = `${projectPath}/.claude/commands`;
-    const commandsDirExists = await exists(commandsDir);
-    if (!commandsDirExists) {
-      await mkdir(commandsDir, { recursive: true });
+    const skillsDir = `${projectPath}/.claude/skills/pipeline`;
+    const skillsDirExists = await exists(skillsDir);
+    if (!skillsDirExists) {
+      await mkdir(skillsDir, { recursive: true });
     }
-    const skillPath = `${commandsDir}/pipeline.md`;
+    const skillPath = `${skillsDir}/SKILL.md`;
     const skillContent = generatePipelineSkill(projectPath);
     await writeTextFile(skillPath, skillContent);
-    console.log('[HookService] Pipeline skill created');
+    console.log('[HookService] Pipeline skill created at', skillPath);
 
     // 3. Read existing settings (preserve other hooks)
     let settings = await readClaudeSettings(projectPath) || {};
