@@ -180,6 +180,19 @@ def main():
     project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "${projectPath}")
     pipeline_dir = Path(project_dir) / ".claude" / "pipeline"
 
+    # Check if enforcer is enabled via config
+    config_file = pipeline_dir / "config.json"
+    if config_file.exists():
+        try:
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+            if not config.get("enforcer_enabled", True):
+                # Enforcer is disabled, approve all
+                print(json.dumps({"decision": "approve"}))
+                return
+        except Exception:
+            pass  # If config read fails, continue with normal logic
+
     # Read current state
     state_file = pipeline_dir / "state.json"
     steps_file = pipeline_dir / "steps.yaml"
@@ -428,15 +441,55 @@ export async function isPipelineHooksInstalled(projectPath: string): Promise<boo
 
 /**
  * Sync pipeline hooks based on enabled state
+ * Instead of installing/uninstalling, we now write a config file
+ * that the hook reads to determine if it should enforce or not.
  */
 export async function syncPipelineHooks(
   projectPath: string,
   enabled: boolean,
   steps: PipelineStep[]
 ): Promise<HookResult> {
-  if (enabled) {
-    return await installPipelineHooks(projectPath, steps);
-  } else {
-    return await uninstallPipelineHooks(projectPath);
+  try {
+    // Ensure hooks are installed first (if not already)
+    const isInstalled = await isPipelineHooksInstalled(projectPath);
+    if (!isInstalled && enabled) {
+      // First time enabling - do full install
+      return await installPipelineHooks(projectPath, steps);
+    }
+
+    // Write config.json with enforcer_enabled flag
+    const pipelineDir = `${projectPath}/.claude/pipeline`;
+    const configPath = `${pipelineDir}/config.json`;
+
+    // Ensure pipeline directory exists
+    const dirExists = await exists(pipelineDir);
+    if (!dirExists) {
+      await mkdir(pipelineDir, { recursive: true });
+    }
+
+    // Read existing config or create new
+    let config: Record<string, unknown> = {};
+    const configExists = await exists(configPath);
+    if (configExists) {
+      try {
+        const content = await readTextFile(configPath);
+        config = JSON.parse(content);
+      } catch {
+        config = {};
+      }
+    }
+
+    // Update enforcer_enabled flag
+    config.enforcer_enabled = enabled;
+    config.last_updated = new Date().toISOString();
+
+    await writeTextFile(configPath, JSON.stringify(config, null, 2));
+    console.log('[HookService] Pipeline enforcer', enabled ? 'enabled' : 'disabled');
+
+    return { success: true };
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    console.error('[HookService] Sync error:', error);
+    return { success: false, error };
   }
 }
