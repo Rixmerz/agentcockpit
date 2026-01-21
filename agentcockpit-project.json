@@ -1,5 +1,15 @@
 {
-  "sessions": [],
+  "sessions": [
+    {
+      "id": "8f9f000b-e7ed-42bf-a189-ddd33d5ed941",
+      "name": "Session 1",
+      "createdAt": 1768039717637,
+      "lastUsed": 1768958622338,
+      "model": "sonnet",
+      "wasPreExisting": false,
+      "terminalId": "6a9f86db-56b2-49be-9257-4c114dd87a12"
+    }
+  ],
   "defaultModel": "sonnet",
   "mcpPreferences": {
     "enableDesktop": true,
