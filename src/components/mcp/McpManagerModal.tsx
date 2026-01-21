@@ -29,7 +29,9 @@ import {
   Info,
   Settings,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  GitBranch,
+  Loader2
 } from 'lucide-react';
 import {
   loadMcpConfig,
@@ -44,6 +46,9 @@ import {
   importAllFromCode,
   openConfigInEditor,
   getConfigFilePath,
+  isPipelineManagerInstalled,
+  installPipelineManagerMcp,
+  uninstallPipelineManagerMcp,
   type ManagedMcp,
   type McpServerConfig
 } from '../../services/mcpConfigService';
@@ -78,6 +83,10 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
   // Plugin config state
   const [pluginConfig, setPluginConfig] = useState<ClaudePluginConfig>({ showLegacyMcpPanel: true });
 
+  // Pipeline Manager state
+  const [pipelineManagerInstalled, setPipelineManagerInstalled] = useState(false);
+  const [pipelineManagerLoading, setPipelineManagerLoading] = useState(false);
+
   // Show temporary message
   const showMessage = useCallback((type: 'success' | 'error' | 'warning', text: string) => {
     setMessage({ type, text });
@@ -88,12 +97,13 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [config, desktop, code, path, claudeConfig] = await Promise.all([
+      const [config, desktop, code, path, claudeConfig, pipelineInstalled] = await Promise.all([
         loadMcpConfig(),
         loadDesktopMcps(),
         loadCodeMcps(),
         getConfigFilePath(),
-        getClaudePluginConfig()
+        getClaudePluginConfig(),
+        isPipelineManagerInstalled()
       ]);
 
       setActiveMcps(Object.values(config.mcpServers));
@@ -101,6 +111,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
       setCodeMcps(code);
       setConfigPath(path);
       setPluginConfig(claudeConfig);
+      setPipelineManagerInstalled(pipelineInstalled);
     } catch (e) {
       console.error('[McpManager] Load error:', e);
       showMessage('error', `Error loading MCPs: ${e}`);
@@ -123,6 +134,42 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
       showMessage('error', result.message);
     }
   }, [pluginConfig, showMessage, onPluginConfigChanged]);
+
+  // Handle install Pipeline Manager
+  const handleInstallPipelineManager = useCallback(async () => {
+    setPipelineManagerLoading(true);
+    try {
+      const result = await installPipelineManagerMcp();
+      if (result.success) {
+        showMessage('success', result.message);
+        setPipelineManagerInstalled(true);
+        loadData();
+        onMcpsChanged?.();
+      } else {
+        showMessage('error', result.message);
+      }
+    } finally {
+      setPipelineManagerLoading(false);
+    }
+  }, [showMessage, loadData, onMcpsChanged]);
+
+  // Handle uninstall Pipeline Manager
+  const handleUninstallPipelineManager = useCallback(async () => {
+    setPipelineManagerLoading(true);
+    try {
+      const result = await uninstallPipelineManagerMcp();
+      if (result.success) {
+        showMessage('success', result.message);
+        setPipelineManagerInstalled(false);
+        loadData();
+        onMcpsChanged?.();
+      } else {
+        showMessage('error', result.message);
+      }
+    } finally {
+      setPipelineManagerLoading(false);
+    }
+  }, [showMessage, loadData, onMcpsChanged]);
 
   useEffect(() => {
     if (isOpen) {
@@ -611,6 +658,58 @@ Or with mcpServers wrapper:
                         <ToggleLeft size={28} style={{ color: 'var(--text-muted)' }} />
                       )}
                     </button>
+                  </div>
+                </div>
+
+                {/* Pipeline Manager Section */}
+                <div className="mcp-section-header" style={{ marginTop: '1.5rem' }}>
+                  <span>Pipeline Manager MCP</span>
+                </div>
+
+                <div className="mcp-pipeline-section">
+                  <div className="mcp-pipeline-info">
+                    <GitBranch size={20} style={{ color: pipelineManagerInstalled ? 'var(--accent)' : 'var(--text-muted)' }} />
+                    <div className="mcp-pipeline-details">
+                      <span className="mcp-pipeline-title">Pipeline Manager</span>
+                      <span className="mcp-pipeline-description">
+                        Required for pipeline flow control. Manages step-based workflows
+                        with gates, MCP restrictions, and automatic advancement.
+                      </span>
+                      <span className={`mcp-pipeline-status ${pipelineManagerInstalled ? 'installed' : 'not-installed'}`}>
+                        {pipelineManagerInstalled ? (
+                          <><Check size={12} /> Installed</>
+                        ) : (
+                          <><AlertTriangle size={12} /> Not installed</>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mcp-pipeline-actions">
+                    {pipelineManagerInstalled ? (
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={handleUninstallPipelineManager}
+                        disabled={pipelineManagerLoading}
+                      >
+                        {pipelineManagerLoading ? (
+                          <><Loader2 size={14} className="animate-spin" /> Removing...</>
+                        ) : (
+                          <><Trash2 size={14} /> Uninstall</>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-primary btn-sm"
+                        onClick={handleInstallPipelineManager}
+                        disabled={pipelineManagerLoading}
+                      >
+                        {pipelineManagerLoading ? (
+                          <><Loader2 size={14} className="animate-spin" /> Installing...</>
+                        ) : (
+                          <><Download size={14} /> Install</>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
 
