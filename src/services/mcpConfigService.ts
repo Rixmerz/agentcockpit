@@ -452,3 +452,77 @@ export async function getActiveMcpCount(): Promise<number> {
   const active = await getActiveMcps();
   return active.length;
 }
+
+// =====================================================
+// Pipeline Manager MCP Installation
+// =====================================================
+
+const PIPELINE_MANAGER_NAME = 'pipeline-manager';
+const PIPELINE_MANAGER_CONFIG: McpServerConfig = {
+  command: 'uvx',
+  args: [
+    '--from', 'git+https://github.com/Rixmerz/agentcockpit-pipeline-manager.git',
+    'pipeline-manager'
+  ]
+};
+
+/**
+ * Check if Pipeline Manager MCP is installed
+ */
+export async function isPipelineManagerInstalled(): Promise<boolean> {
+  const config = await loadMcpConfig();
+  return !!config.mcpServers[PIPELINE_MANAGER_NAME];
+}
+
+/**
+ * Check if Pipeline Manager MCP is enabled (installed and not disabled)
+ */
+export async function isPipelineManagerEnabled(): Promise<boolean> {
+  const config = await loadMcpConfig();
+  const mcp = config.mcpServers[PIPELINE_MANAGER_NAME];
+  return !!mcp && !mcp.config.disabled;
+}
+
+/**
+ * Install Pipeline Manager MCP
+ * Adds the pipeline-manager configuration to ~/.agentcockpit/mcps.json
+ */
+export async function installPipelineManagerMcp(): Promise<{ success: boolean; message: string }> {
+  try {
+    const config = await loadMcpConfig();
+
+    if (config.mcpServers[PIPELINE_MANAGER_NAME]) {
+      // Already exists, just enable it if disabled
+      if (config.mcpServers[PIPELINE_MANAGER_NAME].config.disabled) {
+        config.mcpServers[PIPELINE_MANAGER_NAME].config.disabled = false;
+        await saveMcpConfig(config);
+        return { success: true, message: 'Pipeline Manager MCP enabled' };
+      }
+      return { success: true, message: 'Pipeline Manager MCP already installed' };
+    }
+
+    config.mcpServers[PIPELINE_MANAGER_NAME] = {
+      name: PIPELINE_MANAGER_NAME,
+      config: PIPELINE_MANAGER_CONFIG,
+      importedFrom: 'manual',
+      importedAt: new Date().toISOString(),
+      notes: 'Auto-installed by AgentCockpit for pipeline flow control'
+    };
+
+    const saved = await saveMcpConfig(config);
+    if (saved) {
+      return { success: true, message: 'Pipeline Manager MCP installed successfully' };
+    }
+    return { success: false, message: 'Failed to save configuration' };
+  } catch (e) {
+    return { success: false, message: `Error: ${e}` };
+  }
+}
+
+/**
+ * Uninstall Pipeline Manager MCP
+ * Removes the pipeline-manager from ~/.agentcockpit/mcps.json
+ */
+export async function uninstallPipelineManagerMcp(): Promise<{ success: boolean; message: string }> {
+  return removeMcp(PIPELINE_MANAGER_NAME);
+}
