@@ -4495,6 +4495,120 @@ input[type="checkbox"] {
   cursor: not-allowed;
 }
 
+/* Pipeline Selector (Global Pipelines) */
+.pipeline-selector {
+  position: relative;
+  padding: 0 8px;
+  margin-bottom: 4px;
+}
+
+.pipeline-selector-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.pipeline-selector-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+}
+
+.pipeline-selector-trigger.open {
+  border-color: var(--accent);
+  background: rgba(0, 212, 170, 0.1);
+}
+
+.pipeline-selector-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.pipeline-selector-arrow {
+  transition: transform 0.2s ease;
+}
+
+.pipeline-selector-arrow.open {
+  transform: rotate(180deg);
+}
+
+.pipeline-selector-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 8px;
+  right: 8px;
+  margin-top: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.pipeline-selector-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pipeline-selector-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pipeline-selector-option.active {
+  background: rgba(0, 212, 170, 0.1);
+}
+
+.pipeline-selector-option.active svg {
+  color: var(--accent);
+}
+
+.pipeline-option-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pipeline-option-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.pipeline-option-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.pipeline-selector-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pipeline-selector-close:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+}
+
 /* ==========================================================================
    PIPELINE MODAL STYLES
    ========================================================================== */
