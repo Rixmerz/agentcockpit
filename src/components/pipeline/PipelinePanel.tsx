@@ -17,7 +17,6 @@ import {
 const POLLING_INTERVAL = 2000;
 import type { PipelineState, PipelineStep, GlobalPipelineInfo } from '../../services/pipelineService';
 import {
-  getProjectPipelineConfig,
   updateProjectPipelineConfig,
 } from '../../services/projectSessionService';
 import {
@@ -255,10 +254,7 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
     setEnabled(newEnabled);
 
     try {
-      // Update project config
-      await updateProjectPipelineConfig(projectPath, { enabled: newEnabled });
-
-      // If hooks are installed, sync them
+      // Sync hooks - this writes enforcer_enabled to config.json
       if (isInstalled) {
         await syncPipelineHooks(projectPath, newEnabled, steps);
       }
@@ -284,10 +280,9 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
 
       if (result.success) {
         setIsInstalled(true);
-        // Enable pipeline after installation
+        // Enable pipeline after installation (hooks write to config.json)
         setEnabled(true);
         await updateProjectPipelineConfig(projectPath, {
-          enabled: true,
           installedAt: Date.now()
         });
       } else {
@@ -315,7 +310,6 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
         setIsInstalled(false);
         setEnabled(false);
         await updateProjectPipelineConfig(projectPath, {
-          enabled: false,
           installedAt: null
         });
       } else {
@@ -372,7 +366,6 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
         setActivePipelineName(null);
         // Also disable the pipeline enforcer when deactivating
         setEnabled(false);
-        await updateProjectPipelineConfig(projectPath, { enabled: false });
         if (isInstalled) {
           await syncPipelineHooks(projectPath, false, steps);
         }
