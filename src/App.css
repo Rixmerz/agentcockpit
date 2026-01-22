@@ -4552,8 +4552,28 @@ input[type="checkbox"] {
   border-radius: var(--radius-md);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.3);
   z-index: 9999;
-  overflow: hidden;
+  max-height: 280px;
+  overflow-y: auto;
+  overflow-x: hidden;
   animation: dropdownFadeIn 0.15s ease-out;
+}
+
+/* Custom scrollbar for pipeline dropdown */
+.pipeline-selector-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pipeline-selector-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pipeline-selector-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(113, 113, 122, 0.5);
+  border-radius: 3px;
+}
+
+.pipeline-selector-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(113, 113, 122, 0.8);
 }
 
 .pipeline-selector-option {

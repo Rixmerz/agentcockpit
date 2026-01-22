@@ -68,6 +68,12 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
   // Refs for polling optimization
   const lastStateRef = useRef<string | null>(null);
   const pollingEnabledRef = useRef(true);
+  const activePipelineRef = useRef<string | null>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    activePipelineRef.current = activePipelineName;
+  }, [activePipelineName]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -152,9 +158,10 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
         // Update state
         setState(newState);
 
-        // Check if active pipeline changed
+        // Check if active pipeline changed (use ref to avoid stale closure)
         const newActiveName = newState.active_pipeline || null;
-        if (newActiveName !== activePipelineName) {
+        if (newActiveName !== activePipelineRef.current) {
+          console.log('[PipelinePanel] Active pipeline changed:', activePipelineRef.current, '->', newActiveName);
           setActivePipelineName(newActiveName);
 
           // Reload steps if pipeline changed
@@ -174,7 +181,7 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
       // Silently ignore polling errors to avoid spam
       console.debug('[PipelinePanel] Poll error:', e);
     }
-  }, [projectPath, activePipelineName]);
+  }, [projectPath]); // Removed activePipelineName dependency, using ref instead
 
   // Polling effect - runs every POLLING_INTERVAL ms
   useEffect(() => {
