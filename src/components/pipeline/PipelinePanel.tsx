@@ -122,8 +122,9 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
 
       // Load project-specific pipeline config if we have a project
       if (projectPath) {
-        const pipelineConfig = await getProjectPipelineConfig(projectPath);
-        setEnabled(pipelineConfig.enabled);
+        // Read enforcer enabled state from config.json (same source as polling)
+        const enforcerEnabled = await getEnforcerEnabled(projectPath);
+        setEnabled(enforcerEnabled);
 
         const hooksInstalled = await isPipelineHooksInstalled(projectPath);
         setIsInstalled(hooksInstalled);
