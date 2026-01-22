@@ -1,7 +1,7 @@
-# AgentCockpit 🚀
+# AgentCockpit V2
 
 <p align="center">
-  <strong>Modern, Beautiful Terminal Manager for Developers</strong>
+  <strong>Modern Terminal Manager with AI Pipeline Control</strong>
 </p>
 
 <p align="center">
@@ -10,41 +10,71 @@
 
 ---
 
-## ✨ Features
+## What's New in V2
 
-### 🎯 Core Functionality
-- **Multi-Terminal Management**: Run multiple terminals per project with easy switching
-- **Project Workspaces**: Organize terminals by project for better workflow
-- **Smart Notifications**: Get notified when long-running commands finish
-- **Session Persistence**: Your terminal state saves automatically
+### Pipeline Control System
+- **Real-Time UI Sync**: Pipeline state updates automatically every 2 seconds
+- **Visual Progress Tracking**: Step progress bar shows current position
+- **Pipeline Selector**: Dropdown with scroll to switch between pipelines
+- **Enable/Disable Switch**: Toggle pipeline enforcement on/off
+- **MCP Integration**: Control pipelines via Claude Code or any MCP client
 
-### 🔔 Notification System
-- **Customizable Sounds**: Choose from 6 different notification sounds
-- **Visual Indicators**: See which terminals have finished at a glance
+### Pipeline Manager MCP
+- `pipeline_status` - Get current pipeline state
+- `pipeline_advance` - Move to next step
+- `pipeline_reset` - Reset to step 0
+- `pipeline_set_step` - Jump to specific step
+- `pipeline_set_enabled` - Enable/disable enforcer
+- `pipeline_get_enabled` - Check enforcer state
+
+### Global Pipeline Library
+Pre-built pipelines stored in `.claude/pipelines/`:
+- **testing-demo** - Pipeline testing and demonstration
+
+Create your own custom pipelines following the YAML schema.
+
+### Pipeline Hooks
+- **Enforcer Hook**: Validates tool usage per step
+- **Auto-Advance Hook**: Automatic step progression on gate triggers
+
+---
+
+## Features
+
+### Core Functionality
+- **Multi-Terminal Management**: Run multiple terminals per project
+- **Project Workspaces**: Organize terminals by project
+- **Smart Notifications**: Get notified when commands finish
+- **Session Persistence**: Terminal state saves automatically
+
+### Notification System
+- **Customizable Sounds**: 6 different notification sounds
+- **Visual Indicators**: See finished terminals at a glance
 - **Sound Preview**: Test sounds before selecting
 - **Configurable Delays**: Adjust detection sensitivity (1-10 seconds)
 
-### 🔌 Integrations
+### Integrations
 - **MCP Support**: Model Context Protocol integration
+- **Pipeline Manager**: Control AI agent workflows
 - **Claude Code**: Built-in Claude integration
 - **Cursor Agent**: AI-powered development assistance
 - **GitHub Integration**: Connect your repositories
 
-### 🎨 Beautiful UI
-- **Glass-Morphism Design**: Modern,  elegant interface
+### UI Design
+- **Glass-Morphism Design**: Modern, elegant interface
 - **Customizable Backgrounds**: Set your own background images
-- **Opacity Controls**: Adjust transparency for both background and terminals
+- **Opacity Controls**: Adjust transparency
 - **Dark Mode**: Easy on the eyes
-- **Idle Mode**: UI fades during inactivity to reduce distraction
+- **Idle Mode**: UI fades during inactivity
 
-### 📸 Snapshots
-- **Git-Based Snapshots**: Version control for your entire workspace
+### Snapshots
+- **Git-Based Snapshots**: Version control for your workspace
 - **Easy Restore**: Roll back to any previous state
-- **Automatic Tracking**: Snapshots created at key points
+- **Automatic Tracking**: Snapshots at key points
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - **Node.js** 18+
@@ -72,26 +102,65 @@ pnpm tauri build
 
 ---
 
-## 📖 Usage
+## Pipeline Control
+
+### Activating a Pipeline
+1. Open the **Pipeline Panel** in the sidebar
+2. Select a pipeline from the dropdown
+3. Toggle the switch to enable enforcement
+
+### Creating Custom Pipelines
+Create a YAML file in `.claude/pipelines/`:
+
+```yaml
+metadata:
+  name: "My Pipeline"
+  description: "Custom workflow"
+  version: "1.0.0"
+
+config:
+  reset_policy: "timeout"
+  timeout_minutes: 30
+  force_sequential: true
+
+steps:
+  - id: "step-1"
+    order: 0
+    name: "First Step"
+    mcps_enabled:
+      - "sequential-thinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+    gate_type: "any"
+```
+
+### Pipeline via MCP
+```bash
+# Check status
+mcp__pipeline-manager__pipeline_status(project_dir="/path/to/project")
+
+# Enable pipeline
+mcp__pipeline-manager__pipeline_set_enabled(project_dir="/path", enabled=true)
+
+# Advance to next step
+mcp__pipeline-manager__pipeline_advance(project_dir="/path")
+```
+
+---
+
+## Usage
 
 ### Creating a Project
-1. Click the **+** button in the sidebar
-2. Enter project name and select the directory
-3. Your first terminal will be created automatically
+1. Click **+** in the sidebar
+2. Enter project name and select directory
+3. First terminal creates automatically
 
 ### Managing Terminals
 - **Add Terminal**: Click `+` next to project name
 - **Rename**: Double-click terminal name
-- **Switch**: Click on any terminal to activate it
-- **Close**: Click the × button
-
-### Customizing Notifications
-1. Open **Settings** (gear icon)
-2. Go to **Terminal Notifications**
-3. Enable/disable sounds
-4. Choose your preferred notification sound
-5. Adjust detection delay
-6. Click 🔊 to preview sounds
+- **Switch**: Click on any terminal
+- **Close**: Click the x button
 
 ### Keyboard Shortcuts
 - `Cmd/Ctrl + K`: Focus command palette
@@ -101,7 +170,7 @@ pnpm tauri build
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Frontend**: React 19 + TypeScript
 - **Desktop**: Tauri v2
@@ -110,75 +179,62 @@ pnpm tauri build
 - **Audio**: Web Audio API
 - **Styling**: CSS with glass-morphism
 - **Icons**: Lucide React
+- **MCP**: Pipeline Manager integration
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Development Workflow
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 📋 Project Structure
+## Project Structure
 
 ```
 agentcockpit/
-├── src/                      # React application
-│   ├── components/           # UI components
-│   ├── services/             # Business logic
-│   ├── hooks/                # Custom React hooks
-│   ├── contexts/             # React contexts
-│   └── agents/               # Plugin integrations
-├── src-tauri/                # Tauri backend (Rust)
-├── public/                   # Static assets
-│   └── sounds/               # Notification sounds
-├── docs/                     # Documentation
-└── dist/                     # Build output
+├── src/
+│   ├── components/
+│   │   ├── pipeline/        # Pipeline UI components
+│   │   ├── terminal/        # Terminal components
+│   │   └── settings/        # Settings components
+│   ├── services/
+│   │   ├── pipelineService.ts  # Pipeline state management
+│   │   └── projectSessionService.ts
+│   ├── hooks/
+│   └── contexts/
+├── src-tauri/               # Tauri backend (Rust)
+├── .claude/
+│   ├── pipeline/            # Active pipeline state
+│   ├── pipelines/           # Global pipeline library
+│   └── hooks/               # Pipeline hooks
+└── public/
+    └── sounds/              # Notification sounds
 ```
 
 ---
 
-## 🐛 Known Issues
+## Contributing
 
-None reported for v1.0.0
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
-## 🙏 Acknowledgments
+## Known Issues
 
-- [Tauri](https://tauri.app/) for the amazing desktop framework
-- [xterm.js](https://xtermjs.org/) for terminal emulation
-- [Lucide](https://lucide.dev/) for beautiful icons
-- [Mixkit](https://mixkit.co/) for notification sounds
+None reported for V2.0.0
 
 ---
 
-## 📝 Author's Note
+## License
 
-*Currently running on a system with limited memory capacity. When capacity allows, a video tutorial will be added to this README to help with setup and features.*
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-## 📧 Contact
+## Acknowledgments
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/agentcockpit/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/agentcockpit/discussions)
+- [Tauri](https://tauri.app/) - Desktop framework
+- [xterm.js](https://xtermjs.org/) - Terminal emulation
+- [Lucide](https://lucide.dev/) - Icons
+- [Mixkit](https://mixkit.co/) - Notification sounds
 
 ---
 
 <p align="center">
-  Made with ❤️ by the AgentCockpit team
+  Made with care by the AgentCockpit team
 </p>
