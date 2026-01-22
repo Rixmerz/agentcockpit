@@ -458,6 +458,26 @@ export async function getPipelinePath(projectPath?: string | null): Promise<stri
   return await getPipelineDir(projectPath);
 }
 
+// Get enforcer enabled state from config.json
+export async function getEnforcerEnabled(projectPath?: string | null): Promise<boolean> {
+  try {
+    const dir = await getPipelineDir(projectPath);
+    const configPath = `${dir}/config.json`;
+
+    const configExists = await exists(configPath);
+    if (!configExists) {
+      return true; // Default to enabled if no config
+    }
+
+    const content = await readTextFile(configPath);
+    const config = JSON.parse(content);
+    return config.enforcer_enabled !== false; // Default true if not specified
+  } catch (e) {
+    console.debug('[Pipeline] Error reading enforcer config:', e);
+    return true; // Default to enabled on error
+  }
+}
+
 // ============================================
 // Pipeline Configuration
 // ============================================

@@ -10,6 +10,7 @@ import {
   activatePipeline,
   deactivatePipeline,
   getGlobalPipelineSteps,
+  getEnforcerEnabled,
 } from '../../services/pipelineService';
 
 // Polling interval in milliseconds (2 seconds)
@@ -69,11 +70,16 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
   const lastStateRef = useRef<string | null>(null);
   const pollingEnabledRef = useRef(true);
   const activePipelineRef = useRef<string | null>(null);
+  const enabledRef = useRef<boolean>(true);
 
-  // Keep ref in sync with state
+  // Keep refs in sync with state
   useEffect(() => {
     activePipelineRef.current = activePipelineName;
   }, [activePipelineName]);
+
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -143,11 +149,17 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
     if (!pollingEnabledRef.current || !projectPath) return;
 
     try {
-      const newState = await getPipelineState(projectPath);
+      // Get pipeline state and enforcer enabled status
+      const [newState, newEnabled] = await Promise.all([
+        getPipelineState(projectPath),
+        getEnforcerEnabled(projectPath)
+      ]);
+
       const newStateStr = JSON.stringify({
         current_step: newState.current_step,
         active_pipeline: newState.active_pipeline,
-        completed_steps: newState.completed_steps?.length || 0
+        completed_steps: newState.completed_steps?.length || 0,
+        enabled: newEnabled
       });
 
       // Only update if state actually changed
@@ -157,6 +169,12 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
 
         // Update state
         setState(newState);
+
+        // Check if enabled state changed
+        if (newEnabled !== enabledRef.current) {
+          console.log('[PipelinePanel] Enabled changed:', enabledRef.current, '->', newEnabled);
+          setEnabled(newEnabled);
+        }
 
         // Check if active pipeline changed (use ref to avoid stale closure)
         const newActiveName = newState.active_pipeline || null;
@@ -181,7 +199,7 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
       // Silently ignore polling errors to avoid spam
       console.debug('[PipelinePanel] Poll error:', e);
     }
-  }, [projectPath]); // Removed activePipelineName dependency, using ref instead
+  }, [projectPath]); // Using refs to avoid stale closures
 
   // Polling effect - runs every POLLING_INTERVAL ms
   useEffect(() => {
