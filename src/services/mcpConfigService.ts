@@ -530,7 +530,8 @@ export async function getActiveMcpCount(): Promise<number> {
  */
 async function loadAppConfig(): Promise<AppConfig> {
   try {
-    const configPath = await getConfigFilePath(APP_CONFIG_FILE);
+    const configDir = await getConfigDir();
+    const configPath = `${configDir}/${APP_CONFIG_FILE}`;
     const fileExists = await exists(configPath);
     if (!fileExists) return {};
     const content = await readTextFile(configPath);
@@ -545,7 +546,8 @@ async function loadAppConfig(): Promise<AppConfig> {
  */
 async function saveAppConfig(config: AppConfig): Promise<boolean> {
   try {
-    const configPath = await getConfigFilePath(APP_CONFIG_FILE);
+    const configDir = await getConfigDir();
+    const configPath = `${configDir}/${APP_CONFIG_FILE}`;
     await writeTextFile(configPath, JSON.stringify(config, null, 2));
     return true;
   } catch (e) {
@@ -661,9 +663,9 @@ export async function isPipelineManagerEnabled(): Promise<boolean> {
 export async function installPipelineManagerMcp(agentcockpitPath?: string): Promise<{ success: boolean; message: string }> {
   try {
     // Get or validate the agentcockpit path
-    let installPath = agentcockpitPath;
+    let installPath: string | undefined = agentcockpitPath;
     if (!installPath) {
-      installPath = await getAgentcockpitPath();
+      installPath = await getAgentcockpitPath() ?? undefined;
     }
 
     if (!installPath) {
