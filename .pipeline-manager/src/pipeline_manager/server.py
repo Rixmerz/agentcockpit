@@ -692,6 +692,146 @@ def pipeline_get_enabled(project_dir: str) -> dict:
     }
 
 
+def get_pipelines_library_dir(project_dir: str) -> Path:
+    """Get the pipelines library directory for a project.
+
+    Returns {project_dir}/.claude/pipelines/ where reusable pipeline templates are stored.
+    """
+    return Path(project_dir) / ".claude" / "pipelines"
+
+
+@mcp.tool()
+def pipeline_list_available(project_dir: str) -> dict:
+    """Lista todas las pipelines disponibles en la librería del proyecto.
+
+    Args:
+        project_dir: Absolute path to the project directory (REQUIRED)
+    """
+    pipelines_dir = get_pipelines_library_dir(project_dir)
+
+    if not pipelines_dir.exists():
+        return {
+            "success": False,
+            "message": f"Pipelines directory not found: {pipelines_dir}",
+            "pipelines": [],
+            "project_dir": project_dir
+        }
+
+    pipelines = []
+    for yaml_file in pipelines_dir.glob("*.yaml"):
+        pipeline_name = yaml_file.stem
+        # Try to read metadata
+        try:
+            content = yaml_file.read_text()
+            name = pipeline_name
+            description = ""
+            for line in content.split('\n'):
+                if line.strip().startswith('name:'):
+                    name = line.split(':', 1)[1].strip().strip('"').strip("'")
+                elif line.strip().startswith('description:'):
+                    description = line.split(':', 1)[1].strip().strip('"').strip("'")
+            pipelines.append({
+                "id": pipeline_name,
+                "name": name,
+                "description": description,
+                "file": str(yaml_file)
+            })
+        except Exception:
+            pipelines.append({
+                "id": pipeline_name,
+                "name": pipeline_name,
+                "description": "",
+                "file": str(yaml_file)
+            })
+
+    return {
+        "success": True,
+        "pipelines": pipelines,
+        "total": len(pipelines),
+        "project_dir": project_dir
+    }
+
+
+@mcp.tool()
+def pipeline_activate(project_dir: str, pipeline_name: str) -> dict:
+    """Activa una pipeline específica de la librería.
+
+    Copia el contenido del archivo YAML de la pipeline a steps.yaml
+    y actualiza el state.json con la pipeline activa y reset a step 0.
+
+    Args:
+        project_dir: Absolute path to the project directory (REQUIRED)
+        pipeline_name: Nombre de la pipeline (sin extensión .yaml)
+    """
+    pipelines_dir = get_pipelines_library_dir(project_dir)
+    pipeline_file = pipelines_dir / f"{pipeline_name}.yaml"
+
+    if not pipeline_file.exists():
+        # List available pipelines for helpful error
+        available = [f.stem for f in pipelines_dir.glob("*.yaml")] if pipelines_dir.exists() else []
+        return {
+            "success": False,
+            "message": f"Pipeline '{pipeline_name}' not found",
+            "available_pipelines": available,
+            "project_dir": project_dir
+        }
+
+    # Read pipeline content
+    try:
+        pipeline_content = pipeline_file.read_text()
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error reading pipeline file: {str(e)}",
+            "project_dir": project_dir
+        }
+
+    # Write to steps.yaml
+    steps_file = get_steps_file(project_dir)
+    steps_file.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        steps_file.write_text(pipeline_content)
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error writing steps.yaml: {str(e)}",
+            "project_dir": project_dir
+        }
+
+    # Update state.json
+    state = load_state(project_dir)
+    old_pipeline = state.get("active_pipeline", None)
+
+    state["current_step"] = 0
+    state["completed_steps"] = []
+    state["active_pipeline"] = pipeline_name
+    state["started_at"] = datetime.now().isoformat()
+    state["step_history"] = [{
+        "from_step": state.get("current_step", 0),
+        "to_step": 0,
+        "timestamp": datetime.now().isoformat(),
+        "reason": f"Pipeline activated: {pipeline_name}"
+    }]
+
+    save_state(project_dir, state)
+
+    # Load steps to return info
+    steps = load_steps(project_dir)
+    config = load_config(project_dir)
+
+    return {
+        "success": True,
+        "message": f"Pipeline '{pipeline_name}' activated",
+        "previous_pipeline": old_pipeline,
+        "active_pipeline": pipeline_name,
+        "total_steps": len(steps),
+        "steps": [{"id": s.get("id"), "name": s.get("name", s.get("id"))} for s in steps],
+        "config": config,
+        "project_dir": project_dir
+    }
+
+
 @mcp.tool()
 def pipeline_get_steps(project_dir: str) -> dict:
     """Obtiene todos los steps del pipeline con sus detalles.
