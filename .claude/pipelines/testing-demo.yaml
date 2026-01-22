@@ -1,0 +1,60 @@
+metadata:
+  name: "Testing Demo Pipeline"
+  description: "Pipeline de demostración para testing del sistema de control de flujo. Incluye gates de análisis, validación y ejecución."
+  version: "1.0.0"
+
+config:
+  reset_policy: "per_session"
+  timeout_minutes: 60
+  force_sequential: true
+
+steps:
+  - id: "analysis"
+    order: 0
+    name: "Análisis Inicial"
+    description: "Fase de análisis con sequential-thinking para evaluar complejidad"
+    mcps_enabled:
+      - "sequential-thinking"
+      - "cfa4"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+    gate_type: "tool"
+    gate_tool: "mcp__sequential-thinking__sequentialthinking"
+
+  - id: "context-gathering"
+    order: 1
+    name: "Recopilación de Contexto"
+    description: "Fase para obtener documentación y contexto del código"
+    mcps_enabled:
+      - "Context7"
+      - "deltacodecube"
+      - "cfa4"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+    gate_type: "any"
+
+  - id: "validation"
+    order: 2
+    name: "Validación Pre-Implementación"
+    description: "Validar dependencias y contratos antes de modificar código"
+    mcps_enabled:
+      - "cfa4"
+      - "deltacodecube"
+    tools_blocked:
+      - "Write"
+    gate_type: "phrase"
+    gate_phrases:
+      - "validación completa"
+      - "listo para implementar"
+      - "ready to implement"
+
+  - id: "implementation"
+    order: 3
+    name: "Implementación"
+    description: "Fase de implementación con todos los MCPs disponibles"
+    mcps_enabled:
+      - "*"
+    gate_type: "always"
