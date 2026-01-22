@@ -1,4 +1,4 @@
-import { homeDir } from '@tauri-apps/api/path';
+import { homeDir, appDataDir } from '@tauri-apps/api/path';
 import { readTextFile, writeTextFile, exists, mkdir, readDir } from '@tauri-apps/plugin-fs';
 
 // Pipeline state interface
@@ -673,7 +673,6 @@ async function getAppBaseDir(): Promise<string> {
   if (typeof window !== 'undefined' && window.__TAURI__) {
     try {
       // In Tauri, try to get the resource directory or app data directory
-      const { appDataDir } = await import('@tauri-apps/api/path');
       const dataDir = await appDataDir();
       if (dataDir) {
         // Use app data dir but look for pipelines in a known location
