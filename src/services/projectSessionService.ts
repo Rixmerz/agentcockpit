@@ -396,18 +396,19 @@ export async function cleanStaleSessionsOnStartup(
 
 /**
  * Get pipeline configuration for a project
+ * Note: 'enabled' now comes from .claude/pipeline/config.json
+ * Note: 'activePipelineId' now comes from .claude/pipeline/state.json
  */
 export async function getProjectPipelineConfig(projectPath: string): Promise<ProjectPipelineConfig> {
   const config = await getProjectConfig(projectPath);
   return config.pipeline || {
-    enabled: false,
-    activePipelineId: null,
     installedAt: null
   };
 }
 
 /**
  * Update pipeline configuration for a project
+ * Only manages installedAt now - enabled/activePipeline are in .claude/pipeline/
  */
 export async function updateProjectPipelineConfig(
   projectPath: string,
@@ -416,8 +417,6 @@ export async function updateProjectPipelineConfig(
   const config = await getProjectConfig(projectPath);
   config.pipeline = {
     ...config.pipeline || {
-      enabled: false,
-      activePipelineId: null,
       installedAt: null
     },
     ...pipelineConfig
