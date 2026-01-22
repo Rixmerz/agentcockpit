@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getPipelineState,
   getPipelineSteps,
@@ -11,6 +11,9 @@ import {
   deactivatePipeline,
   getGlobalPipelineSteps,
 } from '../../services/pipelineService';
+
+// Polling interval in milliseconds (2 seconds)
+const POLLING_INTERVAL = 2000;
 import type { PipelineState, PipelineStep, GlobalPipelineInfo } from '../../services/pipelineService';
 import {
   getProjectPipelineConfig,
@@ -61,6 +64,10 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
   const [pipelineDropdownOpen, setPipelineDropdownOpen] = useState(false);
   const [changingPipeline, setChangingPipeline] = useState(false);
   const [refreshingDropdown, setRefreshingDropdown] = useState(false);
+
+  // Refs for polling optimization
+  const lastStateRef = useRef<string | null>(null);
+  const pollingEnabledRef = useRef(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -125,27 +132,99 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
     loadData();
   }, [loadData]);
 
+  // Lightweight polling function - only updates state if changed
+  const pollState = useCallback(async () => {
+    if (!pollingEnabledRef.current || !projectPath) return;
+
+    try {
+      const newState = await getPipelineState(projectPath);
+      const newStateStr = JSON.stringify({
+        current_step: newState.current_step,
+        active_pipeline: newState.active_pipeline,
+        completed_steps: newState.completed_steps?.length || 0
+      });
+
+      // Only update if state actually changed
+      if (lastStateRef.current !== newStateStr) {
+        console.log('[PipelinePanel] State changed externally, updating UI');
+        lastStateRef.current = newStateStr;
+
+        // Update state
+        setState(newState);
+
+        // Check if active pipeline changed
+        const newActiveName = newState.active_pipeline || null;
+        if (newActiveName !== activePipelineName) {
+          setActivePipelineName(newActiveName);
+
+          // Reload steps if pipeline changed
+          let newSteps: PipelineStep[];
+          if (newActiveName) {
+            newSteps = await getGlobalPipelineSteps(newActiveName);
+            if (newSteps.length === 0) {
+              newSteps = await getPipelineSteps(projectPath);
+            }
+          } else {
+            newSteps = await getPipelineSteps(projectPath);
+          }
+          setSteps(newSteps);
+        }
+      }
+    } catch (e) {
+      // Silently ignore polling errors to avoid spam
+      console.debug('[PipelinePanel] Poll error:', e);
+    }
+  }, [projectPath, activePipelineName]);
+
+  // Polling effect - runs every POLLING_INTERVAL ms
+  useEffect(() => {
+    if (!projectPath) return;
+
+    const intervalId = setInterval(pollState, POLLING_INTERVAL);
+
+    // Cleanup on unmount
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [projectPath, pollState]);
+
+  // Pause polling during user interactions
+  const pausePolling = useCallback(() => {
+    pollingEnabledRef.current = false;
+  }, []);
+
+  const resumePolling = useCallback(() => {
+    pollingEnabledRef.current = true;
+  }, []);
+
   const handleReset = async () => {
+    pausePolling();
     try {
       await resetPipeline(projectPath);
       await loadData();
     } catch (e) {
       console.error('[PipelinePanel] Reset error:', e);
+    } finally {
+      resumePolling();
     }
   };
 
   const handleAdvance = async () => {
+    pausePolling();
     try {
       await advancePipeline(projectPath);
       await loadData();
     } catch (e) {
       console.error('[PipelinePanel] Advance error:', e);
+    } finally {
+      resumePolling();
     }
   };
 
   const handleToggleEnabled = async () => {
     if (!projectPath) return;
 
+    pausePolling();
     const newEnabled = !enabled;
     setEnabled(newEnabled);
 
@@ -160,12 +239,15 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
     } catch (e) {
       console.error('[PipelinePanel] Toggle error:', e);
       setEnabled(!newEnabled); // Revert on error
+    } finally {
+      resumePolling();
     }
   };
 
   const handleInstall = async () => {
     if (!projectPath) return;
 
+    pausePolling();
     setInstalling(true);
     try {
       // Save default steps to project if not already present
@@ -191,12 +273,14 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
       setError(errorMsg);
     } finally {
       setInstalling(false);
+      resumePolling();
     }
   };
 
   const handleUninstall = async () => {
     if (!projectPath) return;
 
+    pausePolling();
     setInstalling(true);
     try {
       const result = await uninstallPipelineHooks(projectPath);
@@ -217,6 +301,7 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
       setError(errorMsg);
     } finally {
       setInstalling(false);
+      resumePolling();
     }
   };
 
@@ -224,6 +309,7 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
   const handleSelectPipeline = async (pipelineName: string) => {
     if (!projectPath) return;
 
+    pausePolling();
     setChangingPipeline(true);
     setPipelineDropdownOpen(false);
 
@@ -242,6 +328,7 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
       setError(errorMsg);
     } finally {
       setChangingPipeline(false);
+      resumePolling();
     }
   };
 
@@ -249,6 +336,7 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
   const handleDeactivatePipeline = async () => {
     if (!projectPath) return;
 
+    pausePolling();
     setChangingPipeline(true);
     setPipelineDropdownOpen(false);
 
@@ -272,18 +360,21 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
       setError(errorMsg);
     } finally {
       setChangingPipeline(false);
+      resumePolling();
     }
   };
 
   // Handle opening dropdown - refresh data to catch external changes (MCP)
   const handleToggleDropdown = async () => {
     if (pipelineDropdownOpen) {
-      // Just close
+      // Just close and resume polling
       setPipelineDropdownOpen(false);
+      resumePolling();
       return;
     }
 
-    // Opening - refresh global pipelines and active pipeline
+    // Opening - pause polling and refresh global pipelines and active pipeline
+    pausePolling();
     setPipelineDropdownOpen(true);
     setRefreshingDropdown(true);
 
@@ -389,7 +480,10 @@ export function PipelinePanel({ projectPath }: PipelinePanelProps) {
                 {/* Close button */}
                 <div
                   className="pipeline-selector-close"
-                  onClick={() => setPipelineDropdownOpen(false)}
+                  onClick={() => {
+                    setPipelineDropdownOpen(false);
+                    resumePolling();
+                  }}
                 >
                   <X size={14} />
                   Close
