@@ -439,11 +439,15 @@ def pipeline_status(project_dir: str) -> dict:
             "tools_blocked": step.get("tools_blocked", [])
         })
 
+    # Get enforcer enabled state
+    enforcer_config = load_enforcer_config(project_dir)
+
     return {
         "current_step": current,
         "total_steps": len(steps),
         "steps": step_list,
         "config": config,
+        "enabled": enforcer_config.get("enforcer_enabled", True),
         "last_activity": state.get("last_activity"),
         "completed_count": len(state.get("completed_steps", [])),
         "pipeline_path": str(pipeline_path),
@@ -617,6 +621,75 @@ def pipeline_set_config(
     steps_file.write_text('\n'.join(new_lines))
 
     return {"success": True, "config": config, "project_dir": project_dir}
+
+
+def get_enforcer_config_file(project_dir: str) -> Path:
+    """Get the enforcer config file path."""
+    return get_pipeline_dir(project_dir) / "config.json"
+
+
+def load_enforcer_config(project_dir: str) -> dict:
+    """Load enforcer configuration from config.json."""
+    config_file = get_enforcer_config_file(project_dir)
+    if config_file.exists():
+        try:
+            return json.loads(config_file.read_text())
+        except Exception:
+            pass
+    return {"enforcer_enabled": True}
+
+
+def save_enforcer_config(project_dir: str, config: dict):
+    """Save enforcer configuration to config.json."""
+    config_file = get_enforcer_config_file(project_dir)
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    config["last_updated"] = datetime.now().isoformat()
+    config_file.write_text(json.dumps(config, indent=2))
+
+
+@mcp.tool()
+def pipeline_set_enabled(project_dir: str, enabled: bool) -> dict:
+    """Activa o desactiva el enforcer del pipeline.
+
+    Cuando está desactivado, el hook aprueba todas las herramientas sin validar.
+    Esto es útil para pausar temporalmente el control del pipeline.
+
+    Args:
+        project_dir: Absolute path to the project directory (REQUIRED)
+        enabled: True para activar el enforcer, False para desactivarlo
+    """
+    try:
+        config = load_enforcer_config(project_dir)
+        config["enforcer_enabled"] = enabled
+        save_enforcer_config(project_dir, config)
+
+        return {
+            "success": True,
+            "enabled": enabled,
+            "message": f"Pipeline enforcer {'enabled' if enabled else 'disabled'}",
+            "project_dir": project_dir
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error setting pipeline enabled state: {str(e)}",
+            "project_dir": project_dir
+        }
+
+
+@mcp.tool()
+def pipeline_get_enabled(project_dir: str) -> dict:
+    """Obtiene el estado actual del enforcer del pipeline.
+
+    Args:
+        project_dir: Absolute path to the project directory (REQUIRED)
+    """
+    config = load_enforcer_config(project_dir)
+    return {
+        "enabled": config.get("enforcer_enabled", True),
+        "last_updated": config.get("last_updated"),
+        "project_dir": project_dir
+    }
 
 
 @mcp.tool()
