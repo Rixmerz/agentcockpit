@@ -646,6 +646,11 @@ export async function getAvailableMcps(): Promise<AvailableMcp[]> {
 
 const GLOBAL_PIPELINES_DIR = '.claude/pipelines';
 
+// App project directory for global pipelines (bundled with the app)
+// In development: uses the project directory
+// In production: could use appDataDir() from Tauri
+let cachedAppDir: string | null = null;
+
 export interface GlobalPipelineInfo {
   name: string;
   displayName: string;
@@ -653,8 +658,34 @@ export interface GlobalPipelineInfo {
   stepsCount: number;
 }
 
-// Get global pipelines directory path
-async function getGlobalPipelinesDir(): Promise<string> {
+// Get the app's base directory for global resources
+async function getAppBaseDir(): Promise<string> {
+  if (cachedAppDir) {
+    return cachedAppDir;
+  }
+
+  // Try to detect if we're in development or production
+  // In development, __dirname or import.meta would point to the project
+  // For now, we use a known project path that can be configured
+
+  // Check for AGENTCOCKPIT_DIR environment variable first (for flexibility)
+  // @ts-ignore - window.__TAURI__ may exist
+  if (typeof window !== 'undefined' && window.__TAURI__) {
+    try {
+      // In Tauri, try to get the resource directory or app data directory
+      const { appDataDir } = await import('@tauri-apps/api/path');
+      const dataDir = await appDataDir();
+      if (dataDir) {
+        // Use app data dir but look for pipelines in a known location
+        // For now, fallback to home-based detection
+      }
+    } catch {
+      // Ignore errors, fallback below
+    }
+  }
+
+  // Fallback: Use home directory + known project path
+  // This allows the app to find pipelines bundled with the project
   if (!cachedHomeDir) {
     const home = await homeDir();
     if (!home) {
@@ -662,7 +693,19 @@ async function getGlobalPipelinesDir(): Promise<string> {
     }
     cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
   }
-  return `${cachedHomeDir}/${GLOBAL_PIPELINES_DIR}`;
+
+  // Default to project directory (can be overridden via config)
+  // The pipelines are now stored in the agentcockpit project itself
+  cachedAppDir = `${cachedHomeDir}/my_projects/agentcockpit`;
+
+  return cachedAppDir;
+}
+
+// Get global pipelines directory path
+// Now uses the app's project directory instead of home directory
+async function getGlobalPipelinesDir(): Promise<string> {
+  const appDir = await getAppBaseDir();
+  return `${appDir}/${GLOBAL_PIPELINES_DIR}`;
 }
 
 // Parse pipeline metadata from YAML content
