@@ -987,8 +987,52 @@ def pipeline_create_step(
     }
 
 
+def advance_to_next_step(project_dir: str, reason: str) -> Optional[dict]:
+    """Advance pipeline to next step with given reason.
+
+    Returns advancement info or None if already at last step.
+    """
+    state = load_state(project_dir)
+    steps = load_steps(project_dir)
+    current_idx = state.get("current_step", 0)
+
+    if current_idx >= len(steps) - 1:
+        return None  # Already at last step
+
+    current_step = steps[current_idx]
+
+    state["current_step"] = current_idx + 1
+    state["completed_steps"].append({
+        "id": current_step.get("id", f"step_{current_idx}"),
+        "completed_at": datetime.now().isoformat(),
+        "reason": reason
+    })
+    state["step_history"].append({
+        "from_step": current_idx,
+        "to_step": current_idx + 1,
+        "timestamp": datetime.now().isoformat(),
+        "reason": reason
+    })
+    save_state(project_dir, state)
+
+    next_step = steps[current_idx + 1]
+    return {
+        "advanced": True,
+        "from_step": current_idx,
+        "to_step": current_idx + 1,
+        "next_step_name": next_step.get("name", next_step.get("id"))
+    }
+
+
 def check_and_advance_gate(project_dir: str, mcp_name: str, tool_name: str) -> Optional[dict]:
-    """Check if tool usage triggers gate advancement."""
+    """Check if tool usage triggers gate advancement.
+
+    Gate types:
+    - 'any': Advance on tool OR phrase (tool check here, phrase via pipeline_check_phrase)
+    - 'tool': Advance ONLY when specific tool is used
+    - 'phrase': Advance ONLY when phrase is detected (not here, use pipeline_check_phrase)
+    - 'always': Final step, never advance
+    """
     state = load_state(project_dir)
     steps = load_steps(project_dir)
     current_idx = state.get("current_step", 0)
@@ -1003,36 +1047,110 @@ def check_and_advance_gate(project_dir: str, mcp_name: str, tool_name: str) -> O
     # Check if this tool triggers the gate
     full_tool_name = f"mcp__{mcp_name}__{tool_name}"
 
+    # Gate type: always - never advance
     if gate_type == "always":
-        # Final step, no advancement
         return None
 
-    if gate_tool and (full_tool_name.startswith(gate_tool) or gate_tool in full_tool_name):
-        # Advance to next step
-        state["current_step"] = current_idx + 1
-        state["completed_steps"].append({
-            "id": current_step.get("id", f"step_{current_idx}"),
-            "completed_at": datetime.now().isoformat(),
-            "reason": f"Gate tool used: {full_tool_name}"
-        })
-        state["step_history"].append({
-            "from_step": current_idx,
-            "to_step": current_idx + 1,
-            "timestamp": datetime.now().isoformat(),
-            "reason": f"Gate tool: {full_tool_name}"
-        })
-        save_state(project_dir, state)
+    # Gate type: phrase - don't advance on tool usage, only phrases
+    if gate_type == "phrase":
+        return None
 
-        if current_idx + 1 < len(steps):
-            next_step = steps[current_idx + 1]
-            return {
-                "advanced": True,
-                "from_step": current_idx,
-                "to_step": current_idx + 1,
-                "next_step_name": next_step.get("name", next_step.get("id"))
-            }
+    # Gate type: tool or any - check if tool matches
+    if gate_type in ("tool", "any"):
+        if gate_tool and (full_tool_name.startswith(gate_tool) or gate_tool in full_tool_name):
+            return advance_to_next_step(project_dir, f"Gate tool used: {full_tool_name}")
 
     return None
+
+
+@mcp.tool()
+def pipeline_check_phrase(project_dir: str, text: str) -> dict:
+    """Verifica si el texto contiene una frase que activa el gate del step actual.
+
+    Usa esta herramienta cuando quieras indicar que una condición se cumple
+    mediante una frase (ej: "esto es trivial", "no requiere docs").
+
+    Gate types que responden a frases:
+    - 'any': Avanza por tool O frase
+    - 'phrase': Avanza SOLO por frase
+    - 'tool': NO avanza por frase
+    - 'always': Nunca avanza
+
+    Args:
+        project_dir: Absolute path to the project directory (REQUIRED)
+        text: Texto a verificar contra las gate_phrases del step actual
+    """
+    state = load_state(project_dir)
+    steps = load_steps(project_dir)
+    current_idx = state.get("current_step", 0)
+
+    if current_idx >= len(steps):
+        return {
+            "matched": False,
+            "message": "Pipeline completed, no more steps",
+            "project_dir": project_dir
+        }
+
+    current_step = steps[current_idx]
+    gate_type = current_step.get("gate_type", "any")
+    gate_phrases = current_step.get("gate_phrases", [])
+
+    # Gate type: always - never advance
+    if gate_type == "always":
+        return {
+            "matched": False,
+            "message": "Gate type is 'always', no advancement possible",
+            "gate_type": gate_type,
+            "project_dir": project_dir
+        }
+
+    # Gate type: tool - don't advance on phrases
+    if gate_type == "tool":
+        return {
+            "matched": False,
+            "message": "Gate type is 'tool', phrases don't trigger advancement",
+            "gate_type": gate_type,
+            "project_dir": project_dir
+        }
+
+    # Gate type: any or phrase - check for matching phrases
+    if gate_type in ("any", "phrase"):
+        text_lower = text.lower()
+
+        for phrase in gate_phrases:
+            if phrase.lower() in text_lower:
+                # Phrase matched! Advance the pipeline
+                result = advance_to_next_step(project_dir, f"Gate phrase matched: '{phrase}'")
+
+                if result:
+                    return {
+                        "matched": True,
+                        "matched_phrase": phrase,
+                        "message": f"Phrase '{phrase}' matched, advanced to next step",
+                        "advanced": result,
+                        "project_dir": project_dir
+                    }
+                else:
+                    return {
+                        "matched": True,
+                        "matched_phrase": phrase,
+                        "message": f"Phrase '{phrase}' matched but already at last step",
+                        "project_dir": project_dir
+                    }
+
+        return {
+            "matched": False,
+            "message": "No matching phrase found",
+            "gate_phrases": gate_phrases,
+            "gate_type": gate_type,
+            "project_dir": project_dir
+        }
+
+    return {
+        "matched": False,
+        "message": f"Unknown gate_type: {gate_type}",
+        "project_dir": project_dir
+    }
 
 
 @mcp.tool()
