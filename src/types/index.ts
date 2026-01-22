@@ -132,8 +132,8 @@ export interface PipelineTemplate {
 }
 
 // Per-project pipeline configuration stored in agentcockpit-project.json
+// Note: 'enabled' now comes from .claude/pipeline/config.json (enforcer_enabled)
+// Note: 'activePipelineId' now comes from .claude/pipeline/state.json (active_pipeline)
 export interface ProjectPipelineConfig {
-  enabled: boolean;
-  activePipelineId: string | null;
   installedAt: number | null;
 }
