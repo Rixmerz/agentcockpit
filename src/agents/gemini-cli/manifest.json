@@ -16,6 +16,6 @@
   "models": [],
   "components": {
     "launcher": true,
-    "mcpPanel": false
+    "mcpPanel": true
   }
 }

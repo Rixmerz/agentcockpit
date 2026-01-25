@@ -383,11 +383,12 @@ export function ActionsPanel({
           )}
 
           {/* MCP Panel (conditionally shown based on plugin settings) */}
-          {activePlugin.McpPanel && showLegacyMcpPanel && (
+          {/* For Claude: respect showLegacyMcpPanel setting. For others: always show if available */}
+          {activePlugin.McpPanel && (activePlugin.manifest.id !== 'claude' || showLegacyMcpPanel) && (
             <activePlugin.McpPanel
               projectPath={projectPath}
               onMcpsChange={handleMcpsChange}
-              // Legacy props for backwards compatibility
+              // Legacy props for backwards compatibility (Claude)
               selectedServers={selectedMcpServers}
               onSelectionChange={setSelectedMcpServers}
               onMcpsForInjection={handleMcpsForInjection}
