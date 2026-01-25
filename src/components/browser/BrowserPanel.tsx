@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, ArrowRight, RotateCw, X, Globe } from 'lucide-react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   createBrowserWebview,
   closeBrowserWebview,
@@ -59,37 +60,46 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const position = {
-      x: rect.left,
-      y: rect.top + TOOLBAR_HEIGHT,
-      width: rect.width,
-      height: PANEL_HEIGHT - TOOLBAR_HEIGHT,
-    };
+    // Wait a frame for DOM to be ready
+    const timeoutId = setTimeout(() => {
+      if (!containerRef.current) return;
 
-    const state = getBrowserState();
+      const rect = containerRef.current.getBoundingClientRect();
+      const position = {
+        x: rect.left,
+        y: rect.top + TOOLBAR_HEIGHT,
+        width: rect.width,
+        height: PANEL_HEIGHT - TOOLBAR_HEIGHT,
+      };
 
-    if (state.isOpen) {
-      // Webview exists, just show it and update position
-      console.log('[BrowserPanel] Showing existing webview');
-      showBrowserWebview().then(() => {
-        updatePosition(position);
-        updateBrowserState();
-      });
-    } else {
-      // Create new webview
-      console.log('[BrowserPanel] Creating new webview at:', position);
-      setIsLoading(true);
-      createBrowserWebview(initialUrl, position)
-        .then(() => {
-          setIsLoading(false);
+      const state = getBrowserState();
+
+      if (state.isOpen) {
+        // Webview exists, just show it and update position
+        console.log('[BrowserPanel] Showing existing webview at:', position);
+        showBrowserWebview().then(async () => {
+          // Wait a bit then update position to ensure webview is visible
+          await new Promise(r => setTimeout(r, 100));
+          await updatePosition(position);
           updateBrowserState();
-        })
-        .catch((err) => {
-          console.error('[BrowserPanel] Error creating webview:', err);
-          setIsLoading(false);
         });
-    }
+      } else {
+        // Create new webview
+        console.log('[BrowserPanel] Creating new webview at:', position);
+        setIsLoading(true);
+        createBrowserWebview(initialUrl, position)
+          .then(() => {
+            setIsLoading(false);
+            updateBrowserState();
+          })
+          .catch((err) => {
+            console.error('[BrowserPanel] Error creating webview:', err);
+            setIsLoading(false);
+          });
+      }
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
   }, [isOpen, initialUrl, updateBrowserState]);
 
   // Hide webview when panel closes (but don't destroy)
@@ -100,16 +110,54 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     }
   }, [isOpen]);
 
-  // Handle resize
+  // Handle resize and window events
   useEffect(() => {
     if (!isOpen) return;
 
     const handleResize = () => {
-      updateWebviewPosition();
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        updateWebviewPosition();
+      }, 50);
     };
 
+    // Listen for browser window resize
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    // Listen for Tauri window events
+    let unlistenMove: (() => void) | null = null;
+    let unlistenResize: (() => void) | null = null;
+    let unlistenFocus: (() => void) | null = null;
+
+    const setupTauriListeners = async () => {
+      const mainWindow = getCurrentWindow();
+
+      unlistenMove = await mainWindow.onMoved(() => {
+        console.log('[BrowserPanel] Window moved, updating position');
+        handleResize();
+      });
+
+      unlistenResize = await mainWindow.onResized(() => {
+        console.log('[BrowserPanel] Window resized, updating position');
+        handleResize();
+      });
+
+      unlistenFocus = await mainWindow.onFocusChanged(({ payload: focused }) => {
+        if (focused) {
+          console.log('[BrowserPanel] Window focused, updating position');
+          handleResize();
+        }
+      });
+    };
+
+    setupTauriListeners();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      unlistenMove?.();
+      unlistenResize?.();
+      unlistenFocus?.();
+    };
   }, [isOpen, updateWebviewPosition]);
 
   // Handle navigation
