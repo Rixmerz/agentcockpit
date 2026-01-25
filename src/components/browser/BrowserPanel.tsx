@@ -122,12 +122,15 @@ export function BrowserPanel({
   useEffect(() => {
     const shouldHide = isIdle || hideForModal;
 
-    if (shouldHide && isOpen && !webviewsHidden) {
+    if (shouldHide && isOpen) {
+      // Always hide when entering idle/modal state
+      console.log('[BrowserPanel] Hiding webviews - idle:', isIdle, 'modal:', hideForModal);
       hideAllBrowserWebviews();
       setWebviewsHidden(true);
     } else if (!shouldHide && isOpen && webviewsHidden) {
+      // Only show when exiting idle/modal AND webviews were hidden
       const timer = setTimeout(() => {
-        // Show only the active tab's webview
+        console.log('[BrowserPanel] Showing webview for active tab:', activeTabId);
         if (activeTabId) {
           showBrowserWebview(activeTabId);
         }
