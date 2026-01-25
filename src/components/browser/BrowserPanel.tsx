@@ -58,6 +58,40 @@ const getTabTitle = (url: string): string => {
   }
 };
 
+const isValidUrl = (input: string): boolean => {
+  // Si tiene protocolo explícito
+  if (/^https?:\/\//i.test(input)) {
+    try {
+      new URL(input);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  // Si parece dominio (ejemplo.com, sub.ejemplo.com)
+  if (/^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}(\/.*)?$/.test(input)) {
+    return true;
+  }
+  // Si es localhost o IP
+  if (/^(localhost|(\d{1,3}\.){3}\d{1,3})(:\d+)?(\/.*)?$/.test(input)) {
+    return true;
+  }
+  return false;
+};
+
+const toNavigableUrl = (input: string): string => {
+  const trimmed = input.trim();
+  if (isValidUrl(trimmed)) {
+    // Agregar https:// si no tiene protocolo
+    if (!/^https?:\/\//i.test(trimmed)) {
+      return `https://${trimmed}`;
+    }
+    return trimmed;
+  }
+  // Es búsqueda → Google
+  return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
+};
+
 export function BrowserPanel({
   isOpen,
   onClose,
@@ -326,8 +360,9 @@ export function BrowserPanel({
   const handleNavigate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputUrl.trim() || !activeTabId) return;
+    const url = toNavigableUrl(inputUrl);
     setIsLoading(true);
-    await navigateTo(inputUrl.trim(), activeTabId);
+    await navigateTo(url, activeTabId);
     setIsLoading(false);
   };
 
@@ -451,7 +486,7 @@ export function BrowserPanel({
               onChange={(e) => setInputUrl(e.target.value)}
               onFocus={(e) => e.target.select()}
               className="browser-url-input"
-              placeholder="Enter URL..."
+              placeholder="Search or enter URL..."
             />
           </div>
         </form>
