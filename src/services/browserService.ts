@@ -45,12 +45,22 @@ async function setupUrlListener(): Promise<void> {
 
   urlChangeListener = await listen<{ url: string }>('browser-url-changed', (event) => {
     const newUrl = event.payload.url;
+
+    // Skip invalid URLs
+    if (!newUrl ||
+        newUrl.startsWith('about:') ||
+        newUrl.startsWith('blob:') ||
+        newUrl.startsWith('data:')) {
+      console.log('[browserService] Ignoring internal URL:', newUrl);
+      return;
+    }
+
     console.log('[browserService] URL changed event:', newUrl);
 
-    // Update internal state
+    // Update internal state only if URL actually changed
     if (newUrl !== state.url) {
       state.url = newUrl;
-      // Add to history
+      // Add to history if different from current position
       if (state.history[state.historyIndex] !== newUrl) {
         state.history = state.history.slice(0, state.historyIndex + 1);
         state.history.push(newUrl);

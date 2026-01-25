@@ -61,8 +61,18 @@ pub async fn browser_create(
     let app_handle = app.clone();
     let webview_builder = WebviewBuilder::new(label, webview_url)
         .on_navigation(move |url| {
-            // Emit event to frontend when URL changes
             let url_string = url.to_string();
+
+            // Filter out internal/temporary URLs
+            if url_string.starts_with("about:") ||
+               url_string.starts_with("blob:") ||
+               url_string.starts_with("data:") ||
+               url_string.is_empty() {
+                log::debug!("[Browser] Ignoring internal URL: {}", url_string);
+                return true; // Allow but don't emit
+            }
+
+            // Emit event to frontend for real URL changes
             log::info!("[Browser] Navigation to: {}", url_string);
             let _ = app_handle.emit("browser-url-changed", UrlChangedPayload { url: url_string });
             true // Allow navigation
