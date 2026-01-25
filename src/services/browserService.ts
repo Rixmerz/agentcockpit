@@ -1,4 +1,5 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi';
 
 interface BrowserWebviewState {
@@ -7,6 +8,7 @@ interface BrowserWebviewState {
   history: string[];
   historyIndex: number;
   lastPosition: BrowserPosition | null;
+  isVisible: boolean;
 }
 
 const state: BrowserWebviewState = {
@@ -15,6 +17,7 @@ const state: BrowserWebviewState = {
   history: [],
   historyIndex: -1,
   lastPosition: null,
+  isVisible: false,
 };
 
 export interface BrowserPosition {
@@ -22,6 +25,35 @@ export interface BrowserPosition {
   y: number;
   width: number;
   height: number;
+}
+
+/**
+ * Converts viewport-relative coordinates to screen coordinates
+ */
+async function toScreenCoordinates(position: BrowserPosition): Promise<BrowserPosition> {
+  try {
+    const mainWindow = getCurrentWindow();
+    const windowPos = await mainWindow.outerPosition();
+    const scaleFactor = await mainWindow.scaleFactor();
+
+    // Window position is in physical pixels, convert to logical
+    const windowX = windowPos.x / scaleFactor;
+    const windowY = windowPos.y / scaleFactor;
+
+    // Add window position to get screen coordinates
+    // Also account for title bar height (approximately 28px on macOS)
+    const titleBarHeight = 28;
+
+    return {
+      x: windowX + position.x,
+      y: windowY + position.y + titleBarHeight,
+      width: position.width,
+      height: position.height,
+    };
+  } catch (e) {
+    console.warn('[browserService] Could not get window position, using relative:', e);
+    return position;
+  }
 }
 
 /**
@@ -38,23 +70,29 @@ async function createWebviewWindow(url: string, position: BrowserPosition): Prom
     state.webview = null;
   }
 
-  console.log('[browserService] Creating webview with URL:', url, 'position:', position);
+  // Convert to screen coordinates
+  const screenPos = await toScreenCoordinates(position);
 
-  // Create new webview window - test without parent first
-  // Position needs to be in SCREEN coordinates, not window-relative
+  console.log('[browserService] Creating webview:', {
+    url,
+    viewportPos: position,
+    screenPos,
+  });
+
+  // Create new webview window as child of main window
   const webview = new WebviewWindow('browser-webview', {
     url,
-    // parent: 'main', // Temporarily disabled to test
-    x: Math.round(position.x),
-    y: Math.round(position.y),
-    width: Math.round(position.width),
-    height: Math.round(position.height),
-    decorations: true, // Temporarily enable to see the window
+    parent: 'main',
+    x: Math.round(screenPos.x),
+    y: Math.round(screenPos.y),
+    width: Math.round(screenPos.width),
+    height: Math.round(screenPos.height),
+    decorations: false,
     transparent: false,
-    resizable: true,
-    focus: true,
-    alwaysOnTop: true, // Ensure it's visible
-    skipTaskbar: false, // Show in taskbar for debugging
+    resizable: false,
+    focus: false,
+    alwaysOnTop: false,
+    skipTaskbar: true,
     visible: true,
   });
 
@@ -78,6 +116,7 @@ async function createWebviewWindow(url: string, position: BrowserPosition): Prom
 
   state.webview = webview;
   state.lastPosition = position;
+  state.isVisible = true;
 
   return webview;
 }
@@ -111,7 +150,56 @@ export async function createBrowserWebview(
 }
 
 /**
- * Closes the browser webview
+ * Shows/hides the browser webview (toggle visibility)
+ */
+export async function toggleBrowserVisibility(): Promise<boolean> {
+  if (!state.webview) return false;
+
+  try {
+    if (state.isVisible) {
+      await state.webview.hide();
+      state.isVisible = false;
+    } else {
+      await state.webview.show();
+      state.isVisible = true;
+    }
+    return state.isVisible;
+  } catch (e) {
+    console.warn('[browserService] Error toggling visibility:', e);
+    return state.isVisible;
+  }
+}
+
+/**
+ * Hides the browser webview (keeps state)
+ */
+export async function hideBrowserWebview(): Promise<void> {
+  if (state.webview && state.isVisible) {
+    try {
+      await state.webview.hide();
+      state.isVisible = false;
+    } catch (e) {
+      console.warn('[browserService] Error hiding webview:', e);
+    }
+  }
+}
+
+/**
+ * Shows the browser webview
+ */
+export async function showBrowserWebview(): Promise<void> {
+  if (state.webview && !state.isVisible) {
+    try {
+      await state.webview.show();
+      state.isVisible = true;
+    } catch (e) {
+      console.warn('[browserService] Error showing webview:', e);
+    }
+  }
+}
+
+/**
+ * Closes the browser webview completely
  */
 export async function closeBrowserWebview(): Promise<void> {
   if (state.webview) {
@@ -127,6 +215,7 @@ export async function closeBrowserWebview(): Promise<void> {
   state.history = [];
   state.historyIndex = -1;
   state.lastPosition = null;
+  state.isVisible = false;
 }
 
 /**
@@ -213,11 +302,12 @@ export async function updatePosition(position: BrowserPosition): Promise<void> {
   if (!state.webview) return;
 
   try {
+    const screenPos = await toScreenCoordinates(position);
     await state.webview.setPosition(
-      new PhysicalPosition(Math.round(position.x), Math.round(position.y))
+      new PhysicalPosition(Math.round(screenPos.x), Math.round(screenPos.y))
     );
     await state.webview.setSize(
-      new PhysicalSize(Math.round(position.width), Math.round(position.height))
+      new PhysicalSize(Math.round(screenPos.width), Math.round(screenPos.height))
     );
   } catch (e) {
     console.warn('[browserService] Error updating position:', e);
@@ -230,6 +320,7 @@ export async function updatePosition(position: BrowserPosition): Promise<void> {
 export function getBrowserState() {
   return {
     isOpen: state.webview !== null,
+    isVisible: state.isVisible,
     url: state.url,
     canGoBack: state.historyIndex > 0,
     canGoForward: state.historyIndex < state.history.length - 1,
@@ -241,4 +332,11 @@ export function getBrowserState() {
  */
 export function getWebview(): WebviewWindow | null {
   return state.webview;
+}
+
+/**
+ * Check if webview exists and is visible
+ */
+export function isBrowserVisible(): boolean {
+  return state.webview !== null && state.isVisible;
 }
