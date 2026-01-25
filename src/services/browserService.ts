@@ -1,5 +1,4 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi';
 
 interface BrowserWebviewState {
@@ -24,7 +23,7 @@ export interface BrowserPosition {
 }
 
 /**
- * Creates a browser webview attached to the main window
+ * Creates a browser webview as a child window (positioned to appear embedded)
  */
 export async function createBrowserWebview(
   url: string,
@@ -33,12 +32,11 @@ export async function createBrowserWebview(
   // Close existing webview if any
   await closeBrowserWebview();
 
-  const mainWindow = getCurrentWindow();
-
-  // Create new webview
+  // Create new webview window as child of main window
+  // Use 'main' as parent label (the main window's label in Tauri)
   const webview = new WebviewWindow('browser-webview', {
     url,
-    parent: mainWindow,
+    parent: 'main', // Parent must be the window label string, not the Window object
     x: position.x,
     y: position.y,
     width: position.width,
@@ -47,12 +45,20 @@ export async function createBrowserWebview(
     transparent: false,
     resizable: false,
     focus: false,
+    alwaysOnTop: false,
+    skipTaskbar: true,
   });
 
   // Wait for webview to be created
   await new Promise<void>((resolve, reject) => {
-    webview.once('tauri://created', () => resolve());
-    webview.once('tauri://error', (e) => reject(e));
+    webview.once('tauri://created', () => {
+      console.log('[browserService] Webview created successfully');
+      resolve();
+    });
+    webview.once('tauri://error', (e) => {
+      console.error('[browserService] Webview creation error:', JSON.stringify(e));
+      reject(new Error(`Failed to create webview: ${JSON.stringify(e)}`));
+    });
   });
 
   state.webview = webview;
