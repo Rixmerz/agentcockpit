@@ -10,7 +10,6 @@ import {
   refresh,
   updatePosition,
   getBrowserState,
-  getCurrentUrl,
 } from '../../services/browserService';
 
 interface BrowserPanelProps {
@@ -106,26 +105,8 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     };
   }, [isOpen, initialUrl, getPosition, updateBrowserState]);
 
-  // Poll for URL changes (detects navigation inside webview)
-  useEffect(() => {
-    if (!isOpen || !webviewReadyRef.current) return;
-
-    const pollUrl = async () => {
-      const currentUrl = await getCurrentUrl();
-      if (currentUrl && currentUrl !== inputUrl) {
-        setInputUrl(currentUrl);
-        // Update back/forward state
-        const state = getBrowserState();
-        setCanGoBack(state.canGoBack);
-        setCanGoForward(state.canGoForward);
-      }
-    };
-
-    // Poll every 500ms
-    const intervalId = setInterval(pollUrl, 500);
-
-    return () => clearInterval(intervalId);
-  }, [isOpen, inputUrl]);
+  // Note: URL polling disabled - Tauri's WebviewWindow doesn't expose current URL
+  // The URL bar only updates when navigating via our controls, not internal navigation
 
   // Handle window resize/move
   useEffect(() => {
