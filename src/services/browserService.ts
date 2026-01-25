@@ -3,21 +3,14 @@ import { listen } from '@tauri-apps/api/event';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-interface BrowserState {
+interface TabState {
   isOpen: boolean;
   isVisible: boolean;
   url: string;
-  history: string[];
-  historyIndex: number;
 }
 
-const state: BrowserState = {
-  isOpen: false,
-  isVisible: false,
-  url: '',
-  history: [],
-  historyIndex: -1,
-};
+// Track state per tab
+const tabStates: Map<string, TabState> = new Map();
 
 export interface BrowserPosition {
   x: number;
@@ -28,12 +21,12 @@ export interface BrowserPosition {
 
 // Listener for URL changes from Rust
 let urlChangeListener: UnlistenFn | null = null;
-let onUrlChangeCallback: ((url: string) => void) | null = null;
+let onUrlChangeCallback: ((url: string, tabId: string) => void) | null = null;
 
 /**
  * Set callback for URL changes (called when user navigates inside webview)
  */
-export function onUrlChange(callback: (url: string) => void): void {
+export function onUrlChange(callback: (url: string, tabId: string) => void): void {
   onUrlChangeCallback = callback;
 }
 
@@ -43,8 +36,8 @@ export function onUrlChange(callback: (url: string) => void): void {
 async function setupUrlListener(): Promise<void> {
   if (urlChangeListener) return;
 
-  urlChangeListener = await listen<{ url: string }>('browser-url-changed', (event) => {
-    const newUrl = event.payload.url;
+  urlChangeListener = await listen<{ url: string; tab_id: string }>('browser-url-changed', (event) => {
+    const { url: newUrl, tab_id: tabId } = event.payload;
 
     // Skip invalid URLs
     if (!newUrl ||
@@ -55,20 +48,15 @@ async function setupUrlListener(): Promise<void> {
       return;
     }
 
-    console.log('[browserService] URL changed event:', newUrl);
+    console.log('[browserService] URL changed event for tab', tabId, ':', newUrl);
 
-    // Update internal state only if URL actually changed
-    if (newUrl !== state.url) {
-      state.url = newUrl;
-      // Add to history if different from current position
-      if (state.history[state.historyIndex] !== newUrl) {
-        state.history = state.history.slice(0, state.historyIndex + 1);
-        state.history.push(newUrl);
-        state.historyIndex = state.history.length - 1;
-      }
+    // Update tab state
+    const tabState = tabStates.get(tabId);
+    if (tabState && newUrl !== tabState.url) {
+      tabState.url = newUrl;
       // Notify callback
       if (onUrlChangeCallback) {
-        onUrlChangeCallback(newUrl);
+        onUrlChangeCallback(newUrl, tabId);
       }
     }
   });
@@ -113,16 +101,17 @@ function normalizeUrl(url: string): string {
 }
 
 /**
- * Creates the browser webview
+ * Creates a browser webview for a specific tab
  */
 export async function createBrowserWebview(
   url: string,
-  position: BrowserPosition
+  position: BrowserPosition,
+  tabId: string
 ): Promise<void> {
   const normalizedUrl = normalizeUrl(url);
   const screenPos = await toScreenCoordinates(position);
 
-  console.log('[browserService] Creating webview:', { url: normalizedUrl, screenPos });
+  console.log('[browserService] Creating webview for tab', tabId, ':', { url: normalizedUrl, screenPos });
 
   // Setup listener before creating webview
   await setupUrlListener();
@@ -130,135 +119,155 @@ export async function createBrowserWebview(
   await invoke('browser_create', {
     url: normalizedUrl,
     position: screenPos,
+    tabId,
   });
 
-  state.isOpen = true;
-  state.isVisible = true;
-  state.url = normalizedUrl;
-  state.history = [normalizedUrl];
-  state.historyIndex = 0;
+  tabStates.set(tabId, {
+    isOpen: true,
+    isVisible: true,
+    url: normalizedUrl,
+  });
 }
 
 /**
- * Shows the browser webview
+ * Shows a specific tab's webview
  */
-export async function showBrowserWebview(): Promise<void> {
-  if (!state.isOpen) return;
+export async function showBrowserWebview(tabId: string): Promise<void> {
+  const tabState = tabStates.get(tabId);
+  if (!tabState?.isOpen) return;
 
-  await invoke('browser_show');
-  state.isVisible = true;
+  await invoke('browser_show', { tabId });
+  tabState.isVisible = true;
 }
 
 /**
- * Hides the browser webview
+ * Hides a specific tab's webview
  */
-export async function hideBrowserWebview(): Promise<void> {
-  if (!state.isOpen) return;
+export async function hideBrowserWebview(tabId: string): Promise<void> {
+  const tabState = tabStates.get(tabId);
+  if (!tabState?.isOpen) return;
 
   try {
-    await invoke('browser_hide');
-    state.isVisible = false;
+    await invoke('browser_hide', { tabId });
+    tabState.isVisible = false;
   } catch (e) {
-    console.warn('[browserService] Error hiding webview:', e);
+    console.warn('[browserService] Error hiding webview for tab', tabId, ':', e);
   }
 }
 
 /**
- * Closes the browser webview completely
+ * Hides all webviews (used when browser panel closes or goes idle)
  */
-export async function closeBrowserWebview(): Promise<void> {
+export async function hideAllBrowserWebviews(): Promise<void> {
   try {
-    await invoke('browser_close');
+    await invoke('browser_hide_all');
+    for (const tabState of tabStates.values()) {
+      tabState.isVisible = false;
+    }
   } catch (e) {
-    console.warn('[browserService] Error closing webview:', e);
+    console.warn('[browserService] Error hiding all webviews:', e);
   }
-
-  state.isOpen = false;
-  state.isVisible = false;
-  state.url = '';
-  state.history = [];
-  state.historyIndex = -1;
 }
 
 /**
- * Navigates to a URL
+ * Closes a specific tab's webview
  */
-export async function navigateTo(url: string): Promise<void> {
+export async function closeBrowserWebview(tabId: string): Promise<void> {
+  try {
+    await invoke('browser_close', { tabId });
+  } catch (e) {
+    console.warn('[browserService] Error closing webview for tab', tabId, ':', e);
+  }
+
+  tabStates.delete(tabId);
+}
+
+/**
+ * Closes all browser webviews
+ */
+export async function closeAllBrowserWebviews(): Promise<void> {
+  try {
+    await invoke('browser_close_all');
+  } catch (e) {
+    console.warn('[browserService] Error closing all webviews:', e);
+  }
+
+  tabStates.clear();
+}
+
+/**
+ * Navigates to a URL in a specific tab
+ */
+export async function navigateTo(url: string, tabId: string): Promise<void> {
   const normalizedUrl = normalizeUrl(url);
 
-  console.log('[browserService] Navigating to:', normalizedUrl);
+  console.log('[browserService] Tab', tabId, 'navigating to:', normalizedUrl);
 
-  // Update history
-  state.history = state.history.slice(0, state.historyIndex + 1);
-  state.history.push(normalizedUrl);
-  state.historyIndex = state.history.length - 1;
-  state.url = normalizedUrl;
-
-  await invoke('browser_navigate', { url: normalizedUrl });
-}
-
-/**
- * Goes back in history
- */
-export async function goBack(): Promise<boolean> {
-  if (state.historyIndex <= 0) {
-    return false;
+  const tabState = tabStates.get(tabId);
+  if (tabState) {
+    tabState.url = normalizedUrl;
   }
 
-  state.historyIndex--;
-  state.url = state.history[state.historyIndex];
-
-  await invoke('browser_navigate', { url: state.url });
-  return true;
+  await invoke('browser_navigate', { url: normalizedUrl, tabId });
 }
 
 /**
- * Goes forward in history
+ * Refreshes current page in a specific tab
  */
-export async function goForward(): Promise<boolean> {
-  if (state.historyIndex >= state.history.length - 1) {
-    return false;
-  }
-
-  state.historyIndex++;
-  state.url = state.history[state.historyIndex];
-
-  await invoke('browser_navigate', { url: state.url });
-  return true;
-}
-
-/**
- * Refreshes current page
- */
-export async function refresh(): Promise<void> {
-  if (state.url) {
-    await invoke('browser_navigate', { url: state.url });
+export async function refresh(tabId: string): Promise<void> {
+  const tabState = tabStates.get(tabId);
+  if (tabState?.url) {
+    await invoke('browser_navigate', { url: tabState.url, tabId });
   }
 }
 
 /**
- * Updates webview position/size
+ * Updates webview position/size for a specific tab
  */
-export async function updatePosition(position: BrowserPosition): Promise<void> {
-  if (!state.isOpen) return;
+export async function updatePosition(position: BrowserPosition, tabId: string): Promise<void> {
+  const tabState = tabStates.get(tabId);
+  if (!tabState?.isOpen) return;
 
   try {
     const screenPos = await toScreenCoordinates(position);
-    await invoke('browser_set_position', { position: screenPos });
+    await invoke('browser_set_position', { position: screenPos, tabId });
   } catch (e) {
-    console.warn('[browserService] Error updating position:', e);
+    console.warn('[browserService] Error updating position for tab', tabId, ':', e);
   }
 }
 
 /**
- * Gets current state
+ * Checks if a tab's webview exists
  */
-export function getBrowserState() {
-  return {
-    isOpen: state.isOpen,
-    isVisible: state.isVisible,
-    url: state.url,
-    canGoBack: state.historyIndex > 0,
-    canGoForward: state.historyIndex < state.history.length - 1,
-  };
+export async function browserExists(tabId: string): Promise<boolean> {
+  return await invoke('browser_exists', { tabId });
+}
+
+/**
+ * Gets current state for a specific tab
+ */
+export function getTabState(tabId: string): TabState | undefined {
+  return tabStates.get(tabId);
+}
+
+/**
+ * Gets all tab states
+ */
+export function getAllTabStates(): Map<string, TabState> {
+  return new Map(tabStates);
+}
+
+/**
+ * Switches active tab by hiding previous and showing new
+ */
+export async function switchTab(fromTabId: string | null, toTabId: string): Promise<void> {
+  // Hide previous tab if exists
+  if (fromTabId && tabStates.has(fromTabId)) {
+    await hideBrowserWebview(fromTabId);
+  }
+
+  // Show new tab
+  if (tabStates.has(toTabId)) {
+    await showBrowserWebview(toTabId);
+  }
 }
