@@ -1,6 +1,8 @@
 mod pty;
+mod browser;
 
 use pty::PtyManager;
+use browser::BrowserState;
 use std::sync::Arc;
 use std::process::Command;
 use parking_lot::Mutex;
@@ -154,12 +156,14 @@ fn execute_command(cmd: String, cwd: String) -> Result<String, String> {
 pub fn run() {
     let pty_manager = Arc::new(Mutex::new(PtyManager::new()));
     let pty_manager_for_shutdown = pty_manager.clone();
+    let browser_state = Arc::new(Mutex::new(BrowserState::new()));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .manage(pty_manager)
+        .manage(browser_state)
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -176,6 +180,13 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_close,
+            browser::browser_create,
+            browser::browser_close,
+            browser::browser_navigate,
+            browser::browser_set_position,
+            browser::browser_show,
+            browser::browser_hide,
+            browser::browser_exists,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

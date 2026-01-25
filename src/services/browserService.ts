@@ -1,23 +1,22 @@
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi';
 
-interface BrowserWebviewState {
-  webview: WebviewWindow | null;
+interface BrowserState {
+  isOpen: boolean;
+  isVisible: boolean;
   url: string;
   history: string[];
   historyIndex: number;
-  lastPosition: BrowserPosition | null;
-  isVisible: boolean;
 }
 
-const state: BrowserWebviewState = {
-  webview: null,
+const state: BrowserState = {
+  isOpen: false,
+  isVisible: false,
   url: '',
   history: [],
   historyIndex: -1,
-  lastPosition: null,
-  isVisible: false,
 };
 
 export interface BrowserPosition {
@@ -27,118 +26,73 @@ export interface BrowserPosition {
   height: number;
 }
 
+// Listener for URL changes from Rust
+let urlChangeListener: UnlistenFn | null = null;
+let onUrlChangeCallback: ((url: string) => void) | null = null;
+
+/**
+ * Set callback for URL changes (called when user navigates inside webview)
+ */
+export function onUrlChange(callback: (url: string) => void): void {
+  onUrlChangeCallback = callback;
+}
+
+/**
+ * Setup the URL change listener
+ */
+async function setupUrlListener(): Promise<void> {
+  if (urlChangeListener) return;
+
+  urlChangeListener = await listen<{ url: string }>('browser-url-changed', (event) => {
+    const newUrl = event.payload.url;
+    console.log('[browserService] URL changed event:', newUrl);
+
+    // Update internal state
+    if (newUrl !== state.url) {
+      state.url = newUrl;
+      // Add to history
+      if (state.history[state.historyIndex] !== newUrl) {
+        state.history = state.history.slice(0, state.historyIndex + 1);
+        state.history.push(newUrl);
+        state.historyIndex = state.history.length - 1;
+      }
+      // Notify callback
+      if (onUrlChangeCallback) {
+        onUrlChangeCallback(newUrl);
+      }
+    }
+  });
+}
+
 /**
  * Converts viewport-relative coordinates to screen coordinates
  */
 async function toScreenCoordinates(position: BrowserPosition): Promise<BrowserPosition> {
   try {
     const mainWindow = getCurrentWindow();
-
-    // Get window position in logical coordinates
     const outerPos = await mainWindow.outerPosition();
     const innerPos = await mainWindow.innerPosition();
     const scaleFactor = await mainWindow.scaleFactor();
 
-    // outerPosition is in physical pixels, convert to logical
     const windowX = outerPos.x / scaleFactor;
     const windowY = outerPos.y / scaleFactor;
-
-    // Calculate title bar height from difference between outer and inner position
     const titleBarHeight = (innerPos.y - outerPos.y) / scaleFactor;
-
-    // Extra padding to ensure toolbar is not covered
     const extraPadding = 24;
 
-    const result = {
+    return {
       x: windowX + position.x,
       y: windowY + position.y + titleBarHeight + extraPadding,
       width: position.width,
       height: position.height - extraPadding,
     };
-
-    console.log('[browserService] toScreenCoordinates:', {
-      input: position,
-      windowPos: { x: windowX, y: windowY },
-      titleBarHeight,
-      scaleFactor,
-      result,
-    });
-
-    return result;
   } catch (e) {
-    console.warn('[browserService] Could not get window position, using relative:', e);
+    console.warn('[browserService] Could not get window position:', e);
     return position;
   }
 }
 
 /**
- * Internal: Creates or recreates the webview window
- */
-async function createWebviewWindow(url: string, position: BrowserPosition): Promise<WebviewWindow> {
-  // Close existing webview if any
-  if (state.webview) {
-    try {
-      await state.webview.close();
-    } catch (e) {
-      console.warn('[browserService] Error closing old webview:', e);
-    }
-    state.webview = null;
-  }
-
-  // Convert to screen coordinates
-  const screenPos = await toScreenCoordinates(position);
-
-  console.log('[browserService] Creating webview:', {
-    url,
-    viewportPos: position,
-    screenPos,
-  });
-
-  // Create new webview window as child of main window
-  // Note: We don't use 'parent' because child windows auto-hide on focus loss
-  const webview = new WebviewWindow('browser-webview', {
-    url,
-    // parent: 'main', // Removed - causes auto-hide on focus loss
-    x: Math.round(screenPos.x),
-    y: Math.round(screenPos.y),
-    width: Math.round(screenPos.width),
-    height: Math.round(screenPos.height),
-    decorations: false,
-    transparent: false,
-    resizable: false,
-    focus: false,
-    alwaysOnTop: true, // Keep on top to simulate embedded behavior
-    skipTaskbar: true,
-    visible: true,
-  });
-
-  // Wait for webview to be created
-  await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error('Webview creation timed out'));
-    }, 10000);
-
-    webview.once('tauri://created', () => {
-      clearTimeout(timeout);
-      console.log('[browserService] Webview created successfully');
-      resolve();
-    });
-    webview.once('tauri://error', (e) => {
-      clearTimeout(timeout);
-      console.error('[browserService] Webview creation error:', e);
-      reject(new Error(`Failed to create webview: ${JSON.stringify(e)}`));
-    });
-  });
-
-  state.webview = webview;
-  state.lastPosition = position;
-  state.isVisible = true;
-
-  return webview;
-}
-
-/**
- * Normalizes a URL (adds https:// if missing)
+ * Normalizes a URL
  */
 function normalizeUrl(url: string): string {
   if (!url) return 'https://google.com';
@@ -149,68 +103,53 @@ function normalizeUrl(url: string): string {
 }
 
 /**
- * Creates the browser webview with initial URL
+ * Creates the browser webview
  */
 export async function createBrowserWebview(
   url: string,
   position: BrowserPosition
-): Promise<WebviewWindow> {
+): Promise<void> {
   const normalizedUrl = normalizeUrl(url);
+  const screenPos = await toScreenCoordinates(position);
 
-  // Initialize history with this URL
+  console.log('[browserService] Creating webview:', { url: normalizedUrl, screenPos });
+
+  // Setup listener before creating webview
+  await setupUrlListener();
+
+  await invoke('browser_create', {
+    url: normalizedUrl,
+    position: screenPos,
+  });
+
+  state.isOpen = true;
+  state.isVisible = true;
   state.url = normalizedUrl;
   state.history = [normalizedUrl];
   state.historyIndex = 0;
-
-  return createWebviewWindow(normalizedUrl, position);
-}
-
-/**
- * Shows/hides the browser webview (toggle visibility)
- */
-export async function toggleBrowserVisibility(): Promise<boolean> {
-  if (!state.webview) return false;
-
-  try {
-    if (state.isVisible) {
-      await state.webview.hide();
-      state.isVisible = false;
-    } else {
-      await state.webview.show();
-      state.isVisible = true;
-    }
-    return state.isVisible;
-  } catch (e) {
-    console.warn('[browserService] Error toggling visibility:', e);
-    return state.isVisible;
-  }
-}
-
-/**
- * Hides the browser webview (keeps state)
- */
-export async function hideBrowserWebview(): Promise<void> {
-  if (state.webview && state.isVisible) {
-    try {
-      await state.webview.hide();
-      state.isVisible = false;
-    } catch (e) {
-      console.warn('[browserService] Error hiding webview:', e);
-    }
-  }
 }
 
 /**
  * Shows the browser webview
  */
 export async function showBrowserWebview(): Promise<void> {
-  if (state.webview && !state.isVisible) {
-    try {
-      await state.webview.show();
-      state.isVisible = true;
-    } catch (e) {
-      console.warn('[browserService] Error showing webview:', e);
-    }
+  if (!state.isOpen) return;
+
+  await invoke('browser_show');
+  state.isVisible = true;
+}
+
+/**
+ * Hides the browser webview
+ */
+export async function hideBrowserWebview(): Promise<void> {
+  if (!state.isOpen) return;
+
+  try {
+    await invoke('browser_hide');
+    state.isVisible = false;
+  } catch (e) {
+    console.warn('[browserService] Error hiding webview:', e);
   }
 }
 
@@ -218,20 +157,17 @@ export async function showBrowserWebview(): Promise<void> {
  * Closes the browser webview completely
  */
 export async function closeBrowserWebview(): Promise<void> {
-  if (state.webview) {
-    try {
-      await state.webview.close();
-    } catch (e) {
-      console.warn('[browserService] Error closing webview:', e);
-    }
-    state.webview = null;
+  try {
+    await invoke('browser_close');
+  } catch (e) {
+    console.warn('[browserService] Error closing webview:', e);
   }
-  // Reset state
+
+  state.isOpen = false;
+  state.isVisible = false;
   state.url = '';
   state.history = [];
   state.historyIndex = -1;
-  state.lastPosition = null;
-  state.isVisible = false;
 }
 
 /**
@@ -242,18 +178,13 @@ export async function navigateTo(url: string): Promise<void> {
 
   console.log('[browserService] Navigating to:', normalizedUrl);
 
-  // Update history - trim forward history and add new URL
+  // Update history
   state.history = state.history.slice(0, state.historyIndex + 1);
   state.history.push(normalizedUrl);
   state.historyIndex = state.history.length - 1;
   state.url = normalizedUrl;
 
-  // Recreate webview with new URL (Tauri doesn't have navigate API)
-  if (state.lastPosition) {
-    await createWebviewWindow(normalizedUrl, state.lastPosition);
-  } else {
-    console.warn('[browserService] No position available for navigation');
-  }
+  await invoke('browser_navigate', { url: normalizedUrl });
 }
 
 /**
@@ -261,19 +192,13 @@ export async function navigateTo(url: string): Promise<void> {
  */
 export async function goBack(): Promise<boolean> {
   if (state.historyIndex <= 0) {
-    console.log('[browserService] Cannot go back, at start of history');
     return false;
   }
 
   state.historyIndex--;
   state.url = state.history[state.historyIndex];
 
-  console.log('[browserService] Going back to:', state.url);
-
-  if (state.lastPosition) {
-    await createWebviewWindow(state.url, state.lastPosition);
-  }
-
+  await invoke('browser_navigate', { url: state.url });
   return true;
 }
 
@@ -282,19 +207,13 @@ export async function goBack(): Promise<boolean> {
  */
 export async function goForward(): Promise<boolean> {
   if (state.historyIndex >= state.history.length - 1) {
-    console.log('[browserService] Cannot go forward, at end of history');
     return false;
   }
 
   state.historyIndex++;
   state.url = state.history[state.historyIndex];
 
-  console.log('[browserService] Going forward to:', state.url);
-
-  if (state.lastPosition) {
-    await createWebviewWindow(state.url, state.lastPosition);
-  }
-
+  await invoke('browser_navigate', { url: state.url });
   return true;
 }
 
@@ -302,10 +221,8 @@ export async function goForward(): Promise<boolean> {
  * Refreshes current page
  */
 export async function refresh(): Promise<void> {
-  console.log('[browserService] Refreshing:', state.url);
-
-  if (state.lastPosition && state.url) {
-    await createWebviewWindow(state.url, state.lastPosition);
+  if (state.url) {
+    await invoke('browser_navigate', { url: state.url });
   }
 }
 
@@ -313,22 +230,11 @@ export async function refresh(): Promise<void> {
  * Updates webview position/size
  */
 export async function updatePosition(position: BrowserPosition): Promise<void> {
-  state.lastPosition = position;
-
-  if (!state.webview) return;
+  if (!state.isOpen) return;
 
   try {
     const screenPos = await toScreenCoordinates(position);
-
-    // Use LogicalPosition/LogicalSize for consistency
-    const { LogicalPosition, LogicalSize } = await import('@tauri-apps/api/dpi');
-
-    await state.webview.setPosition(
-      new LogicalPosition(Math.round(screenPos.x), Math.round(screenPos.y))
-    );
-    await state.webview.setSize(
-      new LogicalSize(Math.round(screenPos.width), Math.round(screenPos.height))
-    );
+    await invoke('browser_set_position', { position: screenPos });
   } catch (e) {
     console.warn('[browserService] Error updating position:', e);
   }
@@ -339,27 +245,10 @@ export async function updatePosition(position: BrowserPosition): Promise<void> {
  */
 export function getBrowserState() {
   return {
-    isOpen: state.webview !== null,
+    isOpen: state.isOpen,
     isVisible: state.isVisible,
     url: state.url,
     canGoBack: state.historyIndex > 0,
     canGoForward: state.historyIndex < state.history.length - 1,
   };
-}
-
-// Note: Tauri's WebviewWindow doesn't expose a method to get the current URL
-// after internal navigation. The URL bar only reflects navigation done via our controls.
-
-/**
- * Gets the webview instance
- */
-export function getWebview(): WebviewWindow | null {
-  return state.webview;
-}
-
-/**
- * Check if webview exists and is visible
- */
-export function isBrowserVisible(): boolean {
-  return state.webview !== null && state.isVisible;
 }
