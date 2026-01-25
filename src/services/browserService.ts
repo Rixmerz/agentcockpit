@@ -349,13 +349,16 @@ export function getBrowserState() {
 
 /**
  * Gets the current URL from the webview (async)
- * This is useful to detect navigation that happened inside the webview
+ * Note: WebviewWindow.url() may only return the initial URL, not the current one after navigation
+ * This is a limitation of Tauri's WebviewWindow API
  */
 export async function getCurrentUrl(): Promise<string | null> {
   if (!state.webview) return null;
 
   try {
     const currentUrl = await state.webview.url();
+    console.log('[browserService] Polled URL:', currentUrl, 'State URL:', state.url);
+
     // Update internal state if URL changed
     if (currentUrl && currentUrl !== state.url) {
       console.log('[browserService] URL changed:', state.url, '->', currentUrl);
