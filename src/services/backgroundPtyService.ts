@@ -62,7 +62,7 @@ class BackgroundPtyService {
     const rows = 24;
 
     try {
-      const ptyId = await ptySpawn('/bin/zsh', projectPath, cols, rows);
+      const ptyId = await ptySpawn('default', projectPath, cols, rows);
       console.log(`[BackgroundPTY] Spawned for ${projectPath} (ID: ${ptyId})`);
 
       // No output listeners needed - completely invisible
