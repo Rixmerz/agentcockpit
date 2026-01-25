@@ -284,7 +284,12 @@ pub async fn browser_create(
     // Create webview builder with navigation and page load handlers
     let app_handle = app.clone();
     let tab_id_for_nav = tab_id.clone();
+
+    // Use Safari User-Agent so sites like WhatsApp Web work correctly
+    let safari_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+
     let webview_builder = WebviewBuilder::new(&label, webview_url)
+        .user_agent(safari_user_agent)
         .on_navigation(move |url| {
             let url_string = url.to_string();
 
