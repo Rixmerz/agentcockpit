@@ -9,6 +9,7 @@ import { homeDir } from '@tauri-apps/api/path';
 import type { AgentPlugin } from '../../plugins/types/plugin';
 import manifest from './manifest.json';
 import { GeminiLauncher } from './components/GeminiLauncher';
+import { GeminiMcpPanel } from './components/GeminiMcpPanel';
 import { buildGeminiCommand } from './services/geminiService';
 
 // ==================== Gemini Plugin ====================
@@ -18,6 +19,7 @@ export const geminiPlugin: AgentPlugin = {
 
   // React Components
   Launcher: GeminiLauncher,
+  McpPanel: GeminiMcpPanel,
 
   // Services
   buildCommand: buildGeminiCommand,
@@ -93,4 +95,5 @@ export const geminiPlugin: AgentPlugin = {
 
 // Re-export components for direct usage
 export { GeminiLauncher } from './components/GeminiLauncher';
+export { GeminiMcpPanel } from './components/GeminiMcpPanel';
 export { buildGeminiCommand } from './services/geminiService';
