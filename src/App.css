@@ -70,9 +70,10 @@
 /* Terminal Header - Prominent with glow accent */
 .terminal-header {
   height: var(--header-height);
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
+  gap: 16px;
   padding: 0 20px;
   background: linear-gradient(90deg, rgba(0, 212, 170, 0.05) 0%, rgba(168, 85, 247, 0.03) 100%);
   backdrop-filter: blur(16px);
@@ -80,6 +81,14 @@
   border-bottom: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   position: relative;
+}
+
+.terminal-header-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Subtle glow line under terminal header */
@@ -436,6 +445,100 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Media Control Bar */
+.media-control-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  max-width: 400px;
+}
+
+.media-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.media-btn:hover {
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
+}
+
+.media-btn-play {
+  width: 32px;
+  height: 32px;
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent);
+}
+
+.media-btn-play:hover {
+  background: rgba(var(--accent-rgb), 0.25);
+  transform: scale(1.05);
+}
+
+.media-title-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.media-platform-badge {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 0, 0, 0.15);
+  color: #ff4444;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.media-title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.media-title.marquee {
+  display: flex;
+  gap: 40px;
+  animation: marquee 15s linear infinite;
+  text-overflow: unset;
+}
+
+.media-title.marquee span {
+  flex-shrink: 0;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(-50% - 20px));
+  }
 }
 
 /* Open in IDE Button - Cyber Style */

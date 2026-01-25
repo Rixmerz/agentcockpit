@@ -1,4 +1,5 @@
 import { ExternalLink, Globe } from 'lucide-react';
+import { MediaControlBar } from './MediaControlBar';
 
 interface TerminalHeaderProps {
   name: string;
@@ -8,6 +9,8 @@ interface TerminalHeaderProps {
   selectedIDE?: string | null;
   onBrowserToggle?: () => void;
   isBrowserOpen?: boolean;
+  showMediaControls?: boolean;
+  onMediaTabFocus?: (tabId: string) => void;
 }
 
 export function TerminalHeader({
@@ -17,7 +20,9 @@ export function TerminalHeader({
   onOpenInIDE,
   selectedIDE,
   onBrowserToggle,
-  isBrowserOpen
+  isBrowserOpen,
+  showMediaControls = true,
+  onMediaTabFocus
 }: TerminalHeaderProps) {
   return (
     <div className="terminal-header">
@@ -26,6 +31,12 @@ export function TerminalHeader({
           <span className="project-badge">{projectName}</span>
         )}
         <span className="terminal-name">{name}</span>
+      </div>
+
+      <div className="terminal-header-center">
+        {showMediaControls && (
+          <MediaControlBar onTabFocus={onMediaTabFocus} />
+        )}
       </div>
 
       <div className="terminal-header-actions">
