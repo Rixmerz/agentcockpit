@@ -46,11 +46,14 @@ async function toScreenCoordinates(position: BrowserPosition): Promise<BrowserPo
     // Calculate title bar height from difference between outer and inner position
     const titleBarHeight = (innerPos.y - outerPos.y) / scaleFactor;
 
+    // Extra padding to ensure toolbar is not covered
+    const extraPadding = 4;
+
     const result = {
       x: windowX + position.x,
-      y: windowY + position.y + titleBarHeight,
+      y: windowY + position.y + titleBarHeight + extraPadding,
       width: position.width,
-      height: position.height,
+      height: position.height - extraPadding,
     };
 
     console.log('[browserService] toScreenCoordinates:', {
