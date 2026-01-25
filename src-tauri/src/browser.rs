@@ -39,6 +39,28 @@ pub struct UrlChangedPayload {
     pub tab_id: String,
 }
 
+/// Media state reported from webview
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct MediaStateReport {
+    pub tab_id: String,
+    pub platform: String,  // "youtube" | "youtube-music" | "unknown"
+    pub title: String,
+    pub is_playing: bool,
+    pub duration: f64,
+    pub current_time: f64,
+}
+
+/// Event payload for media state changes
+#[derive(Clone, serde::Serialize)]
+pub struct MediaStatePayload {
+    pub tab_id: String,
+    pub platform: String,
+    pub title: String,
+    pub is_playing: bool,
+    pub duration: f64,
+    pub current_time: f64,
+}
+
 /// Create a browser webview for a specific tab
 #[tauri::command]
 pub async fn browser_create(
@@ -112,6 +134,131 @@ pub async fn browser_create(
         }})();
     "#, tab_id_for_script);
 
+    // JavaScript to inject for media detection (YouTube / YouTube Music)
+    let tab_id_for_media = tab_id.clone();
+    let media_tracker_script = format!(r#"
+        (function() {{
+            if (window.__mediaTrackerInstalled) return;
+            window.__mediaTrackerInstalled = true;
+
+            const tabId = "{}";
+            let lastState = null;
+
+            function detectPlatform() {{
+                const host = window.location.hostname;
+                if (host.includes('music.youtube.com')) return 'youtube-music';
+                if (host.includes('youtube.com')) return 'youtube';
+                return 'unknown';
+            }}
+
+            function getMediaTitle() {{
+                const platform = detectPlatform();
+                if (platform === 'youtube-music') {{
+                    // YouTube Music: title is in specific elements
+                    const titleEl = document.querySelector('.title.ytmusic-player-bar');
+                    if (titleEl) return titleEl.textContent.trim();
+                }}
+                if (platform === 'youtube') {{
+                    // YouTube: try ytInitialPlayerResponse first, then DOM
+                    try {{
+                        if (window.ytInitialPlayerResponse?.videoDetails?.title) {{
+                            return window.ytInitialPlayerResponse.videoDetails.title;
+                        }}
+                    }} catch(e) {{}}
+                    // Fallback to DOM
+                    const titleEl = document.querySelector('h1.ytd-video-primary-info-renderer, h1.ytd-watch-metadata');
+                    if (titleEl) return titleEl.textContent.trim();
+                    // Try meta tag
+                    const metaTitle = document.querySelector('meta[name="title"]');
+                    if (metaTitle) return metaTitle.getAttribute('content');
+                }}
+                return document.title || '';
+            }}
+
+            function reportMediaState() {{
+                const platform = detectPlatform();
+                if (platform === 'unknown') return;
+
+                const video = document.querySelector('video');
+                if (!video) return;
+
+                const title = getMediaTitle();
+                const isPlaying = !video.paused && !video.ended && video.readyState > 2;
+                const duration = video.duration || 0;
+                const currentTime = video.currentTime || 0;
+
+                // Only report if state changed or periodically when playing
+                const stateKey = `${{title}}-${{isPlaying}}-${{Math.floor(currentTime)}}`;
+                if (stateKey === lastState && !isPlaying) return;
+                lastState = stateKey;
+
+                try {{
+                    window.__TAURI_INTERNALS__.invoke('media_state_report', {{
+                        report: {{
+                            tab_id: tabId,
+                            platform: platform,
+                            title: title,
+                            is_playing: isPlaying,
+                            duration: duration,
+                            current_time: currentTime
+                        }}
+                    }});
+                }} catch(e) {{}}
+            }}
+
+            // Command executor for play/pause/next/prev
+            window.__executeMediaCommand = function(cmd) {{
+                const video = document.querySelector('video');
+                if (!video) return;
+
+                const platform = detectPlatform();
+
+                switch(cmd) {{
+                    case 'play':
+                        video.play();
+                        break;
+                    case 'pause':
+                        video.pause();
+                        break;
+                    case 'toggle':
+                        if (video.paused) video.play();
+                        else video.pause();
+                        break;
+                    case 'next':
+                        // YouTube uses Shift+N for next
+                        if (platform === 'youtube' || platform === 'youtube-music') {{
+                            document.dispatchEvent(new KeyboardEvent('keydown', {{
+                                key: 'N', code: 'KeyN', shiftKey: true, bubbles: true
+                            }}));
+                        }}
+                        break;
+                    case 'prev':
+                        // YouTube uses Shift+P for previous
+                        if (platform === 'youtube' || platform === 'youtube-music') {{
+                            document.dispatchEvent(new KeyboardEvent('keydown', {{
+                                key: 'P', code: 'KeyP', shiftKey: true, bubbles: true
+                            }}));
+                        }}
+                        break;
+                }}
+            }};
+
+            // Report media state every second
+            setInterval(reportMediaState, 1000);
+
+            // Also report when video events happen
+            document.addEventListener('play', reportMediaState, true);
+            document.addEventListener('pause', reportMediaState, true);
+            document.addEventListener('ended', reportMediaState, true);
+
+            // Initial report after page load
+            setTimeout(reportMediaState, 1500);
+        }})();
+    "#, tab_id_for_media);
+
+    // Combine both scripts
+    let combined_script = format!("{}\n{}", url_tracker_script, media_tracker_script);
+
     // Create webview builder with navigation and page load handlers
     let app_handle = app.clone();
     let tab_id_for_nav = tab_id.clone();
@@ -135,7 +282,7 @@ pub async fn browser_create(
             });
             true // Allow navigation
         })
-        .initialization_script(&url_tracker_script);
+        .initialization_script(&combined_script);
 
     // Add webview to main window
     let _webview = main_window
@@ -331,4 +478,48 @@ pub fn browser_url_report(
     log::info!("[Browser] Tab {} SPA URL change: {}", tab_id, url);
     app.emit("browser-url-changed", UrlChangedPayload { url, tab_id })
         .map_err(|e| format!("Failed to emit URL change: {}", e))
+}
+
+/// Receive media state report from injected JavaScript
+#[tauri::command]
+pub fn media_state_report(
+    app: AppHandle,
+    report: MediaStateReport,
+) -> Result<(), String> {
+    log::debug!("[Browser] Media state for tab {}: {} - playing: {}",
+        report.tab_id, report.title, report.is_playing);
+
+    app.emit("media-state-changed", MediaStatePayload {
+        tab_id: report.tab_id,
+        platform: report.platform,
+        title: report.title,
+        is_playing: report.is_playing,
+        duration: report.duration,
+        current_time: report.current_time,
+    }).map_err(|e| format!("Failed to emit media state: {}", e))
+}
+
+/// Send media command to webview (play, pause, next, prev)
+#[tauri::command]
+pub async fn media_send_command(
+    app: AppHandle,
+    state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
+    tab_id: String,
+    command: String,
+) -> Result<(), String> {
+    let browser_state = state.lock();
+
+    if let Some(label) = browser_state.webviews.get(&tab_id) {
+        if let Some(webview) = app.get_webview(label) {
+            let js_command = format!(
+                r#"if (window.__executeMediaCommand) {{ window.__executeMediaCommand('{}'); }}"#,
+                command
+            );
+            webview.eval(&js_command)
+                .map_err(|e| format!("Failed to execute media command: {}", e))?;
+            log::info!("[Browser] Sent media command '{}' to tab {}", command, tab_id);
+        }
+    }
+
+    Ok(())
 }

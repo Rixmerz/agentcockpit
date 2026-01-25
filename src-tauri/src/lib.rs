@@ -191,6 +191,8 @@ pub fn run() {
             browser::browser_exists,
             browser::browser_get_tabs,
             browser::browser_url_report,
+            browser::media_state_report,
+            browser::media_send_command,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
