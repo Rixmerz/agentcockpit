@@ -1,19 +1,24 @@
 use parking_lot::Mutex;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{
     AppHandle, Emitter, Manager, WebviewBuilder, WebviewUrl,
     LogicalPosition, LogicalSize,
 };
 
-/// Browser webview state
+/// Browser webview state - supports multiple tabs
 pub struct BrowserState {
-    webview_label: Option<String>,
+    /// Map of tab_id -> webview label
+    webviews: HashMap<String, String>,
+    /// Currently active tab
+    active_tab: Option<String>,
 }
 
 impl BrowserState {
     pub fn new() -> Self {
         Self {
-            webview_label: None,
+            webviews: HashMap::new(),
+            active_tab: None,
         }
     }
 }
@@ -31,6 +36,7 @@ pub struct BrowserPosition {
 #[derive(Clone, serde::Serialize)]
 pub struct UrlChangedPayload {
     pub url: String,
+    pub tab_id: String,
 }
 
 /// Create the browser webview
