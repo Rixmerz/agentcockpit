@@ -225,19 +225,41 @@ pub async fn browser_create(
                         else video.pause();
                         break;
                     case 'next':
-                        // YouTube uses Shift+N for next
                         if (platform === 'youtube' || platform === 'youtube-music') {{
-                            document.dispatchEvent(new KeyboardEvent('keydown', {{
-                                key: 'N', code: 'KeyN', shiftKey: true, bubbles: true
-                            }}));
+                            // Try clicking the next button directly
+                            const nextBtn = document.querySelector('.ytp-next-button') ||
+                                           document.querySelector('[aria-label*="Next"]') ||
+                                           document.querySelector('button[data-tooltip-target-id="next"]');
+                            if (nextBtn) {{
+                                nextBtn.click();
+                            }} else {{
+                                // Fallback: dispatch keydown to the player element
+                                const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
+                                if (player) {{
+                                    player.dispatchEvent(new KeyboardEvent('keydown', {{
+                                        key: 'N', code: 'KeyN', shiftKey: true, bubbles: true, keyCode: 78
+                                    }}));
+                                }}
+                            }}
                         }}
                         break;
                     case 'prev':
-                        // YouTube uses Shift+P for previous
                         if (platform === 'youtube' || platform === 'youtube-music') {{
-                            document.dispatchEvent(new KeyboardEvent('keydown', {{
-                                key: 'P', code: 'KeyP', shiftKey: true, bubbles: true
-                            }}));
+                            // Try clicking the prev button directly
+                            const prevBtn = document.querySelector('.ytp-prev-button') ||
+                                           document.querySelector('[aria-label*="Previous"]') ||
+                                           document.querySelector('button[data-tooltip-target-id="previous"]');
+                            if (prevBtn) {{
+                                prevBtn.click();
+                            }} else {{
+                                // Fallback: dispatch keydown to the player element
+                                const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
+                                if (player) {{
+                                    player.dispatchEvent(new KeyboardEvent('keydown', {{
+                                        key: 'P', code: 'KeyP', shiftKey: true, bubbles: true, keyCode: 80
+                                    }}));
+                                }}
+                            }}
                         }}
                         break;
                 }}
