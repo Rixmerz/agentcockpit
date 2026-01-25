@@ -33,23 +33,35 @@ export interface BrowserPosition {
 async function toScreenCoordinates(position: BrowserPosition): Promise<BrowserPosition> {
   try {
     const mainWindow = getCurrentWindow();
-    const windowPos = await mainWindow.outerPosition();
+
+    // Get window position in logical coordinates
+    const outerPos = await mainWindow.outerPosition();
+    const innerPos = await mainWindow.innerPosition();
     const scaleFactor = await mainWindow.scaleFactor();
 
-    // Window position is in physical pixels, convert to logical
-    const windowX = windowPos.x / scaleFactor;
-    const windowY = windowPos.y / scaleFactor;
+    // outerPosition is in physical pixels, convert to logical
+    const windowX = outerPos.x / scaleFactor;
+    const windowY = outerPos.y / scaleFactor;
 
-    // Add window position to get screen coordinates
-    // Also account for title bar height (approximately 28px on macOS)
-    const titleBarHeight = 28;
+    // Calculate title bar height from difference between outer and inner position
+    const titleBarHeight = (innerPos.y - outerPos.y) / scaleFactor;
 
-    return {
+    const result = {
       x: windowX + position.x,
       y: windowY + position.y + titleBarHeight,
       width: position.width,
       height: position.height,
     };
+
+    console.log('[browserService] toScreenCoordinates:', {
+      input: position,
+      windowPos: { x: windowX, y: windowY },
+      titleBarHeight,
+      scaleFactor,
+      result,
+    });
+
+    return result;
   } catch (e) {
     console.warn('[browserService] Could not get window position, using relative:', e);
     return position;
@@ -303,11 +315,15 @@ export async function updatePosition(position: BrowserPosition): Promise<void> {
 
   try {
     const screenPos = await toScreenCoordinates(position);
+
+    // Use LogicalPosition/LogicalSize for consistency
+    const { LogicalPosition, LogicalSize } = await import('@tauri-apps/api/dpi');
+
     await state.webview.setPosition(
-      new PhysicalPosition(Math.round(screenPos.x), Math.round(screenPos.y))
+      new LogicalPosition(Math.round(screenPos.x), Math.round(screenPos.y))
     );
     await state.webview.setSize(
-      new PhysicalSize(Math.round(screenPos.width), Math.round(screenPos.height))
+      new LogicalSize(Math.round(screenPos.width), Math.round(screenPos.height))
     );
   } catch (e) {
     console.warn('[browserService] Error updating position:', e);
