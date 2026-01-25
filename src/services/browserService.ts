@@ -9,6 +9,17 @@ interface TabState {
   url: string;
 }
 
+export interface MediaState {
+  tabId: string;
+  platform: 'youtube' | 'youtube-music' | 'unknown';
+  title: string;
+  isPlaying: boolean;
+  duration: number;
+  currentTime: number;
+}
+
+export type MediaCommand = 'play' | 'pause' | 'toggle' | 'next' | 'prev';
+
 // Track state per tab
 const tabStates: Map<string, TabState> = new Map();
 
@@ -113,8 +124,9 @@ export async function createBrowserWebview(
 
   console.log('[browserService] Creating webview for tab', tabId, ':', { url: normalizedUrl, screenPos });
 
-  // Setup listener before creating webview
+  // Setup listeners before creating webview
   await setupUrlListener();
+  await setupMediaListener();
 
   await invoke('browser_create', {
     url: normalizedUrl,
@@ -270,4 +282,65 @@ export async function switchTab(fromTabId: string | null, toTabId: string): Prom
   if (tabStates.has(toTabId)) {
     await showBrowserWebview(toTabId);
   }
+}
+
+// ========== MEDIA CONTROL ==========
+
+// Listener for media state changes
+let mediaStateListener: UnlistenFn | null = null;
+let onMediaStateCallback: ((state: MediaState) => void) | null = null;
+
+/**
+ * Set callback for media state changes
+ */
+export function onMediaStateChange(callback: (state: MediaState) => void): void {
+  onMediaStateCallback = callback;
+}
+
+/**
+ * Setup the media state listener
+ */
+export async function setupMediaListener(): Promise<void> {
+  if (mediaStateListener) return;
+
+  mediaStateListener = await listen<{
+    tab_id: string;
+    platform: string;
+    title: string;
+    is_playing: boolean;
+    duration: number;
+    current_time: number;
+  }>('media-state-changed', (event) => {
+    const { tab_id, platform, title, is_playing, duration, current_time } = event.payload;
+
+    if (onMediaStateCallback) {
+      onMediaStateCallback({
+        tabId: tab_id,
+        platform: platform as MediaState['platform'],
+        title,
+        isPlaying: is_playing,
+        duration,
+        currentTime: current_time,
+      });
+    }
+  });
+}
+
+/**
+ * Send a media command to a specific tab
+ */
+export async function sendMediaCommand(tabId: string, command: MediaCommand): Promise<void> {
+  console.log('[browserService] Sending media command:', command, 'to tab:', tabId);
+  await invoke('media_send_command', { tabId, command });
+}
+
+/**
+ * Cleanup media listener
+ */
+export function cleanupMediaListener(): void {
+  if (mediaStateListener) {
+    mediaStateListener();
+    mediaStateListener = null;
+  }
+  onMediaStateCallback = null;
 }
