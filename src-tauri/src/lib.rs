@@ -182,11 +182,14 @@ pub fn run() {
             pty::pty_close,
             browser::browser_create,
             browser::browser_close,
+            browser::browser_close_all,
             browser::browser_navigate,
             browser::browser_set_position,
             browser::browser_show,
             browser::browser_hide,
+            browser::browser_hide_all,
             browser::browser_exists,
+            browser::browser_get_tabs,
             browser::browser_url_report,
         ])
         .build(tauri::generate_context!())
