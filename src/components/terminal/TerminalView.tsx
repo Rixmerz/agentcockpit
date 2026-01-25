@@ -137,7 +137,7 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
     fitAddon.fit();
     const { cols, rows } = terminal;
 
-    spawn('/bin/zsh', workingDir, cols, rows)
+    spawn('default', workingDir, cols, rows)
       .then((ptyId) => {
         console.log(`PTY ${ptyId} spawned at ${cols}x${rows}`);
         registerPtyId(terminalId, ptyId);
