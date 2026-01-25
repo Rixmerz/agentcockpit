@@ -39,79 +39,83 @@ pub struct UrlChangedPayload {
     pub tab_id: String,
 }
 
-/// Create the browser webview
+/// Create a browser webview for a specific tab
 #[tauri::command]
 pub async fn browser_create(
     app: AppHandle,
     state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
     url: String,
     position: BrowserPosition,
+    tab_id: String,
 ) -> Result<(), String> {
     let mut browser_state = state.lock();
 
-    // Close existing webview if any
-    if let Some(label) = &browser_state.webview_label {
-        if let Some(webview) = app.get_webview(label) {
-            let _ = webview.close();
+    // Check if webview already exists for this tab
+    if let Some(label) = browser_state.webviews.get(&tab_id) {
+        if app.get_webview(label).is_some() {
+            log::info!("[Browser] Webview already exists for tab {}", tab_id);
+            return Ok(());
         }
-        browser_state.webview_label = None;
     }
 
-    let label = "browser-webview";
+    let label = format!("browser-{}", tab_id);
     let main_window = app.get_window("main").ok_or("Main window not found")?;
 
     // Parse URL
     let webview_url = WebviewUrl::External(url.parse().map_err(|e| format!("Invalid URL: {}", e))?);
 
     // JavaScript to inject for SPA URL tracking (with polling fallback for complex SPAs)
-    let url_tracker_script = r#"
-        (function() {
+    // Include tab_id in the report
+    let tab_id_for_script = tab_id.clone();
+    let url_tracker_script = format!(r#"
+        (function() {{
             if (window.__urlTrackerInstalled) return;
             window.__urlTrackerInstalled = true;
 
+            const tabId = "{}";
             let lastUrl = '';
 
-            function reportUrl() {
+            function reportUrl() {{
                 const url = window.location.href;
-                if (url && url !== lastUrl && !url.startsWith('about:') && !url.startsWith('blob:')) {
+                if (url && url !== lastUrl && !url.startsWith('about:') && !url.startsWith('blob:')) {{
                     lastUrl = url;
-                    try {
-                        window.__TAURI_INTERNALS__.invoke('browser_url_report', { url: url });
-                    } catch(e) {}
-                }
-            }
+                    try {{
+                        window.__TAURI_INTERNALS__.invoke('browser_url_report', {{ url: url, tabId: tabId }});
+                    }} catch(e) {{}}
+                }}
+            }}
 
             // Override pushState
             const originalPushState = history.pushState;
-            history.pushState = function() {
+            history.pushState = function() {{
                 originalPushState.apply(this, arguments);
                 setTimeout(reportUrl, 50);
-            };
+            }};
 
             // Override replaceState
             const originalReplaceState = history.replaceState;
-            history.replaceState = function() {
+            history.replaceState = function() {{
                 originalReplaceState.apply(this, arguments);
                 setTimeout(reportUrl, 50);
-            };
+            }};
 
             // Listen for popstate (back/forward)
-            window.addEventListener('popstate', function() {
+            window.addEventListener('popstate', function() {{
                 setTimeout(reportUrl, 50);
-            });
+            }});
 
             // Polling fallback for complex SPAs (YouTube, etc.)
             setInterval(reportUrl, 500);
 
             // Report initial URL
             setTimeout(reportUrl, 100);
-        })();
-    "#;
+        }})();
+    "#, tab_id_for_script);
 
     // Create webview builder with navigation and page load handlers
     let app_handle = app.clone();
-    let script = url_tracker_script.to_string();
-    let webview_builder = WebviewBuilder::new(label, webview_url)
+    let tab_id_for_nav = tab_id.clone();
+    let webview_builder = WebviewBuilder::new(&label, webview_url)
         .on_navigation(move |url| {
             let url_string = url.to_string();
 
@@ -124,11 +128,14 @@ pub async fn browser_create(
             }
 
             // Emit event to frontend for real URL changes
-            log::info!("[Browser] Navigation to: {}", url_string);
-            let _ = app_handle.emit("browser-url-changed", UrlChangedPayload { url: url_string });
+            log::info!("[Browser] Tab {} navigation to: {}", tab_id_for_nav, url_string);
+            let _ = app_handle.emit("browser-url-changed", UrlChangedPayload {
+                url: url_string,
+                tab_id: tab_id_for_nav.clone()
+            });
             true // Allow navigation
         })
-        .initialization_script(&script);
+        .initialization_script(&url_tracker_script);
 
     // Add webview to main window
     let _webview = main_window
@@ -139,63 +146,88 @@ pub async fn browser_create(
         )
         .map_err(|e| format!("Failed to create webview: {}", e))?;
 
-    log::info!("[Browser] Created webview at ({}, {}) size {}x{}",
-        position.x, position.y, position.width, position.height);
+    log::info!("[Browser] Created webview for tab {} at ({}, {}) size {}x{}",
+        tab_id, position.x, position.y, position.width, position.height);
 
-    browser_state.webview_label = Some(label.to_string());
+    browser_state.webviews.insert(tab_id.clone(), label);
+    browser_state.active_tab = Some(tab_id);
 
     Ok(())
 }
 
-/// Close the browser webview
+/// Close a specific tab's webview
 #[tauri::command]
 pub async fn browser_close(
+    app: AppHandle,
+    state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
+    tab_id: String,
+) -> Result<(), String> {
+    let mut browser_state = state.lock();
+
+    if let Some(label) = browser_state.webviews.remove(&tab_id) {
+        if let Some(webview) = app.get_webview(&label) {
+            webview.close().map_err(|e| format!("Failed to close webview: {}", e))?;
+            log::info!("[Browser] Closed webview for tab {}", tab_id);
+        }
+        if browser_state.active_tab.as_ref() == Some(&tab_id) {
+            browser_state.active_tab = None;
+        }
+    }
+
+    Ok(())
+}
+
+/// Close all browser webviews
+#[tauri::command]
+pub async fn browser_close_all(
     app: AppHandle,
     state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
 ) -> Result<(), String> {
     let mut browser_state = state.lock();
 
-    if let Some(label) = &browser_state.webview_label {
-        if let Some(webview) = app.get_webview(label) {
-            webview.close().map_err(|e| format!("Failed to close webview: {}", e))?;
-            log::info!("[Browser] Closed webview");
+    for (tab_id, label) in browser_state.webviews.drain() {
+        if let Some(webview) = app.get_webview(&label) {
+            let _ = webview.close();
+            log::info!("[Browser] Closed webview for tab {}", tab_id);
         }
-        browser_state.webview_label = None;
     }
+    browser_state.active_tab = None;
 
     Ok(())
 }
 
-/// Navigate to a URL
+/// Navigate to a URL in a specific tab
 #[tauri::command]
 pub async fn browser_navigate(
     app: AppHandle,
     state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
     url: String,
+    tab_id: String,
 ) -> Result<(), String> {
     let browser_state = state.lock();
 
-    if let Some(label) = &browser_state.webview_label {
+    if let Some(label) = browser_state.webviews.get(&tab_id) {
         if let Some(webview) = app.get_webview(label) {
             let parsed_url: tauri::Url = url.parse().map_err(|e| format!("Invalid URL: {}", e))?;
             webview.navigate(parsed_url).map_err(|e| format!("Failed to navigate: {}", e))?;
-            log::info!("[Browser] Navigating to: {}", url);
+            log::info!("[Browser] Tab {} navigating to: {}", tab_id, url);
         }
     }
 
     Ok(())
 }
 
-/// Update webview position and size
+/// Update webview position and size for a specific tab
 #[tauri::command]
 pub async fn browser_set_position(
     app: AppHandle,
     state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
     position: BrowserPosition,
+    tab_id: String,
 ) -> Result<(), String> {
     let browser_state = state.lock();
 
-    if let Some(label) = &browser_state.webview_label {
+    if let Some(label) = browser_state.webviews.get(&tab_id) {
         if let Some(webview) = app.get_webview(label) {
             webview.set_position(LogicalPosition::new(position.x, position.y))
                 .map_err(|e| format!("Failed to set position: {}", e))?;
@@ -207,48 +239,78 @@ pub async fn browser_set_position(
     Ok(())
 }
 
-/// Show the browser webview
+/// Show a specific tab's webview
 #[tauri::command]
 pub async fn browser_show(
     app: AppHandle,
     state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
+    tab_id: String,
+) -> Result<(), String> {
+    let mut browser_state = state.lock();
+
+    if let Some(label) = browser_state.webviews.get(&tab_id) {
+        if let Some(webview) = app.get_webview(label) {
+            webview.show().map_err(|e| format!("Failed to show webview: {}", e))?;
+            log::info!("[Browser] Shown webview for tab {}", tab_id);
+        }
+    }
+    browser_state.active_tab = Some(tab_id);
+
+    Ok(())
+}
+
+/// Hide a specific tab's webview
+#[tauri::command]
+pub async fn browser_hide(
+    app: AppHandle,
+    state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
+    tab_id: String,
 ) -> Result<(), String> {
     let browser_state = state.lock();
 
-    if let Some(label) = &browser_state.webview_label {
+    if let Some(label) = browser_state.webviews.get(&tab_id) {
         if let Some(webview) = app.get_webview(label) {
-            webview.show().map_err(|e| format!("Failed to show webview: {}", e))?;
-            log::info!("[Browser] Shown webview");
+            webview.hide().map_err(|e| format!("Failed to hide webview: {}", e))?;
+            log::info!("[Browser] Hidden webview for tab {}", tab_id);
         }
     }
 
     Ok(())
 }
 
-/// Hide the browser webview
+/// Hide all webviews (used when browser panel closes or goes idle)
 #[tauri::command]
-pub async fn browser_hide(
+pub async fn browser_hide_all(
     app: AppHandle,
     state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
 ) -> Result<(), String> {
     let browser_state = state.lock();
 
-    if let Some(label) = &browser_state.webview_label {
+    for (tab_id, label) in &browser_state.webviews {
         if let Some(webview) = app.get_webview(label) {
-            webview.hide().map_err(|e| format!("Failed to hide webview: {}", e))?;
-            log::info!("[Browser] Hidden webview");
+            let _ = webview.hide();
+            log::info!("[Browser] Hidden webview for tab {}", tab_id);
         }
     }
 
     Ok(())
 }
 
-/// Check if browser webview exists
+/// Check if a specific tab's webview exists
 #[tauri::command]
 pub fn browser_exists(
     state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
+    tab_id: String,
 ) -> bool {
-    state.lock().webview_label.is_some()
+    state.lock().webviews.contains_key(&tab_id)
+}
+
+/// Get list of all tab IDs with webviews
+#[tauri::command]
+pub fn browser_get_tabs(
+    state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
+) -> Vec<String> {
+    state.lock().webviews.keys().cloned().collect()
 }
 
 /// Receive URL report from injected JavaScript (for SPA navigation)
@@ -256,6 +318,7 @@ pub fn browser_exists(
 pub fn browser_url_report(
     app: AppHandle,
     url: String,
+    tab_id: String,
 ) -> Result<(), String> {
     // Filter out internal URLs
     if url.is_empty() ||
@@ -265,7 +328,7 @@ pub fn browser_url_report(
         return Ok(());
     }
 
-    log::info!("[Browser] SPA URL change: {}", url);
-    app.emit("browser-url-changed", UrlChangedPayload { url })
+    log::info!("[Browser] Tab {} SPA URL change: {}", tab_id, url);
+    app.emit("browser-url-changed", UrlChangedPayload { url, tab_id })
         .map_err(|e| format!("Failed to emit URL change: {}", e))
 }

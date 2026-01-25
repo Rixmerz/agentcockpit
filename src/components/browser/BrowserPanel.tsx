@@ -5,11 +5,14 @@ import {
   createBrowserWebview,
   showBrowserWebview,
   hideBrowserWebview,
+  hideAllBrowserWebviews,
+  closeBrowserWebview,
   navigateTo,
   refresh,
   updatePosition,
-  getBrowserState,
+  getTabState,
   onUrlChange,
+  switchTab,
 } from '../../services/browserService';
 
 interface BrowserTab {
@@ -18,6 +21,7 @@ interface BrowserTab {
   title: string;
   history: string[];
   historyIndex: number;
+  webviewCreated: boolean;
 }
 
 interface BrowserPanelProps {
@@ -42,6 +46,7 @@ const createNewTab = (url: string = 'https://google.com'): BrowserTab => ({
   title: getTabTitle(url),
   history: [url],
   historyIndex: 0,
+  webviewCreated: false,
 });
 
 const getTabTitle = (url: string): string => {
@@ -67,19 +72,19 @@ export function BrowserPanel({
   // UI state
   const [inputUrl, setInputUrl] = useState(initialUrl);
   const [isLoading, setIsLoading] = useState(false);
-  const [webviewHidden, setWebviewHidden] = useState(false);
+  const [webviewsHidden, setWebviewsHidden] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const webviewReadyRef = useRef(false);
+  const previousActiveTabRef = useRef<string | null>(null);
 
   // Get active tab
   const activeTab = tabs.find(t => t.id === activeTabId);
   const canGoBack = activeTab ? activeTab.historyIndex > 0 : false;
   const canGoForward = activeTab ? activeTab.historyIndex < activeTab.history.length - 1 : false;
 
-  // Update active tab's URL
-  const updateActiveTabUrl = useCallback((newUrl: string) => {
+  // Update a specific tab's URL
+  const updateTabUrl = useCallback((tabId: string, newUrl: string) => {
     setTabs(prev => prev.map(tab => {
-      if (tab.id !== activeTabId) return tab;
+      if (tab.id !== tabId) return tab;
 
       // Don't add duplicate URLs
       if (tab.history[tab.historyIndex] === newUrl) {
@@ -98,24 +103,31 @@ export function BrowserPanel({
         historyIndex: newHistory.length - 1,
       };
     }));
-    setInputUrl(newUrl);
+
+    // Update input if this is the active tab
+    if (tabId === activeTabId) {
+      setInputUrl(newUrl);
+    }
   }, [activeTabId]);
 
-  // Hide webview when idle or modal is open
+  // Hide all webviews when idle or modal is open
   useEffect(() => {
     const shouldHide = isIdle || hideForModal;
 
-    if (shouldHide && isOpen && !webviewHidden) {
-      hideBrowserWebview();
-      setWebviewHidden(true);
-    } else if (!shouldHide && isOpen && webviewHidden) {
+    if (shouldHide && isOpen && !webviewsHidden) {
+      hideAllBrowserWebviews();
+      setWebviewsHidden(true);
+    } else if (!shouldHide && isOpen && webviewsHidden) {
       const timer = setTimeout(() => {
-        showBrowserWebview();
-        setWebviewHidden(false);
+        // Show only the active tab's webview
+        if (activeTabId) {
+          showBrowserWebview(activeTabId);
+        }
+        setWebviewsHidden(false);
       }, IDLE_FADE_DURATION);
       return () => clearTimeout(timer);
     }
-  }, [isIdle, hideForModal, isOpen, webviewHidden]);
+  }, [isIdle, hideForModal, isOpen, webviewsHidden, activeTabId]);
 
   const getPosition = useCallback(() => {
     if (!containerRef.current) return null;
@@ -128,9 +140,9 @@ export function BrowserPanel({
     };
   }, []);
 
-  // Initialize webview
+  // Initialize webview for active tab
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !activeTab) return;
 
     let mounted = true;
 
@@ -141,30 +153,29 @@ export function BrowserPanel({
       const position = getPosition();
       if (!position) return;
 
-      const state = getBrowserState();
+      const tabState = getTabState(activeTab.id);
 
-      if (state.isOpen && !state.isVisible) {
-        await showBrowserWebview();
-        if (mounted) {
-          await updatePosition(position);
-          webviewReadyRef.current = true;
+      if (activeTab.webviewCreated && tabState?.isOpen) {
+        // Webview exists, just show it and update position
+        if (!tabState.isVisible) {
+          await showBrowserWebview(activeTab.id);
         }
-      } else if (!state.isOpen) {
+        await updatePosition(position, activeTab.id);
+      } else if (!activeTab.webviewCreated) {
+        // Create new webview for this tab
         setIsLoading(true);
         try {
-          const urlToLoad = activeTab?.url || initialUrl;
-          await createBrowserWebview(urlToLoad, position);
+          await createBrowserWebview(activeTab.url, position, activeTab.id);
           if (mounted) {
-            webviewReadyRef.current = true;
+            setTabs(prev => prev.map(tab =>
+              tab.id === activeTab.id ? { ...tab, webviewCreated: true } : tab
+            ));
           }
         } catch (err) {
-          console.error('[BrowserPanel] Error:', err);
+          console.error('[BrowserPanel] Error creating webview:', err);
         } finally {
           if (mounted) setIsLoading(false);
         }
-      } else {
-        await updatePosition(position);
-        webviewReadyRef.current = true;
       }
     };
 
@@ -173,17 +184,17 @@ export function BrowserPanel({
       mounted = false;
       clearTimeout(timeoutId);
     };
-  }, [isOpen, initialUrl, getPosition, activeTab?.url]);
+  }, [isOpen, activeTab?.id, activeTab?.url, activeTab?.webviewCreated, getPosition]);
 
   // Subscribe to URL changes
   useEffect(() => {
     if (!isOpen) return;
 
-    onUrlChange((newUrl: string) => {
-      console.log('[BrowserPanel] URL changed:', newUrl);
-      updateActiveTabUrl(newUrl);
+    onUrlChange((newUrl: string, tabId: string) => {
+      console.log('[BrowserPanel] URL changed for tab', tabId, ':', newUrl);
+      updateTabUrl(tabId, newUrl);
     });
-  }, [isOpen, updateActiveTabUrl]);
+  }, [isOpen, updateTabUrl]);
 
   // Sync input URL with active tab
   useEffect(() => {
@@ -192,9 +203,9 @@ export function BrowserPanel({
     }
   }, [activeTabId, activeTab?.url]);
 
-  // Handle window resize/move
+  // Handle window resize/move - update position for active tab
   useEffect(() => {
-    if (!isOpen || !webviewReadyRef.current) return;
+    if (!isOpen || !activeTab?.webviewCreated) return;
 
     let unlistenMove: (() => void) | null = null;
     let unlistenResize: (() => void) | null = null;
@@ -204,7 +215,9 @@ export function BrowserPanel({
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         const position = getPosition();
-        if (position) updatePosition(position);
+        if (position && activeTabId) {
+          updatePosition(position, activeTabId);
+        }
       });
     };
 
@@ -228,24 +241,33 @@ export function BrowserPanel({
       unlistenMove?.();
       unlistenResize?.();
     };
-  }, [isOpen, getPosition]);
+  }, [isOpen, activeTab?.webviewCreated, activeTabId, getPosition]);
 
   // Tab actions
-  const handleNewTab = useCallback(() => {
+  const handleNewTab = useCallback(async () => {
     const newTab = createNewTab();
     setTabs(prev => [...prev, newTab]);
-    setActiveTabId(newTab.id);
-    navigateTo(newTab.url);
-  }, []);
 
-  const handleCloseTab = useCallback((tabId: string, e: React.MouseEvent) => {
+    // Hide current tab's webview
+    if (activeTabId) {
+      await hideBrowserWebview(activeTabId);
+    }
+
+    previousActiveTabRef.current = activeTabId;
+    setActiveTabId(newTab.id);
+    // The useEffect will handle creating the webview
+  }, [activeTabId]);
+
+  const handleCloseTab = useCallback(async (tabId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // Close the webview for this tab
+    await closeBrowserWebview(tabId);
 
     setTabs(prev => {
       if (prev.length === 1) {
         // Don't close last tab, just reset it
         const resetTab = createNewTab();
-        navigateTo(resetTab.url);
         return [resetTab];
       }
 
@@ -256,7 +278,6 @@ export function BrowserPanel({
         const closedIndex = prev.findIndex(t => t.id === tabId);
         const newActiveTab = newTabs[Math.min(closedIndex, newTabs.length - 1)];
         setActiveTabId(newActiveTab.id);
-        navigateTo(newActiveTab.url);
       }
 
       return newTabs;
@@ -267,21 +288,35 @@ export function BrowserPanel({
     if (tabId === activeTabId) return;
 
     const tab = tabs.find(t => t.id === tabId);
-    if (tab) {
-      setActiveTabId(tabId);
-      setInputUrl(tab.url);
-      setIsLoading(true);
-      await navigateTo(tab.url);
-      setIsLoading(false);
+    if (!tab) return;
+
+    setIsLoading(true);
+
+    // Switch webviews (hide old, show new)
+    await switchTab(activeTabId, tabId);
+
+    previousActiveTabRef.current = activeTabId;
+    setActiveTabId(tabId);
+    setInputUrl(tab.url);
+
+    // If the new tab's webview doesn't exist yet, it will be created by useEffect
+    if (tab.webviewCreated) {
+      // Update position for the newly visible webview
+      const position = getPosition();
+      if (position) {
+        await updatePosition(position, tabId);
+      }
     }
-  }, [activeTabId, tabs]);
+
+    setIsLoading(false);
+  }, [activeTabId, tabs, getPosition]);
 
   // Navigation actions
   const handleNavigate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputUrl.trim()) return;
+    if (!inputUrl.trim() || !activeTabId) return;
     setIsLoading(true);
-    await navigateTo(inputUrl.trim());
+    await navigateTo(inputUrl.trim(), activeTabId);
     setIsLoading(false);
   };
 
@@ -298,7 +333,7 @@ export function BrowserPanel({
     ));
 
     setIsLoading(true);
-    await navigateTo(newUrl);
+    await navigateTo(newUrl, activeTabId);
     setInputUrl(newUrl);
     setIsLoading(false);
   };
@@ -316,14 +351,15 @@ export function BrowserPanel({
     ));
 
     setIsLoading(true);
-    await navigateTo(newUrl);
+    await navigateTo(newUrl, activeTabId);
     setInputUrl(newUrl);
     setIsLoading(false);
   };
 
   const handleRefresh = async () => {
+    if (!activeTabId) return;
     setIsLoading(true);
-    await refresh();
+    await refresh(activeTabId);
     setIsLoading(false);
   };
 
@@ -428,7 +464,7 @@ export function BrowserPanel({
             <div className="browser-loading-spinner" />
           </div>
         )}
-        {webviewHidden && (
+        {webviewsHidden && (
           <div className="browser-placeholder">
             <Globe size={32} strokeWidth={1} />
             <span>Browser paused</span>
