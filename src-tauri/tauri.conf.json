@@ -13,6 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
+        "label": "main",
         "title": "AgentCockpit",
         "width": 1200,
         "height": 800,
