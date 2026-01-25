@@ -57,8 +57,46 @@ pub async fn browser_create(
     // Parse URL
     let webview_url = WebviewUrl::External(url.parse().map_err(|e| format!("Invalid URL: {}", e))?);
 
-    // Create webview builder with navigation handler
+    // JavaScript to inject for SPA URL tracking
+    let url_tracker_script = r#"
+        (function() {
+            if (window.__urlTrackerInstalled) return;
+            window.__urlTrackerInstalled = true;
+
+            function reportUrl() {
+                const url = window.location.href;
+                if (url && !url.startsWith('about:') && !url.startsWith('blob:')) {
+                    window.__TAURI_INTERNALS__.invoke('browser_url_report', { url: url });
+                }
+            }
+
+            // Override pushState
+            const originalPushState = history.pushState;
+            history.pushState = function() {
+                originalPushState.apply(this, arguments);
+                setTimeout(reportUrl, 50);
+            };
+
+            // Override replaceState
+            const originalReplaceState = history.replaceState;
+            history.replaceState = function() {
+                originalReplaceState.apply(this, arguments);
+                setTimeout(reportUrl, 50);
+            };
+
+            // Listen for popstate (back/forward)
+            window.addEventListener('popstate', function() {
+                setTimeout(reportUrl, 50);
+            });
+
+            // Report initial URL
+            setTimeout(reportUrl, 100);
+        })();
+    "#;
+
+    // Create webview builder with navigation and page load handlers
     let app_handle = app.clone();
+    let script = url_tracker_script.to_string();
     let webview_builder = WebviewBuilder::new(label, webview_url)
         .on_navigation(move |url| {
             let url_string = url.to_string();
@@ -68,7 +106,6 @@ pub async fn browser_create(
                url_string.starts_with("blob:") ||
                url_string.starts_with("data:") ||
                url_string.is_empty() {
-                log::debug!("[Browser] Ignoring internal URL: {}", url_string);
                 return true; // Allow but don't emit
             }
 
@@ -76,7 +113,8 @@ pub async fn browser_create(
             log::info!("[Browser] Navigation to: {}", url_string);
             let _ = app_handle.emit("browser-url-changed", UrlChangedPayload { url: url_string });
             true // Allow navigation
-        });
+        })
+        .initialization_script(&script);
 
     // Add webview to main window
     let _webview = main_window
@@ -197,4 +235,23 @@ pub fn browser_exists(
     state: tauri::State<'_, Arc<Mutex<BrowserState>>>,
 ) -> bool {
     state.lock().webview_label.is_some()
+}
+
+/// Receive URL report from injected JavaScript (for SPA navigation)
+#[tauri::command]
+pub fn browser_url_report(
+    app: AppHandle,
+    url: String,
+) -> Result<(), String> {
+    // Filter out internal URLs
+    if url.is_empty() ||
+       url.starts_with("about:") ||
+       url.starts_with("blob:") ||
+       url.starts_with("data:") {
+        return Ok(());
+    }
+
+    log::info!("[Browser] SPA URL change: {}", url);
+    app.emit("browser-url-changed", UrlChangedPayload { url })
+        .map_err(|e| format!("Failed to emit URL change: {}", e))
 }
