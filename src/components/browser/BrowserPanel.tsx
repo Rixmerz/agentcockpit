@@ -10,6 +10,7 @@ import {
   refresh,
   updatePosition,
   getBrowserState,
+  onUrlChange,
 } from '../../services/browserService';
 
 interface BrowserPanelProps {
@@ -105,8 +106,17 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     };
   }, [isOpen, initialUrl, getPosition, updateBrowserState]);
 
-  // Note: URL polling disabled - Tauri's WebviewWindow doesn't expose current URL
-  // The URL bar only updates when navigating via our controls, not internal navigation
+  // Subscribe to URL changes from webview navigation
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Register callback for URL changes from Rust webview
+    onUrlChange((newUrl: string) => {
+      console.log('[BrowserPanel] URL changed:', newUrl);
+      setInputUrl(newUrl);
+      updateBrowserState();
+    });
+  }, [isOpen, updateBrowserState]);
 
   // Handle window resize/move
   useEffect(() => {
