@@ -57,16 +57,21 @@ pub async fn browser_create(
     // Parse URL
     let webview_url = WebviewUrl::External(url.parse().map_err(|e| format!("Invalid URL: {}", e))?);
 
-    // JavaScript to inject for SPA URL tracking
+    // JavaScript to inject for SPA URL tracking (with polling fallback for complex SPAs)
     let url_tracker_script = r#"
         (function() {
             if (window.__urlTrackerInstalled) return;
             window.__urlTrackerInstalled = true;
 
+            let lastUrl = '';
+
             function reportUrl() {
                 const url = window.location.href;
-                if (url && !url.startsWith('about:') && !url.startsWith('blob:')) {
-                    window.__TAURI_INTERNALS__.invoke('browser_url_report', { url: url });
+                if (url && url !== lastUrl && !url.startsWith('about:') && !url.startsWith('blob:')) {
+                    lastUrl = url;
+                    try {
+                        window.__TAURI_INTERNALS__.invoke('browser_url_report', { url: url });
+                    } catch(e) {}
                 }
             }
 
@@ -88,6 +93,9 @@ pub async fn browser_create(
             window.addEventListener('popstate', function() {
                 setTimeout(reportUrl, 50);
             });
+
+            // Polling fallback for complex SPAs (YouTube, etc.)
+            setInterval(reportUrl, 500);
 
             // Report initial URL
             setTimeout(reportUrl, 100);
