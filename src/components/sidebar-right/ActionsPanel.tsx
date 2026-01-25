@@ -410,24 +410,28 @@ export function ActionsPanel({
         </div>
       )}
 
-      {/* Core Components (always visible) */}
-      <SessionManager
-        projectPath={projectPath}
-        selectedSession={selectedSession}
-        onSessionSelect={setSelectedSession}
-        onSessionCreated={handleSessionCreated}
-      />
+      {/* Claude-specific components: Sessions, Pipeline, MCP management */}
+      {activePlugin?.manifest.id === 'claude' && (
+        <>
+          <SessionManager
+            projectPath={projectPath}
+            selectedSession={selectedSession}
+            onSessionSelect={setSelectedSession}
+            onSessionCreated={handleSessionCreated}
+          />
 
-      <PipelinePanel
-        projectPath={projectPath}
-        terminalId={terminalId}
-        onModalStateChange={setPipelineModalOpen}
-      />
+          <PipelinePanel
+            projectPath={projectPath}
+            terminalId={terminalId}
+            onModalStateChange={setPipelineModalOpen}
+          />
 
-      <McpIndicator
-        onPluginConfigChanged={handlePluginConfigChanged}
-        onModalStateChange={setMcpModalOpen}
-      />
+          <McpIndicator
+            onPluginConfigChanged={handlePluginConfigChanged}
+            onModalStateChange={setMcpModalOpen}
+          />
+        </>
+      )}
 
       <PortMonitor />
 
