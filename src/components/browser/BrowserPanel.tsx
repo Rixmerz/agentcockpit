@@ -19,41 +19,46 @@ interface BrowserPanelProps {
   onClose: () => void;
   initialUrl?: string;
   isIdle?: boolean;
+  hideForModal?: boolean; // Hide webview when modals are open
 }
 
 const TOOLBAR_HEIGHT = 48;
 const PANEL_HEIGHT = 400;
-const IDLE_FADE_DURATION = 800; // Match app idle transition
+const IDLE_FADE_DURATION = 300; // Faster transition for webview
 
-export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com', isIdle = false }: BrowserPanelProps) {
+export function BrowserPanel({
+  isOpen,
+  onClose,
+  initialUrl = 'https://google.com',
+  isIdle = false,
+  hideForModal = false
+}: BrowserPanelProps) {
   const [inputUrl, setInputUrl] = useState(initialUrl);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [idleOverlayVisible, setIdleOverlayVisible] = useState(false);
+  const [webviewHidden, setWebviewHidden] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const webviewReadyRef = useRef(false);
 
-  // Handle idle mode: fade overlay, then hide webview
+  // Hide webview immediately when idle or modal is open
+  // The panel itself will fade with CSS transition
   useEffect(() => {
-    if (isIdle && isOpen) {
-      // Start fade-in overlay
-      setIdleOverlayVisible(true);
-      // Hide webview after fade completes
+    const shouldHide = isIdle || hideForModal;
+
+    if (shouldHide && isOpen && !webviewHidden) {
+      // Hide webview immediately
+      hideBrowserWebview();
+      setWebviewHidden(true);
+    } else if (!shouldHide && isOpen && webviewHidden) {
+      // Show webview after a small delay for smooth transition
       const timer = setTimeout(() => {
-        hideBrowserWebview();
+        showBrowserWebview();
+        setWebviewHidden(false);
       }, IDLE_FADE_DURATION);
       return () => clearTimeout(timer);
-    } else if (!isIdle && isOpen) {
-      // Show webview first, then fade out overlay
-      showBrowserWebview();
-      // Small delay before fading out overlay
-      const timer = setTimeout(() => {
-        setIdleOverlayVisible(false);
-      }, 50);
-      return () => clearTimeout(timer);
     }
-  }, [isIdle, isOpen]);
+  }, [isIdle, hideForModal, isOpen, webviewHidden]);
 
   const updateBrowserState = useCallback(() => {
     const state = getBrowserState();
@@ -283,15 +288,13 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
             <div className="browser-loading-spinner" />
           </div>
         )}
-        {/* Idle mode overlay - fades in to cover webview before hiding */}
-        <div
-          className="browser-idle-overlay"
-          style={{
-            opacity: idleOverlayVisible ? 1 : 0,
-            pointerEvents: idleOverlayVisible ? 'auto' : 'none',
-            transition: `opacity ${IDLE_FADE_DURATION}ms ease-in-out`,
-          }}
-        />
+        {/* Placeholder shown when webview is hidden (idle/modal) */}
+        {webviewHidden && (
+          <div className="browser-placeholder">
+            <Globe size={32} strokeWidth={1} />
+            <span>Browser paused</span>
+          </div>
+        )}
       </div>
     </div>
   );
