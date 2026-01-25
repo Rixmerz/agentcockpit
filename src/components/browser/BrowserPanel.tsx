@@ -10,6 +10,7 @@ import {
   refresh,
   updatePosition,
   getBrowserState,
+  getCurrentUrl,
 } from '../../services/browserService';
 
 interface BrowserPanelProps {
@@ -104,6 +105,27 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
       clearTimeout(timeoutId);
     };
   }, [isOpen, initialUrl, getPosition, updateBrowserState]);
+
+  // Poll for URL changes (detects navigation inside webview)
+  useEffect(() => {
+    if (!isOpen || !webviewReadyRef.current) return;
+
+    const pollUrl = async () => {
+      const currentUrl = await getCurrentUrl();
+      if (currentUrl && currentUrl !== inputUrl) {
+        setInputUrl(currentUrl);
+        // Update back/forward state
+        const state = getBrowserState();
+        setCanGoBack(state.canGoBack);
+        setCanGoForward(state.canGoForward);
+      }
+    };
+
+    // Poll every 500ms
+    const intervalId = setInterval(pollUrl, 500);
+
+    return () => clearInterval(intervalId);
+  }, [isOpen, inputUrl]);
 
   // Handle window resize/move
   useEffect(() => {

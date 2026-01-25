@@ -348,6 +348,33 @@ export function getBrowserState() {
 }
 
 /**
+ * Gets the current URL from the webview (async)
+ * This is useful to detect navigation that happened inside the webview
+ */
+export async function getCurrentUrl(): Promise<string | null> {
+  if (!state.webview) return null;
+
+  try {
+    const currentUrl = await state.webview.url();
+    // Update internal state if URL changed
+    if (currentUrl && currentUrl !== state.url) {
+      console.log('[browserService] URL changed:', state.url, '->', currentUrl);
+      state.url = currentUrl;
+      // Add to history if not already there
+      if (state.history[state.historyIndex] !== currentUrl) {
+        state.history = state.history.slice(0, state.historyIndex + 1);
+        state.history.push(currentUrl);
+        state.historyIndex = state.history.length - 1;
+      }
+    }
+    return currentUrl;
+  } catch (e) {
+    console.warn('[browserService] Could not get current URL:', e);
+    return state.url;
+  }
+}
+
+/**
  * Gets the webview instance
  */
 export function getWebview(): WebviewWindow | null {
