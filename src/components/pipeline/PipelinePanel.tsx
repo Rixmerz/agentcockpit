@@ -46,14 +46,20 @@ import {
 interface PipelinePanelProps {
   projectPath: string | null;
   terminalId?: string | null;
+  onModalStateChange?: (isOpen: boolean) => void;
 }
 
-export function PipelinePanel({ projectPath }: PipelinePanelProps) {
+export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanelProps) {
   const [state, setState] = useState<PipelineState | null>(null);
   const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Notify parent when modal opens/closes
+  useEffect(() => {
+    onModalStateChange?.(modalOpen);
+  }, [modalOpen, onModalStateChange]);
   const [enabled, setEnabled] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [installing, setInstalling] = useState(false);

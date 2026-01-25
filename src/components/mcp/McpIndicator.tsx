@@ -12,11 +12,17 @@ import type { ClaudePluginConfig } from '../../services/pluginConfigService';
 
 interface McpIndicatorProps {
   onPluginConfigChanged?: (config: ClaudePluginConfig) => void;
+  onModalStateChange?: (isOpen: boolean) => void;
 }
 
-export function McpIndicator({ onPluginConfigChanged }: McpIndicatorProps) {
+export function McpIndicator({ onPluginConfigChanged, onModalStateChange }: McpIndicatorProps) {
   const [count, setCount] = useState<number>(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Notify parent when modal opens/closes
+  useEffect(() => {
+    onModalStateChange?.(isModalOpen);
+  }, [isModalOpen, onModalStateChange]);
 
   const loadCount = async () => {
     try {

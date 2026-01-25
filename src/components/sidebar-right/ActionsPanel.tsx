@@ -55,10 +55,15 @@ export function ActionsPanel({
   const [skipPermissions, setSkipPermissions] = useState(false);
   const [showLegacyMcpPanel, setShowLegacyMcpPanel] = useState(true);
 
+  // Track child component modal states
+  const [pipelineModalOpen, setPipelineModalOpen] = useState(false);
+  const [mcpModalOpen, setMcpModalOpen] = useState(false);
+
   // Notify parent when any modal is open (for browser panel z-index)
   useEffect(() => {
-    onModalStateChange?.(showSettings || showGitHubLogin);
-  }, [showSettings, showGitHubLogin, onModalStateChange]);
+    const anyModalOpen = showSettings || showGitHubLogin || pipelineModalOpen || mcpModalOpen;
+    onModalStateChange?.(anyModalOpen);
+  }, [showSettings, showGitHubLogin, pipelineModalOpen, mcpModalOpen, onModalStateChange]);
 
   // Clear session when project changes (fixes ghost session bug)
   useEffect(() => {
@@ -413,9 +418,16 @@ export function ActionsPanel({
         onSessionCreated={handleSessionCreated}
       />
 
-      <PipelinePanel projectPath={projectPath} terminalId={terminalId} />
+      <PipelinePanel
+        projectPath={projectPath}
+        terminalId={terminalId}
+        onModalStateChange={setPipelineModalOpen}
+      />
 
-      <McpIndicator onPluginConfigChanged={handlePluginConfigChanged} />
+      <McpIndicator
+        onPluginConfigChanged={handlePluginConfigChanged}
+        onModalStateChange={setMcpModalOpen}
+      />
 
       <PortMonitor />
 
