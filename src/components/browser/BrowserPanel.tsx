@@ -51,14 +51,9 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     };
   }, []);
 
-  // Create webview when panel opens
+  // Create webview when panel opens, close when it closes
   useEffect(() => {
-    if (!isOpen) {
-      // Close webview when panel closes
-      closeBrowserWebview();
-      return;
-    }
-
+    if (!isOpen) return;
     if (isCreatingRef.current) return;
 
     // Wait for container to be rendered
@@ -85,8 +80,11 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
       }
     }, 100);
 
+    // Cleanup: close webview when panel closes or component unmounts
     return () => {
       clearTimeout(timeoutId);
+      console.log('[BrowserPanel] Closing webview');
+      closeBrowserWebview();
     };
   }, [isOpen, initialUrl, getPosition, updateBrowserState]);
 
