@@ -40,20 +40,21 @@ async function createWebviewWindow(url: string, position: BrowserPosition): Prom
 
   console.log('[browserService] Creating webview with URL:', url, 'position:', position);
 
-  // Create new webview window as child of main window
+  // Create new webview window - test without parent first
+  // Position needs to be in SCREEN coordinates, not window-relative
   const webview = new WebviewWindow('browser-webview', {
     url,
-    parent: 'main',
+    // parent: 'main', // Temporarily disabled to test
     x: Math.round(position.x),
     y: Math.round(position.y),
     width: Math.round(position.width),
     height: Math.round(position.height),
-    decorations: false,
+    decorations: true, // Temporarily enable to see the window
     transparent: false,
-    resizable: false,
-    focus: true, // Changed to true to ensure it renders
-    alwaysOnTop: false,
-    skipTaskbar: true,
+    resizable: true,
+    focus: true,
+    alwaysOnTop: true, // Ensure it's visible
+    skipTaskbar: false, // Show in taskbar for debugging
     visible: true,
   });
 
