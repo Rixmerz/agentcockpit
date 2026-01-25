@@ -3,7 +3,6 @@ import { ArrowLeft, ArrowRight, RotateCw, X, Globe } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   createBrowserWebview,
-  hideBrowserWebview,
   showBrowserWebview,
   navigateTo,
   goBack,
@@ -50,15 +49,10 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     };
   }, []);
 
-  // Single unified effect for webview lifecycle
+  // Effect for webview lifecycle - only handles OPENING
+  // Closing is handled by handleBrowserToggle in App.tsx to avoid race conditions
   useEffect(() => {
-    if (!isOpen) {
-      // Panel closing - hide webview
-      if (webviewReadyRef.current) {
-        hideBrowserWebview();
-      }
-      return;
-    }
+    if (!isOpen) return;
 
     let mounted = true;
 
@@ -71,7 +65,8 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
 
       const state = getBrowserState();
 
-      if (state.isOpen) {
+      if (state.isOpen && !state.isVisible) {
+        // Webview exists but hidden - show and reposition
         console.log('[BrowserPanel] Showing existing webview');
         await showBrowserWebview();
         if (mounted) {
@@ -79,7 +74,8 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
           updateBrowserState();
           webviewReadyRef.current = true;
         }
-      } else {
+      } else if (!state.isOpen) {
+        // No webview - create new
         setIsLoading(true);
         try {
           const urlToLoad = state.url || initialUrl;
@@ -94,6 +90,11 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
         } finally {
           if (mounted) setIsLoading(false);
         }
+      } else {
+        // Webview exists and visible - just update position
+        await updatePosition(position);
+        updateBrowserState();
+        webviewReadyRef.current = true;
       }
     };
 
@@ -142,9 +143,8 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     };
   }, [isOpen, getPosition]);
 
-  // Close: hide webview FIRST, then close UI
-  const handleClose = async () => {
-    await hideBrowserWebview();
+  // Close: delegate to parent (handleBrowserToggle handles webview hiding)
+  const handleClose = () => {
     onClose();
   };
 
