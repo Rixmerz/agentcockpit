@@ -14,20 +14,32 @@ export function PortMonitor() {
   const [ports, setPorts] = useState<PortInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Ports to monitor (common development ports)
+  // Ports to monitor (common development ports with sequential ranges)
   const PORTS_TO_CHECK = [
-    // Frontend (3000-3999 range)
-    3000, 3001, 3002, 3003, 3004, 3005,
-    3006, 3007, 3008, 3009, 3010,
-    3030, 3050, 3100, 3200, 3300,
-    3333, 3456, 3500, 3600, 3700,
-    3800, 3900, 3999,
-    // Vite / Other frontend
-    4173, 5173, 8080,
-    // Backend / Tauri
-    1420, 4000, 5000, 8000,
-    // Database
-    5432, 27017, 6379
+    // Tauri
+    1420,
+    // React/Next.js/Create-React-App (3000-3020)
+    ...Array.from({ length: 21 }, (_, i) => 3000 + i),
+    // Additional frontend ports
+    3030, 3050, 3100, 3200, 3300, 3333,
+    // Backend APIs (4000-4010)
+    ...Array.from({ length: 11 }, (_, i) => 4000 + i),
+    // Vite preview
+    4173,
+    // Python/Flask/FastAPI (5000-5010)
+    ...Array.from({ length: 11 }, (_, i) => 5000 + i),
+    // Vite dev
+    5173, 5174, 5175,
+    // Redis
+    6379,
+    // Common backend (8000-8010)
+    ...Array.from({ length: 11 }, (_, i) => 8000 + i),
+    // Alternative HTTP (8080-8090)
+    ...Array.from({ length: 11 }, (_, i) => 8080 + i),
+    // PostgreSQL
+    5432,
+    // MongoDB
+    27017,
   ];
 
   const checkPorts = useCallback(async () => {
