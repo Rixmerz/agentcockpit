@@ -137,6 +137,10 @@ function MainContent() {
   // GitHub login modal state
   const [showGitHubLogin, setShowGitHubLogin] = useState(false);
 
+  // Track when any modal is open (for browser webview z-index)
+  const [actionsPanelModalOpen, setActionsPanelModalOpen] = useState(false);
+  const anyModalOpen = showGitHubLogin || actionsPanelModalOpen;
+
   // Browser panel state
   const [browserOpen, setBrowserOpen] = useState(false);
 
@@ -387,6 +391,7 @@ function MainContent() {
             isOpen={browserOpen}
             onClose={() => setBrowserOpen(false)}
             isIdle={isIdle}
+            hideForModal={anyModalOpen}
           />
 
           <div className="terminal-view">
@@ -424,6 +429,7 @@ function MainContent() {
           hasActiveTerminal={hasActiveTerminal}
           onWriteToTerminal={writeToActiveTerminal}
           availableIDEs={availableIDEs}
+          onModalStateChange={setActionsPanelModalOpen}
         />
       </aside>
     </div>
