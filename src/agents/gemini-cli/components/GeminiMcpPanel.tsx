@@ -40,15 +40,19 @@ interface GeminiMcpPanelProps {
 // Read JSON file with timeout
 async function readJsonFile(path: string): Promise<GeminiSettings | null> {
   try {
+    console.log('[GeminiMCP] Reading file:', path);
     const content = await Promise.race([
       readTextFile(path),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Timeout')), INVOKE_TIMEOUT_MS)
       ),
     ]);
-    return JSON.parse(content);
+    console.log('[GeminiMCP] File content length:', content.length);
+    const parsed = JSON.parse(content);
+    console.log('[GeminiMCP] Parsed settings:', JSON.stringify(parsed, null, 2));
+    return parsed;
   } catch (e) {
-    console.log('[GeminiMCP] Read error (file may not exist):', path, e);
+    console.error('[GeminiMCP] Read error:', path, e);
     return null;
   }
 }
