@@ -8,6 +8,7 @@ import { geminiPlugin } from './agents/gemini-cli';
 import { useIdleMode } from './hooks/useIdleMode';
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
+import { BrowserPanel } from './components/browser/BrowserPanel';
 import { ProjectOpener } from './components/sidebar-left/ProjectOpener';
 import { GitHubLoginModal } from './components/sidebar-left/GitHubLoginModal';
 import { SnapshotPanel } from './components/sidebar-left/SnapshotPanel';
@@ -134,6 +135,13 @@ function MainContent() {
 
   // GitHub login modal state
   const [showGitHubLogin, setShowGitHubLogin] = useState(false);
+
+  // Browser panel state
+  const [browserOpen, setBrowserOpen] = useState(false);
+
+  const handleBrowserToggle = useCallback(() => {
+    setBrowserOpen(prev => !prev);
+  }, []);
 
   const handleNeedLogin = useCallback(() => {
     setShowGitHubLogin(true);
@@ -357,12 +365,20 @@ function MainContent() {
               onClose={() => removeTerminal(activeProject.id, activeTerminal.id)}
               onOpenInIDE={() => handleOpenInIDE(activeProject.path)}
               selectedIDE={selectedIDE}
+              onBrowserToggle={handleBrowserToggle}
+              isBrowserOpen={browserOpen}
             />
           ) : (
             <div className="terminal-header justify-center">
               <span className="terminal-name text-muted">No Active Terminal</span>
             </div>
           )}
+
+          {/* Browser Panel - appears below header when open */}
+          <BrowserPanel
+            isOpen={browserOpen}
+            onClose={() => setBrowserOpen(false)}
+          />
 
           <div className="terminal-view">
             {state.projects.flatMap(project =>

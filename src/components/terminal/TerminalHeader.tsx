@@ -1,4 +1,4 @@
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Globe } from 'lucide-react';
 
 interface TerminalHeaderProps {
   name: string;
@@ -6,6 +6,8 @@ interface TerminalHeaderProps {
   onClose?: () => void;
   onOpenInIDE?: () => void;
   selectedIDE?: string | null;
+  onBrowserToggle?: () => void;
+  isBrowserOpen?: boolean;
 }
 
 export function TerminalHeader({
@@ -13,7 +15,9 @@ export function TerminalHeader({
   projectName,
   onClose,
   onOpenInIDE,
-  selectedIDE
+  selectedIDE,
+  onBrowserToggle,
+  isBrowserOpen
 }: TerminalHeaderProps) {
   return (
     <div className="terminal-header">
@@ -34,6 +38,17 @@ export function TerminalHeader({
           >
             <ExternalLink size={14} />
             <span>{selectedIDE}</span>
+          </button>
+        )}
+
+        {/* Browser Toggle Button */}
+        {onBrowserToggle && (
+          <button
+            className={`btn-browser-toggle ${isBrowserOpen ? 'active' : ''}`}
+            onClick={onBrowserToggle}
+            title={isBrowserOpen ? 'Close browser' : 'Open browser'}
+          >
+            <Globe size={14} />
           </button>
         )}
 
