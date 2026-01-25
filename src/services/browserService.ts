@@ -95,9 +95,10 @@ async function createWebviewWindow(url: string, position: BrowserPosition): Prom
   });
 
   // Create new webview window as child of main window
+  // Note: We don't use 'parent' because child windows auto-hide on focus loss
   const webview = new WebviewWindow('browser-webview', {
     url,
-    parent: 'main',
+    // parent: 'main', // Removed - causes auto-hide on focus loss
     x: Math.round(screenPos.x),
     y: Math.round(screenPos.y),
     width: Math.round(screenPos.width),
@@ -106,7 +107,7 @@ async function createWebviewWindow(url: string, position: BrowserPosition): Prom
     transparent: false,
     resizable: false,
     focus: false,
-    alwaysOnTop: false,
+    alwaysOnTop: true, // Keep on top to simulate embedded behavior
     skipTaskbar: true,
     visible: true,
   });
