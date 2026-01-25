@@ -9,7 +9,7 @@ import { useIdleMode } from './hooks/useIdleMode';
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
 import { BrowserPanel } from './components/browser/BrowserPanel';
-import { hideBrowserWebview, getBrowserState } from './services/browserService';
+import { hideBrowserWebview } from './services/browserService';
 import { ProjectOpener } from './components/sidebar-left/ProjectOpener';
 import { GitHubLoginModal } from './components/sidebar-left/GitHubLoginModal';
 import { SnapshotPanel } from './components/sidebar-left/SnapshotPanel';
