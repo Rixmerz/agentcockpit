@@ -531,6 +531,114 @@
   z-index: 10;
 }
 
+/* Browser Tab Bar */
+.browser-tab-bar {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid var(--glass-border);
+  padding: 0 4px;
+  gap: 2px;
+}
+
+.browser-tabs {
+  display: flex;
+  flex: 1;
+  overflow-x: auto;
+  gap: 2px;
+}
+
+.browser-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.browser-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  max-width: 180px;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.browser-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+}
+
+.browser-tab.active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border);
+  border-bottom-color: transparent;
+  color: var(--text-primary);
+}
+
+.browser-tab-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.browser-tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.browser-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.browser-tab:hover .browser-tab-close {
+  opacity: 1;
+}
+
+.browser-tab-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: rgb(239, 68, 68);
+}
+
+.browser-new-tab-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.browser-new-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--glass-border);
+  color: var(--text-primary);
+}
+
 .browser-toolbar {
   display: flex;
   align-items: center;
