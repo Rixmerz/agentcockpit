@@ -168,7 +168,14 @@ impl PtyManager {
             })
             .map_err(|e| e.to_string())?;
 
-        let mut cmd_builder = CommandBuilder::new(cmd);
+        // Use user's default shell if cmd is empty or "default"
+        let shell_cmd = if cmd.is_empty() || cmd == "default" {
+            std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string())
+        } else {
+            cmd.to_string()
+        };
+
+        let mut cmd_builder = CommandBuilder::new(&shell_cmd);
         cmd_builder.cwd(cwd);
 
         // Set environment variables for proper terminal
