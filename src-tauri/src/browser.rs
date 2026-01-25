@@ -115,8 +115,8 @@ pub async fn browser_navigate(
 
     if let Some(label) = &browser_state.webview_label {
         if let Some(webview) = app.get_webview(label) {
-            let webview_url = WebviewUrl::External(url.parse().map_err(|e| format!("Invalid URL: {}", e))?);
-            webview.navigate(webview_url.into()).map_err(|e| format!("Failed to navigate: {}", e))?;
+            let parsed_url: tauri::Url = url.parse().map_err(|e| format!("Invalid URL: {}", e))?;
+            webview.navigate(parsed_url).map_err(|e| format!("Failed to navigate: {}", e))?;
             log::info!("[Browser] Navigating to: {}", url);
         }
     }
