@@ -669,6 +669,13 @@
   animation: spin 0.8s linear infinite;
 }
 
+.browser-idle-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-primary);
+  z-index: 100;
+}
+
 /* Buttons & Interactives Generic */
 button {
   font-family: inherit;

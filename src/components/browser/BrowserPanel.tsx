@@ -4,6 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   createBrowserWebview,
   showBrowserWebview,
+  hideBrowserWebview,
   navigateTo,
   goBack,
   goForward,
@@ -17,18 +18,42 @@ interface BrowserPanelProps {
   isOpen: boolean;
   onClose: () => void;
   initialUrl?: string;
+  isIdle?: boolean;
 }
 
 const TOOLBAR_HEIGHT = 48;
 const PANEL_HEIGHT = 400;
+const IDLE_FADE_DURATION = 800; // Match app idle transition
 
-export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com' }: BrowserPanelProps) {
+export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com', isIdle = false }: BrowserPanelProps) {
   const [inputUrl, setInputUrl] = useState(initialUrl);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [idleOverlayVisible, setIdleOverlayVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const webviewReadyRef = useRef(false);
+
+  // Handle idle mode: fade overlay, then hide webview
+  useEffect(() => {
+    if (isIdle && isOpen) {
+      // Start fade-in overlay
+      setIdleOverlayVisible(true);
+      // Hide webview after fade completes
+      const timer = setTimeout(() => {
+        hideBrowserWebview();
+      }, IDLE_FADE_DURATION);
+      return () => clearTimeout(timer);
+    } else if (!isIdle && isOpen) {
+      // Show webview first, then fade out overlay
+      showBrowserWebview();
+      // Small delay before fading out overlay
+      const timer = setTimeout(() => {
+        setIdleOverlayVisible(false);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isIdle, isOpen]);
 
   const updateBrowserState = useCallback(() => {
     const state = getBrowserState();
@@ -258,6 +283,15 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
             <div className="browser-loading-spinner" />
           </div>
         )}
+        {/* Idle mode overlay - fades in to cover webview before hiding */}
+        <div
+          className="browser-idle-overlay"
+          style={{
+            opacity: idleOverlayVisible ? 1 : 0,
+            pointerEvents: idleOverlayVisible ? 'auto' : 'none',
+            transition: `opacity ${IDLE_FADE_DURATION}ms ease-in-out`,
+          }}
+        />
       </div>
     </div>
   );
