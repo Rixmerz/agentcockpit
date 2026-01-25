@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { AppProvider, useApp, useTerminalActions, useAppSettings, useTerminalActivityState } from './contexts/AppContext';
 import { PluginProvider } from './plugins/context/PluginContext';
@@ -9,7 +9,7 @@ import { useIdleMode } from './hooks/useIdleMode';
 import { TerminalView } from './components/terminal/TerminalView';
 import { TerminalHeader } from './components/terminal/TerminalHeader';
 import { BrowserPanel } from './components/browser/BrowserPanel';
-import { hideBrowserWebview, showBrowserWebview } from './services/browserService';
+import { hideBrowserWebview } from './services/browserService';
 import { ProjectOpener } from './components/sidebar-left/ProjectOpener';
 import { GitHubLoginModal } from './components/sidebar-left/GitHubLoginModal';
 import { SnapshotPanel } from './components/sidebar-left/SnapshotPanel';
@@ -139,20 +139,6 @@ function MainContent() {
 
   // Browser panel state
   const [browserOpen, setBrowserOpen] = useState(false);
-  const browserWasOpenBeforeIdleRef = useRef(false);
-
-  // Hide browser when entering idle mode, restore when exiting
-  useEffect(() => {
-    if (isIdle && browserOpen) {
-      // Entering idle with browser open - hide it
-      browserWasOpenBeforeIdleRef.current = true;
-      hideBrowserWebview();
-    } else if (!isIdle && browserWasOpenBeforeIdleRef.current) {
-      // Exiting idle - restore browser if it was open
-      browserWasOpenBeforeIdleRef.current = false;
-      showBrowserWebview();
-    }
-  }, [isIdle, browserOpen]);
 
   const handleBrowserToggle = useCallback(async () => {
     if (browserOpen) {
@@ -400,6 +386,7 @@ function MainContent() {
           <BrowserPanel
             isOpen={browserOpen}
             onClose={() => setBrowserOpen(false)}
+            isIdle={isIdle}
           />
 
           <div className="terminal-view">
