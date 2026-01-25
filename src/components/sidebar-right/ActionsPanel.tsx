@@ -29,6 +29,7 @@ interface ActionsPanelProps {
   hasActiveTerminal: boolean;
   onWriteToTerminal: (data: string) => Promise<void>;
   availableIDEs: string[];
+  onModalStateChange?: (isOpen: boolean) => void;
 }
 
 export function ActionsPanel({
@@ -37,6 +38,7 @@ export function ActionsPanel({
   hasActiveTerminal,
   onWriteToTerminal,
   availableIDEs,
+  onModalStateChange,
 }: ActionsPanelProps) {
   // Plugin context
   const { installedPlugins, activePlugin, setActivePlugin } = usePlugins();
@@ -52,6 +54,11 @@ export function ActionsPanel({
   const [gitHubUser, setGitHubUser] = useState<GitHubUser | null>(null);
   const [skipPermissions, setSkipPermissions] = useState(false);
   const [showLegacyMcpPanel, setShowLegacyMcpPanel] = useState(true);
+
+  // Notify parent when any modal is open (for browser panel z-index)
+  useEffect(() => {
+    onModalStateChange?.(showSettings || showGitHubLogin);
+  }, [showSettings, showGitHubLogin, onModalStateChange]);
 
   // Clear session when project changes (fixes ghost session bug)
   useEffect(() => {
