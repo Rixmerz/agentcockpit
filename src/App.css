@@ -511,6 +511,8 @@
   color: #ff4444;
   white-space: nowrap;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .media-title {
@@ -519,6 +521,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 
 .media-title.marquee {
@@ -526,6 +530,7 @@
   gap: 40px;
   animation: marquee 15s linear infinite;
   text-overflow: unset;
+  overflow: visible;
 }
 
 .media-title.marquee span {
