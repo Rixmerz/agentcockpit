@@ -75,7 +75,7 @@ async function writeJsonFile(path: string, data: GeminiSettings): Promise<boolea
   }
 }
 
-export function GeminiMcpPanel({ projectPath }: GeminiMcpPanelProps) {
+export function GeminiMcpPanel({ projectPath: _projectPath }: GeminiMcpPanelProps) {
   const [mcpServers, setMcpServers] = useState<Array<{ name: string; config: McpServerConfig }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
