@@ -6,9 +6,10 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
-import { RefreshCw, Server, AlertCircle, Plus, X } from 'lucide-react';
+import { RefreshCw, Server, AlertCircle, Plus, X, FileEdit } from 'lucide-react';
 
 // Timeout for file operations
 const INVOKE_TIMEOUT_MS = 5000;
@@ -261,6 +262,21 @@ export function GeminiMcpPanel({ projectPath }: GeminiMcpPanelProps) {
     }
   }, [getSettingsPath, loadMcps, showMessage]);
 
+  // Open settings file in IDE
+  const handleOpenInIDE = useCallback(async () => {
+    try {
+      const settingsPath = getSettingsPath();
+      await invoke<string>('execute_command', {
+        cmd: `open "${settingsPath}"`,
+        cwd: '/',
+      });
+      showMessage('success', 'Opening settings...');
+    } catch (e) {
+      console.error('[GeminiMCP] Open config error:', e);
+      showMessage('error', `Error: ${e}`);
+    }
+  }, [getSettingsPath, showMessage]);
+
   if (isLoading) {
     return (
       <div className="mcp-manager">
@@ -325,6 +341,16 @@ export function GeminiMcpPanel({ projectPath }: GeminiMcpPanelProps) {
                 title="Add MCP manually"
               >
                 <Plus size={12} />
+              </button>
+              <button
+                className="btn-icon-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenInIDE();
+                }}
+                title="Open in editor"
+              >
+                <FileEdit size={12} />
               </button>
             </div>
 
