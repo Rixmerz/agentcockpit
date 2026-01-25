@@ -4,6 +4,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   createBrowserWebview,
   closeBrowserWebview,
+  hideBrowserWebview,
+  showBrowserWebview,
   navigateTo,
   goBack,
   goForward,
@@ -18,7 +20,7 @@ interface BrowserPanelProps {
   initialUrl?: string;
 }
 
-const TOOLBAR_HEIGHT = 40;
+const TOOLBAR_HEIGHT = 44; // Increased to ensure toolbar is visible
 const PANEL_HEIGHT = 400;
 
 export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com' }: BrowserPanelProps) {
@@ -51,42 +53,52 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     };
   }, []);
 
-  // Create webview when panel opens, close when it closes
+  // Show/create webview when panel opens
   useEffect(() => {
     if (!isOpen) return;
     if (isCreatingRef.current) return;
 
-    // Wait for container to be rendered
     const timeoutId = setTimeout(async () => {
       const position = getPosition();
       if (!position) return;
 
-      isCreatingRef.current = true;
-      setIsLoading(true);
+      const state = getBrowserState();
 
-      try {
-        // Get last URL from state or use initial
-        const state = getBrowserState();
-        const urlToLoad = state.url || initialUrl;
-
-        console.log('[BrowserPanel] Creating webview:', { urlToLoad, position });
-        await createBrowserWebview(urlToLoad, position);
+      if (state.isOpen) {
+        // Webview exists - just show it and update position
+        console.log('[BrowserPanel] Showing existing webview');
+        await showBrowserWebview();
+        await updatePosition(position);
         updateBrowserState();
-      } catch (err) {
-        console.error('[BrowserPanel] Error creating webview:', err);
-      } finally {
-        setIsLoading(false);
-        isCreatingRef.current = false;
-      }
-    }, 100);
+      } else {
+        // Create new webview
+        isCreatingRef.current = true;
+        setIsLoading(true);
 
-    // Cleanup: close webview when panel closes or component unmounts
-    return () => {
-      clearTimeout(timeoutId);
-      console.log('[BrowserPanel] Closing webview');
-      closeBrowserWebview();
-    };
+        try {
+          const urlToLoad = state.url || initialUrl;
+          console.log('[BrowserPanel] Creating webview:', { urlToLoad, position });
+          await createBrowserWebview(urlToLoad, position);
+          updateBrowserState();
+        } catch (err) {
+          console.error('[BrowserPanel] Error creating webview:', err);
+        } finally {
+          setIsLoading(false);
+          isCreatingRef.current = false;
+        }
+      }
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
   }, [isOpen, initialUrl, getPosition, updateBrowserState]);
+
+  // Hide webview when panel closes (don't destroy - keep state)
+  useEffect(() => {
+    if (isOpen) return;
+
+    // Hide the webview when panel closes
+    hideBrowserWebview();
+  }, [isOpen]);
 
   // Handle window resize/move
   useEffect(() => {
@@ -102,7 +114,6 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
       }
     };
 
-    // Debounced update
     let timeoutId: ReturnType<typeof setTimeout>;
     const debouncedUpdate = () => {
       clearTimeout(timeoutId);
