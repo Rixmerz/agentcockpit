@@ -1,6 +1,6 @@
 [package]
 name = "agentcockpit"
-version = "0.1.0"
+version = "1.1.0"
 description = "Your AI agent cockpit - Control Claude and other AI agents from a unified terminal interface"
 authors = ["Juan Pablo Diaz"]
 license = "MIT"
