@@ -4,15 +4,12 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   createBrowserWebview,
   closeBrowserWebview,
-  hideBrowserWebview,
-  showBrowserWebview,
   navigateTo,
   goBack,
   goForward,
   refresh,
   updatePosition,
   getBrowserState,
-  isBrowserVisible,
 } from '../../services/browserService';
 
 interface BrowserPanelProps {
@@ -29,160 +26,132 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [webviewExists, setWebviewExists] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isCreatingRef = useRef(false);
 
   // Update state from service
   const updateBrowserState = useCallback(() => {
     const state = getBrowserState();
-    setInputUrl(state.url || initialUrl);
+    if (state.url) {
+      setInputUrl(state.url);
+    }
     setCanGoBack(state.canGoBack);
     setCanGoForward(state.canGoForward);
-    setWebviewExists(state.isOpen);
-  }, [initialUrl]);
+  }, []);
 
-  // Calculate and update webview position based on container
-  const updateWebviewPosition = useCallback(() => {
-    if (!containerRef.current || !isOpen) return;
-
+  // Get current position
+  const getPosition = useCallback(() => {
+    if (!containerRef.current) return null;
     const rect = containerRef.current.getBoundingClientRect();
-
-    // Position webview below the toolbar
-    updatePosition({
+    return {
       x: rect.left,
       y: rect.top + TOOLBAR_HEIGHT,
       width: rect.width,
       height: PANEL_HEIGHT - TOOLBAR_HEIGHT,
-    });
-  }, [isOpen]);
+    };
+  }, []);
 
-  // Create or show webview when panel opens
+  // Create webview when panel opens
   useEffect(() => {
-    if (!isOpen || !containerRef.current) return;
-
-    // Wait a frame for DOM to be ready
-    const timeoutId = setTimeout(() => {
-      if (!containerRef.current) return;
-
-      const rect = containerRef.current.getBoundingClientRect();
-      const position = {
-        x: rect.left,
-        y: rect.top + TOOLBAR_HEIGHT,
-        width: rect.width,
-        height: PANEL_HEIGHT - TOOLBAR_HEIGHT,
-      };
-
-      const state = getBrowserState();
-
-      if (state.isOpen) {
-        // Webview exists, just show it and update position
-        console.log('[BrowserPanel] Showing existing webview at:', position);
-        showBrowserWebview().then(async () => {
-          // Wait a bit then update position to ensure webview is visible
-          await new Promise(r => setTimeout(r, 100));
-          await updatePosition(position);
-          updateBrowserState();
-        });
-      } else {
-        // Create new webview
-        console.log('[BrowserPanel] Creating new webview at:', position);
-        setIsLoading(true);
-        createBrowserWebview(initialUrl, position)
-          .then(() => {
-            setIsLoading(false);
-            updateBrowserState();
-          })
-          .catch((err) => {
-            console.error('[BrowserPanel] Error creating webview:', err);
-            setIsLoading(false);
-          });
-      }
-    }, 50);
-
-    return () => clearTimeout(timeoutId);
-  }, [isOpen, initialUrl, updateBrowserState]);
-
-  // Hide webview when panel closes (but don't destroy)
-  useEffect(() => {
-    if (!isOpen && isBrowserVisible()) {
-      console.log('[BrowserPanel] Hiding webview');
-      hideBrowserWebview();
+    if (!isOpen) {
+      // Close webview when panel closes
+      closeBrowserWebview();
+      return;
     }
-  }, [isOpen]);
 
-  // Handle resize and window events
+    if (isCreatingRef.current) return;
+
+    // Wait for container to be rendered
+    const timeoutId = setTimeout(async () => {
+      const position = getPosition();
+      if (!position) return;
+
+      isCreatingRef.current = true;
+      setIsLoading(true);
+
+      try {
+        // Get last URL from state or use initial
+        const state = getBrowserState();
+        const urlToLoad = state.url || initialUrl;
+
+        console.log('[BrowserPanel] Creating webview:', { urlToLoad, position });
+        await createBrowserWebview(urlToLoad, position);
+        updateBrowserState();
+      } catch (err) {
+        console.error('[BrowserPanel] Error creating webview:', err);
+      } finally {
+        setIsLoading(false);
+        isCreatingRef.current = false;
+      }
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [isOpen, initialUrl, getPosition, updateBrowserState]);
+
+  // Handle window resize/move
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleResize = () => {
-      // Small delay to ensure DOM is updated
-      setTimeout(() => {
-        updateWebviewPosition();
-      }, 50);
-    };
-
-    // Listen for browser window resize
-    window.addEventListener('resize', handleResize);
-
-    // Listen for Tauri window events
     let unlistenMove: (() => void) | null = null;
     let unlistenResize: (() => void) | null = null;
-    let unlistenFocus: (() => void) | null = null;
+
+    const handlePositionUpdate = () => {
+      const position = getPosition();
+      if (position) {
+        updatePosition(position);
+      }
+    };
+
+    // Debounced update
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const debouncedUpdate = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(handlePositionUpdate, 16);
+    };
+
+    window.addEventListener('resize', debouncedUpdate);
 
     const setupTauriListeners = async () => {
       const mainWindow = getCurrentWindow();
-
-      unlistenMove = await mainWindow.onMoved(() => {
-        console.log('[BrowserPanel] Window moved, updating position');
-        handleResize();
-      });
-
-      unlistenResize = await mainWindow.onResized(() => {
-        console.log('[BrowserPanel] Window resized, updating position');
-        handleResize();
-      });
-
-      unlistenFocus = await mainWindow.onFocusChanged(({ payload: focused }) => {
-        if (focused) {
-          console.log('[BrowserPanel] Window focused, updating position');
-          handleResize();
-        }
-      });
+      unlistenMove = await mainWindow.onMoved(debouncedUpdate);
+      unlistenResize = await mainWindow.onResized(debouncedUpdate);
     };
 
     setupTauriListeners();
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', debouncedUpdate);
       unlistenMove?.();
       unlistenResize?.();
-      unlistenFocus?.();
     };
-  }, [isOpen, updateWebviewPosition]);
+  }, [isOpen, getPosition]);
 
-  // Handle navigation
+  // Navigation handlers
   const handleNavigate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputUrl.trim()) return;
 
     setIsLoading(true);
     await navigateTo(inputUrl.trim());
-    setIsLoading(false);
     updateBrowserState();
+    setIsLoading(false);
   };
 
   const handleBack = async () => {
     setIsLoading(true);
     await goBack();
-    setIsLoading(false);
     updateBrowserState();
+    setIsLoading(false);
   };
 
   const handleForward = async () => {
     setIsLoading(true);
     await goForward();
-    setIsLoading(false);
     updateBrowserState();
+    setIsLoading(false);
   };
 
   const handleRefresh = async () => {
@@ -191,15 +160,7 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     setIsLoading(false);
   };
 
-  const handleClose = async () => {
-    // Just hide, don't destroy - allows reopening with same state
-    await hideBrowserWebview();
-    onClose();
-  };
-
-  const handleCloseCompletely = async () => {
-    // Destroy the webview completely
-    await closeBrowserWebview();
+  const handleClose = () => {
     onClose();
   };
 
@@ -211,14 +172,12 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
       className="browser-panel"
       style={{ height: PANEL_HEIGHT }}
     >
-      {/* Browser Toolbar */}
       <div className="browser-toolbar" style={{ height: TOOLBAR_HEIGHT }}>
-        {/* Navigation buttons */}
         <div className="browser-nav-buttons">
           <button
             className="browser-nav-btn"
             onClick={handleBack}
-            disabled={!canGoBack}
+            disabled={!canGoBack || isLoading}
             title="Back"
           >
             <ArrowLeft size={16} />
@@ -226,7 +185,7 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
           <button
             className="browser-nav-btn"
             onClick={handleForward}
-            disabled={!canGoForward}
+            disabled={!canGoForward || isLoading}
             title="Forward"
           >
             <ArrowRight size={16} />
@@ -234,13 +193,13 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
           <button
             className={`browser-nav-btn ${isLoading ? 'loading' : ''}`}
             onClick={handleRefresh}
+            disabled={isLoading}
             title="Refresh"
           >
-            <RotateCw size={16} />
+            <RotateCw size={16} className={isLoading ? 'spin' : ''} />
           </button>
         </div>
 
-        {/* URL Bar */}
         <form onSubmit={handleNavigate} className="browser-url-form">
           <div className="browser-url-container">
             <Globe size={14} className="browser-url-icon" />
@@ -255,18 +214,15 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
           </div>
         </form>
 
-        {/* Close button */}
         <button
           className="browser-close-btn"
           onClick={handleClose}
-          onDoubleClick={handleCloseCompletely}
-          title="Close (double-click to destroy)"
+          title="Close browser"
         >
           <X size={16} />
         </button>
       </div>
 
-      {/* Webview container - native webview renders on top of this area */}
       <div
         className="browser-webview-container"
         style={{ height: PANEL_HEIGHT - TOOLBAR_HEIGHT }}
@@ -274,12 +230,6 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
         {isLoading && (
           <div className="browser-loading">
             <div className="browser-loading-spinner" />
-          </div>
-        )}
-        {!webviewExists && !isLoading && (
-          <div className="browser-placeholder">
-            <Globe size={48} opacity={0.3} />
-            <p>Browser loading...</p>
           </div>
         )}
       </div>
