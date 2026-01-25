@@ -121,12 +121,14 @@ export function MediaControlBar({ onTabFocus }: MediaControlBarProps) {
             {getPlatformBadge(displayMedia.platform)}
           </span>
         )}
-        <div
-          ref={titleRef}
-          className={`media-title ${shouldMarquee ? 'marquee' : ''}`}
-        >
-          <span>{displayMedia.title}</span>
-          {shouldMarquee && <span>{displayMedia.title}</span>}
+        <div className="media-title-wrapper">
+          <div
+            ref={titleRef}
+            className={`media-title ${shouldMarquee ? 'marquee' : ''}`}
+          >
+            <span>{displayMedia.title}</span>
+            {shouldMarquee && <span>{displayMedia.title}</span>}
+          </div>
         </div>
       </div>
     </div>
