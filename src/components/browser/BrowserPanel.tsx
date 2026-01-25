@@ -3,7 +3,6 @@ import { ArrowLeft, ArrowRight, RotateCw, X, Globe } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   createBrowserWebview,
-  closeBrowserWebview,
   hideBrowserWebview,
   showBrowserWebview,
   navigateTo,
@@ -20,7 +19,7 @@ interface BrowserPanelProps {
   initialUrl?: string;
 }
 
-const TOOLBAR_HEIGHT = 44; // Increased to ensure toolbar is visible
+const TOOLBAR_HEIGHT = 48;
 const PANEL_HEIGHT = 400;
 
 export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com' }: BrowserPanelProps) {
@@ -29,9 +28,8 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
   const [canGoForward, setCanGoForward] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isCreatingRef = useRef(false);
+  const webviewReadyRef = useRef(false);
 
-  // Update state from service
   const updateBrowserState = useCallback(() => {
     const state = getBrowserState();
     if (state.url) {
@@ -41,7 +39,6 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     setCanGoForward(state.canGoForward);
   }, []);
 
-  // Get current position
   const getPosition = useCallback(() => {
     if (!containerRef.current) return null;
     const rect = containerRef.current.getBoundingClientRect();
@@ -53,96 +50,107 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     };
   }, []);
 
-  // Show/create webview when panel opens
+  // Single unified effect for webview lifecycle
   useEffect(() => {
-    if (!isOpen) return;
-    if (isCreatingRef.current) return;
+    if (!isOpen) {
+      // Panel closing - hide webview
+      if (webviewReadyRef.current) {
+        hideBrowserWebview();
+      }
+      return;
+    }
 
-    const timeoutId = setTimeout(async () => {
+    let mounted = true;
+
+    const initWebview = async () => {
+      await new Promise(r => setTimeout(r, 100));
+      if (!mounted) return;
+
       const position = getPosition();
       if (!position) return;
 
       const state = getBrowserState();
 
       if (state.isOpen) {
-        // Webview exists - just show it and update position
         console.log('[BrowserPanel] Showing existing webview');
         await showBrowserWebview();
-        await updatePosition(position);
-        updateBrowserState();
+        if (mounted) {
+          await updatePosition(position);
+          updateBrowserState();
+          webviewReadyRef.current = true;
+        }
       } else {
-        // Create new webview
-        isCreatingRef.current = true;
         setIsLoading(true);
-
         try {
           const urlToLoad = state.url || initialUrl;
-          console.log('[BrowserPanel] Creating webview:', { urlToLoad, position });
+          console.log('[BrowserPanel] Creating webview at:', position);
           await createBrowserWebview(urlToLoad, position);
-          updateBrowserState();
+          if (mounted) {
+            updateBrowserState();
+            webviewReadyRef.current = true;
+          }
         } catch (err) {
-          console.error('[BrowserPanel] Error creating webview:', err);
+          console.error('[BrowserPanel] Error:', err);
         } finally {
-          setIsLoading(false);
-          isCreatingRef.current = false;
+          if (mounted) setIsLoading(false);
         }
       }
-    }, 50);
+    };
 
-    return () => clearTimeout(timeoutId);
+    const timeoutId = setTimeout(initWebview, 50);
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [isOpen, initialUrl, getPosition, updateBrowserState]);
-
-  // Hide webview when panel closes (don't destroy - keep state)
-  useEffect(() => {
-    if (isOpen) return;
-
-    // Hide the webview when panel closes
-    hideBrowserWebview();
-  }, [isOpen]);
 
   // Handle window resize/move
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !webviewReadyRef.current) return;
 
     let unlistenMove: (() => void) | null = null;
     let unlistenResize: (() => void) | null = null;
+    let rafId: number;
 
     const handlePositionUpdate = () => {
-      const position = getPosition();
-      if (position) {
-        updatePosition(position);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const position = getPosition();
+        if (position) updatePosition(position);
+      });
+    };
+
+    window.addEventListener('resize', handlePositionUpdate);
+
+    const setupListeners = async () => {
+      try {
+        const mainWindow = getCurrentWindow();
+        unlistenMove = await mainWindow.onMoved(handlePositionUpdate);
+        unlistenResize = await mainWindow.onResized(handlePositionUpdate);
+      } catch (e) {
+        console.warn('[BrowserPanel] Could not setup listeners:', e);
       }
     };
 
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const debouncedUpdate = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(handlePositionUpdate, 16);
-    };
-
-    window.addEventListener('resize', debouncedUpdate);
-
-    const setupTauriListeners = async () => {
-      const mainWindow = getCurrentWindow();
-      unlistenMove = await mainWindow.onMoved(debouncedUpdate);
-      unlistenResize = await mainWindow.onResized(debouncedUpdate);
-    };
-
-    setupTauriListeners();
+    setupListeners();
 
     return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener('resize', debouncedUpdate);
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', handlePositionUpdate);
       unlistenMove?.();
       unlistenResize?.();
     };
   }, [isOpen, getPosition]);
 
-  // Navigation handlers
+  // Close: hide webview FIRST, then close UI
+  const handleClose = async () => {
+    await hideBrowserWebview();
+    onClose();
+  };
+
   const handleNavigate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputUrl.trim()) return;
-
     setIsLoading(true);
     await navigateTo(inputUrl.trim());
     updateBrowserState();
@@ -167,10 +175,6 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     setIsLoading(true);
     await refresh();
     setIsLoading(false);
-  };
-
-  const handleClose = () => {
-    onClose();
   };
 
   if (!isOpen) return null;
