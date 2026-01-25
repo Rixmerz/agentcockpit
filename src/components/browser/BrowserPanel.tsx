@@ -110,6 +110,14 @@ export function BrowserPanel({
     }
   }, [activeTabId]);
 
+  // Hide all webviews when panel closes
+  useEffect(() => {
+    if (!isOpen) {
+      hideAllBrowserWebviews();
+      setWebviewsHidden(true);
+    }
+  }, [isOpen]);
+
   // Hide all webviews when idle or modal is open
   useEffect(() => {
     const shouldHide = isIdle || hideForModal;
