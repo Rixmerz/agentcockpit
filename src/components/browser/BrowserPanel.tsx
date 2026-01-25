@@ -33,46 +33,51 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     if (!containerRef.current || !isOpen) return;
 
     const rect = containerRef.current.getBoundingClientRect();
-    const scaleFactor = window.devicePixelRatio || 1;
 
-    // Position webview below the toolbar
+    // Position webview below the toolbar (use logical coordinates, not physical)
     updatePosition({
-      x: rect.left * scaleFactor,
-      y: (rect.top + TOOLBAR_HEIGHT) * scaleFactor,
-      width: rect.width * scaleFactor,
-      height: (PANEL_HEIGHT - TOOLBAR_HEIGHT) * scaleFactor,
+      x: rect.left,
+      y: rect.top + TOOLBAR_HEIGHT,
+      width: rect.width,
+      height: PANEL_HEIGHT - TOOLBAR_HEIGHT,
     });
   }, [isOpen]);
 
   // Create webview when panel opens
   useEffect(() => {
-    if (isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const scaleFactor = window.devicePixelRatio || 1;
+    if (!isOpen || !containerRef.current) return;
 
-      setIsLoading(true);
-      createBrowserWebview(url, {
-        x: rect.left * scaleFactor,
-        y: (rect.top + TOOLBAR_HEIGHT) * scaleFactor,
-        width: rect.width * scaleFactor,
-        height: (PANEL_HEIGHT - TOOLBAR_HEIGHT) * scaleFactor,
+    const rect = containerRef.current.getBoundingClientRect();
+
+    console.log('[BrowserPanel] Creating webview at:', {
+      x: rect.left,
+      y: rect.top + TOOLBAR_HEIGHT,
+      width: rect.width,
+      height: PANEL_HEIGHT - TOOLBAR_HEIGHT,
+    });
+
+    setIsLoading(true);
+    createBrowserWebview(initialUrl, {
+      x: rect.left,
+      y: rect.top + TOOLBAR_HEIGHT,
+      width: rect.width,
+      height: PANEL_HEIGHT - TOOLBAR_HEIGHT,
+    })
+      .then(() => {
+        setIsLoading(false);
+        updateBrowserState();
       })
-        .then(() => {
-          setIsLoading(false);
-          updateBrowserState();
-        })
-        .catch((err) => {
-          console.error('[BrowserPanel] Error creating webview:', err);
-          setIsLoading(false);
-        });
-    }
+      .catch((err) => {
+        console.error('[BrowserPanel] Error creating webview:', err);
+        setIsLoading(false);
+      });
 
+    // Cleanup when component unmounts or isOpen becomes false
     return () => {
-      if (!isOpen) {
-        closeBrowserWebview();
-      }
+      console.log('[BrowserPanel] Cleanup - closing webview');
+      closeBrowserWebview();
     };
-  }, [isOpen]);
+  }, [isOpen, initialUrl]);
 
   // Handle resize
   useEffect(() => {
