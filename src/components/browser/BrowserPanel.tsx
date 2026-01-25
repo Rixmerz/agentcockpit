@@ -3,12 +3,15 @@ import { ArrowLeft, ArrowRight, RotateCw, X, Globe } from 'lucide-react';
 import {
   createBrowserWebview,
   closeBrowserWebview,
+  hideBrowserWebview,
+  showBrowserWebview,
   navigateTo,
   goBack,
   goForward,
   refresh,
   updatePosition,
   getBrowserState,
+  isBrowserVisible,
 } from '../../services/browserService';
 
 interface BrowserPanelProps {
@@ -21,12 +24,21 @@ const TOOLBAR_HEIGHT = 40;
 const PANEL_HEIGHT = 400;
 
 export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com' }: BrowserPanelProps) {
-  const [url, setUrl] = useState(initialUrl);
   const [inputUrl, setInputUrl] = useState(initialUrl);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [webviewExists, setWebviewExists] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Update state from service
+  const updateBrowserState = useCallback(() => {
+    const state = getBrowserState();
+    setInputUrl(state.url || initialUrl);
+    setCanGoBack(state.canGoBack);
+    setCanGoForward(state.canGoForward);
+    setWebviewExists(state.isOpen);
+  }, [initialUrl]);
 
   // Calculate and update webview position based on container
   const updateWebviewPosition = useCallback(() => {
@@ -34,7 +46,7 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
 
     const rect = containerRef.current.getBoundingClientRect();
 
-    // Position webview below the toolbar (use logical coordinates, not physical)
+    // Position webview below the toolbar
     updatePosition({
       x: rect.left,
       y: rect.top + TOOLBAR_HEIGHT,
@@ -43,41 +55,50 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     });
   }, [isOpen]);
 
-  // Create webview when panel opens
+  // Create or show webview when panel opens
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
-
-    console.log('[BrowserPanel] Creating webview at:', {
+    const position = {
       x: rect.left,
       y: rect.top + TOOLBAR_HEIGHT,
       width: rect.width,
       height: PANEL_HEIGHT - TOOLBAR_HEIGHT,
-    });
-
-    setIsLoading(true);
-    createBrowserWebview(initialUrl, {
-      x: rect.left,
-      y: rect.top + TOOLBAR_HEIGHT,
-      width: rect.width,
-      height: PANEL_HEIGHT - TOOLBAR_HEIGHT,
-    })
-      .then(() => {
-        setIsLoading(false);
-        updateBrowserState();
-      })
-      .catch((err) => {
-        console.error('[BrowserPanel] Error creating webview:', err);
-        setIsLoading(false);
-      });
-
-    // Cleanup when component unmounts or isOpen becomes false
-    return () => {
-      console.log('[BrowserPanel] Cleanup - closing webview');
-      closeBrowserWebview();
     };
-  }, [isOpen, initialUrl]);
+
+    const state = getBrowserState();
+
+    if (state.isOpen) {
+      // Webview exists, just show it and update position
+      console.log('[BrowserPanel] Showing existing webview');
+      showBrowserWebview().then(() => {
+        updatePosition(position);
+        updateBrowserState();
+      });
+    } else {
+      // Create new webview
+      console.log('[BrowserPanel] Creating new webview at:', position);
+      setIsLoading(true);
+      createBrowserWebview(initialUrl, position)
+        .then(() => {
+          setIsLoading(false);
+          updateBrowserState();
+        })
+        .catch((err) => {
+          console.error('[BrowserPanel] Error creating webview:', err);
+          setIsLoading(false);
+        });
+    }
+  }, [isOpen, initialUrl, updateBrowserState]);
+
+  // Hide webview when panel closes (but don't destroy)
+  useEffect(() => {
+    if (!isOpen && isBrowserVisible()) {
+      console.log('[BrowserPanel] Hiding webview');
+      hideBrowserWebview();
+    }
+  }, [isOpen]);
 
   // Handle resize
   useEffect(() => {
@@ -90,15 +111,6 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [isOpen, updateWebviewPosition]);
-
-  // Update state from service
-  const updateBrowserState = () => {
-    const state = getBrowserState();
-    setUrl(state.url);
-    setInputUrl(state.url);
-    setCanGoBack(state.canGoBack);
-    setCanGoForward(state.canGoForward);
-  };
 
   // Handle navigation
   const handleNavigate = async (e: React.FormEvent) => {
@@ -132,6 +144,13 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
   };
 
   const handleClose = async () => {
+    // Just hide, don't destroy - allows reopening with same state
+    await hideBrowserWebview();
+    onClose();
+  };
+
+  const handleCloseCompletely = async () => {
+    // Destroy the webview completely
     await closeBrowserWebview();
     onClose();
   };
@@ -192,13 +211,14 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
         <button
           className="browser-close-btn"
           onClick={handleClose}
-          title="Close browser"
+          onDoubleClick={handleCloseCompletely}
+          title="Close (double-click to destroy)"
         >
           <X size={16} />
         </button>
       </div>
 
-      {/* Webview container - native webview renders here */}
+      {/* Webview container - native webview renders on top of this area */}
       <div
         className="browser-webview-container"
         style={{ height: PANEL_HEIGHT - TOOLBAR_HEIGHT }}
@@ -206,6 +226,12 @@ export function BrowserPanel({ isOpen, onClose, initialUrl = 'https://google.com
         {isLoading && (
           <div className="browser-loading">
             <div className="browser-loading-spinner" />
+          </div>
+        )}
+        {!webviewExists && !isLoading && (
+          <div className="browser-placeholder">
+            <Globe size={48} opacity={0.3} />
+            <p>Browser loading...</p>
           </div>
         )}
       </div>
