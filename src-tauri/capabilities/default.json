@@ -54,6 +54,8 @@
         "$HOME/**/.agentcockpit/**",
         "$HOME/**/.claude/**",
         "$HOME/.claude.json",
+        "$HOME/.gemini/**",
+        "$HOME/.gemini/settings.json",
         "$HOME/Library/Application Support/**",
         "$HOME/Library/Application Support/Claude/**"
       ]
