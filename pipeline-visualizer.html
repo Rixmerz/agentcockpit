@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Visualizer - Haiku Orchestrator</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a7b 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        header {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        #visualization {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 1400px;
+            height: 800px;
+            position: relative;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .node {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .node circle {
+            stroke: #fff;
+            stroke-width: 3px;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+        }
+
+        .node:hover circle {
+            stroke-width: 5px;
+            filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4));
+        }
+
+        .node-start circle {
+            stroke: #2ecc71;
+            stroke-width: 5px;
+        }
+
+        .node-end circle {
+            stroke: #e74c3c;
+            stroke-width: 5px;
+        }
+
+        .node text {
+            font-size: 14px;
+            font-weight: 600;
+            text-anchor: middle;
+            pointer-events: none;
+            fill: #2c3e50;
+        }
+
+        .link {
+            fill: none;
+            stroke: #95a5a6;
+            stroke-width: 2px;
+            marker-end: url(#arrowhead);
+            opacity: 0.6;
+            transition: all 0.3s ease;
+        }
+
+        .link:hover {
+            stroke: #34495e;
+            stroke-width: 3px;
+            opacity: 1;
+        }
+
+        .link-label {
+            font-size: 11px;
+            fill: #7f8c8d;
+            text-anchor: middle;
+            pointer-events: none;
+            background: white;
+            padding: 2px 4px;
+        }
+
+        .link-label-bg {
+            fill: white;
+            opacity: 0.9;
+            rx: 3;
+            ry: 3;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(44, 62, 80, 0.95);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            max-width: 300px;
+            z-index: 1000;
+        }
+
+        .tooltip.show {
+            opacity: 1;
+        }
+
+        .tooltip-title {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: #3498db;
+        }
+
+        .tooltip-description {
+            line-height: 1.4;
+        }
+
+        .tooltip-type {
+            font-size: 11px;
+            color: #95a5a6;
+            margin-top: 6px;
+            font-style: italic;
+        }
+
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            font-size: 12px;
+        }
+
+        .legend-title {
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 8px;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            #visualization {
+                height: 600px;
+            }
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Pipeline Haiku Orchestrator</h1>
+        <p class="subtitle">Visualización interactiva del flujo de trabajo</p>
+    </header>
+
+    <div id="visualization">
+        <svg id="graph"></svg>
+        <div class="tooltip" id="tooltip">
+            <div class="tooltip-title" id="tooltip-title"></div>
+            <div class="tooltip-description" id="tooltip-description"></div>
+            <div class="tooltip-type" id="tooltip-type"></div>
+        </div>
+        <div class="legend">
+            <div class="legend-title">Nodos del Pipeline</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #90EE90;"></div>
+                <span>Thinking</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #87CEEB;"></div>
+                <span>Classification</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FFD700;"></div>
+                <span>Trivial Execution</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #9370DB;"></div>
+                <span>Delegate Sonnet</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FF69B4;"></div>
+                <span>Delegate Opus</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FFA500;"></div>
+                <span>Review</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FF6347;"></div>
+                <span>Complete</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Datos del pipeline
+        const nodes = [
+            { id: 'thinking', label: 'Sequential\nThinking', color: '#90EE90', description: 'Pensamiento secuencial inicial para analizar la tarea', type: 'start' },
+            { id: 'classification', label: 'Clasificación\nde Tarea', color: '#87CEEB', description: 'Clasificación de la complejidad y tipo de tarea a realizar' },
+            { id: 'trivial-execution', label: 'Ejecución\nTrivial', color: '#FFD700', description: 'Ejecución directa de tareas simples que no requieren planificación' },
+            { id: 'delegate-sonnet', label: 'Delegación a\nSonnet', color: '#9370DB', description: 'Delegación a Claude Sonnet para tareas de desarrollo' },
+            { id: 'delegate-opus', label: 'Delegación a\nOpus', color: '#FF69B4', description: 'Delegación a Claude Opus para tareas que requieren planificación compleja' },
+            { id: 'review', label: 'Review y\nEvaluación', color: '#FFA500', description: 'Revisión y evaluación del resultado de la ejecución' },
+            { id: 'complete', label: 'Tarea\nCompletada', color: '#FF6347', description: 'Fin del pipeline - tarea completada exitosamente', type: 'end' }
+        ];
+
+        const edges = [
+            { source: 'thinking', target: 'classification', label: 'sequentialthinking', type: 'tool' },
+            { source: 'classification', target: 'trivial-execution', label: 'tarea trivial', type: 'phrase' },
+            { source: 'classification', target: 'delegate-sonnet', label: 'requiere desarrollo', type: 'phrase' },
+            { source: 'classification', target: 'delegate-opus', label: 'requiere planificación', type: 'phrase' },
+            { source: 'trivial-execution', target: 'review', label: 'completado', type: 'phrase' },
+            { source: 'delegate-sonnet', target: 'review', label: 'delegación completada', type: 'phrase' },
+            { source: 'delegate-opus', target: 'review', label: 'planificación completada', type: 'phrase' },
+            { source: 'delegate-opus', target: 'delegate-sonnet', label: 'plan listo implementar', type: 'phrase' },
+            { source: 'trivial-execution', target: 'classification', label: 'más complejo de lo esperado', type: 'phrase' },
+            { source: 'review', target: 'classification', label: 'tarea incompleta', type: 'phrase' },
+            { source: 'delegate-sonnet', target: 'delegate-opus', label: 'necesita planificación primero', type: 'phrase' },
+            { source: 'review', target: 'complete', label: 'objetivo logrado', type: 'phrase' }
+        ];
+
+        // Configuración del SVG
+        const svg = d3.select('#graph');
+        const container = document.getElementById('visualization');
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+
+        svg.attr('viewBox', [0, 0, width, height]);
+
+        // Definir marcador de flecha
+        svg.append('defs').append('marker')
+            .attr('id', 'arrowhead')
+            .attr('viewBox', '-0 -5 10 10')
+            .attr('refX', 25)
+            .attr('refY', 0)
+            .attr('orient', 'auto')
+            .attr('markerWidth', 8)
+            .attr('markerHeight', 8)
+            .append('svg:path')
+            .attr('d', 'M 0,-5 L 10,0 L 0,5')
+            .attr('fill', '#95a5a6');
+
+        // Simulación de fuerzas
+        const simulation = d3.forceSimulation(nodes)
+            .force('link', d3.forceLink(edges).id(d => d.id).distance(200))
+            .force('charge', d3.forceManyBody().strength(-800))
+            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('collision', d3.forceCollide().radius(80));
+
+        // Crear enlaces
+        const link = svg.append('g')
+            .selectAll('path')
+            .data(edges)
+            .join('path')
+            .attr('class', 'link')
+            .attr('id', (d, i) => `link-${i}`);
+
+        // Crear labels para enlaces
+        const linkLabelGroup = svg.append('g')
+            .selectAll('g')
+            .data(edges)
+            .join('g');
+
+        linkLabelGroup.append('rect')
+            .attr('class', 'link-label-bg');
+
+        const linkLabel = linkLabelGroup.append('text')
+            .attr('class', 'link-label')
+            .text(d => d.label);
+
+        // Calcular tamaño de background para labels
+        linkLabel.each(function(d) {
+            const bbox = this.getBBox();
+            d3.select(this.parentNode).select('rect')
+                .attr('x', bbox.x - 4)
+                .attr('y', bbox.y - 2)
+                .attr('width', bbox.width + 8)
+                .attr('height', bbox.height + 4);
+        });
+
+        // Crear nodos
+        const node = svg.append('g')
+            .selectAll('g')
+            .data(nodes)
+            .join('g')
+            .attr('class', d => `node ${d.type === 'start' ? 'node-start' : ''} ${d.type === 'end' ? 'node-end' : ''}`)
+            .call(d3.drag()
+                .on('start', dragstarted)
+                .on('drag', dragged)
+                .on('end', dragended));
+
+        node.append('circle')
+            .attr('r', d => d.type ? 45 : 40)
+            .attr('fill', d => d.color);
+
+        node.append('text')
+            .attr('dy', '0.35em')
+            .selectAll('tspan')
+            .data(d => d.label.split('\n'))
+            .join('tspan')
+            .attr('x', 0)
+            .attr('dy', (d, i) => i ? '1.2em' : 0)
+            .text(d => d);
+
+        // Tooltip
+        const tooltip = d3.select('#tooltip');
+        const tooltipTitle = d3.select('#tooltip-title');
+        const tooltipDescription = d3.select('#tooltip-description');
+        const tooltipType = d3.select('#tooltip-type');
+
+        // Eventos de tooltip para nodos
+        node.on('mouseover', function(event, d) {
+            tooltipTitle.text(d.label.replace('\n', ' '));
+            tooltipDescription.text(d.description);
+            tooltipType.text(d.type === 'start' ? 'Nodo inicial' : d.type === 'end' ? 'Nodo final' : 'Nodo intermedio');
+            tooltip.classed('show', true);
+            updateTooltipPosition(event);
+        })
+        .on('mousemove', updateTooltipPosition)
+        .on('mouseout', function() {
+            tooltip.classed('show', false);
+        });
+
+        // Eventos de tooltip para enlaces
+        link.on('mouseover', function(event, d) {
+            tooltipTitle.text('Transición');
+            tooltipDescription.text(d.label);
+            tooltipType.text(`Tipo: ${d.type === 'tool' ? 'Activación por herramienta' : 'Activación por frase'}`);
+            tooltip.classed('show', true);
+            updateTooltipPosition(event);
+        })
+        .on('mousemove', updateTooltipPosition)
+        .on('mouseout', function() {
+            tooltip.classed('show', false);
+        });
+
+        function updateTooltipPosition(event) {
+            const tooltipNode = tooltip.node();
+            const tooltipWidth = tooltipNode.offsetWidth;
+            const tooltipHeight = tooltipNode.offsetHeight;
+
+            let left = event.pageX + 15;
+            let top = event.pageY - tooltipHeight / 2;
+
+            // Ajustar si sale del viewport
+            if (left + tooltipWidth > window.innerWidth) {
+                left = event.pageX - tooltipWidth - 15;
+            }
+            if (top < 0) {
+                top = 10;
+            }
+            if (top + tooltipHeight > window.innerHeight) {
+                top = window.innerHeight - tooltipHeight - 10;
+            }
+
+            tooltip.style('left', left + 'px')
+                   .style('top', top + 'px');
+        }
+
+        // Actualización de posiciones en cada tick
+        simulation.on('tick', () => {
+            link.attr('d', d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const dr = Math.sqrt(dx * dx + dy * dy);
+                return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+            });
+
+            linkLabelGroup.attr('transform', d => {
+                const x = (d.source.x + d.target.x) / 2;
+                const y = (d.source.y + d.target.y) / 2;
+                return `translate(${x},${y})`;
+            });
+
+            node.attr('transform', d => `translate(${d.x},${d.y})`);
+        });
+
+        // Funciones de drag
+        function dragstarted(event) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            event.subject.fx = event.subject.x;
+            event.subject.fy = event.subject.y;
+        }
+
+        function dragged(event) {
+            event.subject.fx = event.x;
+            event.subject.fy = event.y;
+        }
+
+        function dragended(event) {
+            if (!event.active) simulation.alphaTarget(0);
+            event.subject.fx = null;
+            event.subject.fy = null;
+        }
+
+        // Responsive
+        window.addEventListener('resize', () => {
+            const newWidth = container.clientWidth;
+            const newHeight = container.clientHeight;
+            svg.attr('viewBox', [0, 0, newWidth, newHeight]);
+            simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
+            simulation.alpha(0.3).restart();
+        });
+    </script>
+</body>
+</html>
