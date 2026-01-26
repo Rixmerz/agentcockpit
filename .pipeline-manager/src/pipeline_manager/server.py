@@ -818,12 +818,18 @@ def pipeline_set_enabled(enabled: bool, project_dir: str | None = None, session_
         }
 
 
-def get_pipelines_library_dir(project_dir: str) -> Path:
-    """Get the pipelines library directory for a project.
+def get_pipelines_library_dir(project_dir: str | None = None) -> Path:
+    """Get the GLOBAL pipelines library directory.
 
-    Returns {project_dir}/.claude/pipelines/ where reusable pipeline templates are stored.
+    Pipelines are ALWAYS global (shared across all projects).
+    Returns ~/.claude/pipelines/ where reusable pipeline templates are stored.
+
+    State is stored locally per-project in {project}/.claude/pipeline/state.json
+
+    Args:
+        project_dir: Ignored - kept for backward compatibility
     """
-    return Path(project_dir) / ".claude" / "pipelines"
+    return Path.home() / ".claude" / "pipelines"
 
 
 # DEPRECATED: pipeline_list_available, pipeline_activate, pipeline_create_step removed
