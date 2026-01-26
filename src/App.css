@@ -5349,6 +5349,7 @@ input[type="checkbox"] {
 .pipeline-mode-switch {
   display: flex;
   justify-content: center;
+  gap: 8px;
   padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -5357,6 +5358,205 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ==========================================================================
+   GRAPH VIEW STYLES
+   ========================================================================== */
+
+.pipeline-graph-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.pipeline-graph-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.pipeline-graph-header .graph-name {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  background: rgba(0, 212, 170, 0.1);
+  border-radius: 10px;
+}
+
+.pipeline-graph-container {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 16px;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+/* Mermaid Renderer Styles */
+.mermaid-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mermaid-diagram {
+  width: 100%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.mermaid-diagram.rendered {
+  opacity: 1;
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-diagram .node {
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+
+.mermaid-diagram .node:hover {
+  filter: brightness(1.2);
+}
+
+.mermaid-loading {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 20px;
+}
+
+.mermaid-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  color: var(--error);
+}
+
+.mermaid-error small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* Current Node Info */
+.pipeline-current-node-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(0, 212, 170, 0.08);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+.current-node-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.current-node-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.current-node-visits {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+/* Edges Section in Graph View */
+.pipeline-edges-section {
+  margin-bottom: 16px;
+}
+
+.pipeline-edges-section h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 10px 0;
+}
+
+.pipeline-edges-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pipeline-edge-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.pipeline-edge-item .edge-target {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pipeline-edge-item .edge-condition {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.pipeline-edge-item .edge-condition small {
+  font-size: 10px;
+  text-transform: none;
+  opacity: 0.7;
+}
+
+.edge-tool {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+}
+
+.edge-phrase {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+
+.edge-always {
+  background: rgba(0, 212, 170, 0.15);
+  color: var(--accent);
+}
+
+.edge-default {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
 }
 
 /* Steps List View */
