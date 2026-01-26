@@ -17,6 +17,9 @@ import os
 import json
 import asyncio
 import subprocess
+import uuid
+from contextvars import ContextVar
+from difflib import SequenceMatcher
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Any
@@ -25,6 +28,220 @@ from fastmcp import FastMCP
 # Create FastMCP server
 mcp = FastMCP("pipeline-manager")
 
+# ============================================================================
+# Session Management (Thread-Safe via contextvars)
+# ============================================================================
+
+# Context var for session isolation - prevents race conditions in parallel sessions
+_session_contexts: ContextVar[dict] = ContextVar('session_contexts', default={})
+
+
+def get_or_create_session(session_id: str | None = None) -> str:
+    """Get existing session ID or create a new one."""
+    if session_id:
+        return session_id
+    return str(uuid.uuid4())
+
+
+def get_session_project_dir(session_id: str) -> str | None:
+    """Get project_dir for a specific session."""
+    contexts = _session_contexts.get()
+    return contexts.get(session_id, {}).get("project_dir")
+
+
+def set_session_project_dir(session_id: str, project_dir: str):
+    """Store project_dir for a specific session."""
+    contexts = _session_contexts.get()
+    if session_id not in contexts:
+        contexts[session_id] = {}
+    contexts[session_id]["project_dir"] = project_dir
+    _session_contexts.set(contexts)
+
+
+def resolve_project_dir(project_dir: str | None, session_id: str | None = None) -> tuple[str, str]:
+    """Resolve project_dir from parameter or session.
+
+    Returns (project_dir, session_id).
+    Priority: explicit parameter > session cache > error
+    """
+    sid = get_or_create_session(session_id)
+
+    if project_dir:
+        set_session_project_dir(sid, project_dir)
+        return project_dir, sid
+
+    cached = get_session_project_dir(sid)
+    if cached:
+        return cached, sid
+
+    raise ValueError(
+        "project_dir required on first call. "
+        "Use set_session(project_dir) or pass project_dir explicitly."
+    )
+
+
+# ============================================================================
+# Tool Categories for Semantic Search
+# ============================================================================
+
+TOOL_CATEGORIES = {
+    "containers": {
+        "patterns": ["container_", "docker_run", "docker_exec", "docker_start", "docker_stop"],
+        "keywords": ["container", "docker", "run", "exec", "start", "stop", "restart"],
+        "description": "Container lifecycle management"
+    },
+    "images": {
+        "patterns": ["image_", "docker_pull", "docker_build", "docker_push"],
+        "keywords": ["image", "pull", "build", "push", "registry"],
+        "description": "Image management"
+    },
+    "chaos": {
+        "patterns": ["fault_", "inject_", "chaos_", "scenario_"],
+        "keywords": ["fault", "inject", "chaos", "failure", "stress", "cpu", "memory", "network"],
+        "description": "Chaos engineering and fault injection"
+    },
+    "metrics": {
+        "patterns": ["metric_", "baseline_", "capture_", "stats_", "monitor_"],
+        "keywords": ["metric", "baseline", "capture", "stats", "monitor", "observe"],
+        "description": "Metrics and observability"
+    },
+    "tunnels": {
+        "patterns": ["tunnel_", "expose_", "port_forward", "ngrok"],
+        "keywords": ["tunnel", "expose", "port", "forward", "public", "internet", "url"],
+        "description": "Tunnels and service exposure"
+    },
+    "knowledge": {
+        "patterns": ["kg_", "memory_", "pattern_", "workflow_", "context_"],
+        "keywords": ["knowledge", "memory", "pattern", "workflow", "context", "learn"],
+        "description": "Knowledge graph and memory"
+    },
+    "pipeline": {
+        "patterns": ["pipeline_"],
+        "keywords": ["pipeline", "step", "advance", "reset", "gate"],
+        "description": "Pipeline flow control"
+    },
+    "thinking": {
+        "patterns": ["sequential", "think", "reason"],
+        "keywords": ["think", "reason", "analyze", "sequential", "step-by-step"],
+        "description": "Reasoning and structured thinking"
+    },
+    "docs": {
+        "patterns": ["get-library-docs", "resolve-library", "search_"],
+        "keywords": ["docs", "documentation", "library", "api", "reference"],
+        "description": "Documentation retrieval"
+    }
+}
+
+# Tool index cache for semantic search
+_tool_index: dict[str, list[dict]] = {}
+
+
+def build_tool_index(mcp_name: str, tools: list[dict]) -> list[dict]:
+    """Build searchable index of tools with extracted keywords."""
+    indexed = []
+    for tool in tools:
+        name = tool.get("name", "")
+        desc = tool.get("description", "")
+
+        # Extract keywords from name (split on underscore, dash, camelCase)
+        name_words = set(name.lower().replace("_", " ").replace("-", " ").split())
+
+        # Extract meaningful words from description (>3 chars)
+        desc_words = set(
+            word.lower().strip(".,;:()[]{}")
+            for word in desc.split()
+            if len(word) > 3
+        )
+
+        # Detect category
+        category = detect_tool_category(name, desc)
+
+        indexed.append({
+            "name": name,
+            "description": desc[:150] if desc else "",  # Truncate for token efficiency
+            "keywords": name_words | desc_words,
+            "category": category
+        })
+
+    return indexed
+
+
+def detect_tool_category(name: str, description: str) -> str:
+    """Detect category for a tool based on name and description patterns."""
+    name_lower = name.lower()
+    desc_lower = description.lower() if description else ""
+
+    for cat_name, cat_info in TOOL_CATEGORIES.items():
+        # Check patterns in name
+        for pattern in cat_info.get("patterns", []):
+            if pattern in name_lower:
+                return cat_name
+
+        # Check keywords in name or description
+        for keyword in cat_info.get("keywords", []):
+            if keyword in name_lower or keyword in desc_lower:
+                return cat_name
+
+    return "other"
+
+
+def semantic_search(query: str, mcp_filter: str | None = None, max_results: int = 10) -> list[dict]:
+    """Search tools by objective/description using semantic similarity."""
+    query_words = set(query.lower().split())
+    results = []
+
+    for mcp_name, tools in _tool_index.items():
+        if mcp_filter and mcp_name != mcp_filter:
+            continue
+
+        for tool in tools:
+            # Score based on keyword intersection + string similarity
+            keyword_score = len(query_words & tool["keywords"]) / max(len(query_words), 1)
+            name_score = SequenceMatcher(None, query.lower(), tool["name"].lower()).ratio()
+            desc_score = SequenceMatcher(None, query.lower(), tool["description"].lower()).ratio()
+
+            # Weighted combination
+            combined_score = (keyword_score * 0.5) + (name_score * 0.3) + (desc_score * 0.2)
+
+            if combined_score > 0.15:  # Minimum threshold
+                results.append({
+                    "mcp": mcp_name,
+                    "tool": tool["name"],
+                    "description": tool["description"],
+                    "category": tool.get("category", "other"),
+                    "score": round(combined_score, 2)
+                })
+
+    # Sort by score descending
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results[:max_results]
+
+
+def get_tools_by_category(mcp_name: str | None, category: str, limit: int = 20) -> list[dict]:
+    """Get tools filtered by category."""
+    results = []
+
+    for mcp, tools in _tool_index.items():
+        if mcp_name and mcp != mcp_name:
+            continue
+
+        for tool in tools:
+            if tool.get("category") == category:
+                results.append({
+                    "mcp": mcp,
+                    "name": tool["name"],
+                    "description": tool["description"]
+                })
+
+                if len(results) >= limit:
+                    return results
+
+    return results
+
+
+# ============================================================================
+# Pipeline Directory Helpers
+# ============================================================================
 
 def get_pipeline_dir(project_dir: str) -> Path:
     """Get pipeline directory for a specific project.
@@ -415,17 +632,57 @@ def load_config(project_dir: str) -> dict:
 # === MCP Tools ===
 
 @mcp.tool()
-def pipeline_status(project_dir: str) -> dict:
+def set_session(project_dir: str, session_id: str | None = None) -> dict:
+    """Establece el proyecto activo para la sesión actual.
+
+    Llamar esta función una vez al inicio evita repetir project_dir
+    en cada llamada subsiguiente.
+
+    Args:
+        project_dir: Absolute path to the project directory (REQUIRED first time)
+        session_id: Optional session ID for parallel session isolation
+
+    Returns:
+        session_id to use in subsequent calls (optional but recommended for parallel use)
+
+    Example:
+        # First call: set project
+        set_session(project_dir="/path/to/project")
+
+        # Subsequent calls: no project_dir needed
+        pipeline_status()
+        pipeline_advance()
+    """
+    sid = get_or_create_session(session_id)
+    set_session_project_dir(sid, project_dir)
+
+    # Validate project exists
+    pipeline_dir = get_pipeline_dir(project_dir)
+
+    return {
+        "success": True,
+        "session_id": sid,
+        "project_dir": project_dir,
+        "pipeline_dir": str(pipeline_dir),
+        "message": "Session established. project_dir no longer required in subsequent calls."
+    }
+
+
+@mcp.tool()
+def pipeline_status(project_dir: str | None = None, session_id: str | None = None) -> dict:
     """Obtiene el estado actual del pipeline: step actual, steps completados, configuración.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    state = load_state(project_dir)
-    steps = load_steps(project_dir)
-    config = load_config(project_dir)
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
+    state = load_state(resolved_dir)
+    steps = load_steps(resolved_dir)
+    config = load_config(resolved_dir)
     current = state.get("current_step", 0)
-    pipeline_path = get_pipeline_dir(project_dir)
+    pipeline_path = get_pipeline_dir(resolved_dir)
 
     step_list = []
     for i, step in enumerate(steps):
@@ -440,9 +697,10 @@ def pipeline_status(project_dir: str) -> dict:
         })
 
     # Get enforcer enabled state
-    enforcer_config = load_enforcer_config(project_dir)
+    enforcer_config = load_enforcer_config(resolved_dir)
 
     return {
+        "session_id": sid,
         "current_step": current,
         "total_steps": len(steps),
         "steps": step_list,
@@ -451,17 +709,20 @@ def pipeline_status(project_dir: str) -> dict:
         "last_activity": state.get("last_activity"),
         "completed_count": len(state.get("completed_steps", [])),
         "pipeline_path": str(pipeline_path),
-        "project_dir": project_dir
+        "project_dir": resolved_dir
     }
 
 
 @mcp.tool()
-def pipeline_reset(project_dir: str) -> dict:
+def pipeline_reset(project_dir: str | None = None, session_id: str | None = None) -> dict:
     """Resetea el pipeline al Step 0.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
     state = {
         "current_step": 0,
         "completed_steps": [],
@@ -470,23 +731,32 @@ def pipeline_reset(project_dir: str) -> dict:
         "last_activity": None,
         "step_history": []
     }
-    save_state(project_dir, state)
-    return {"success": True, "message": "Pipeline reset to Step 0", "current_step": 0, "project_dir": project_dir}
+    save_state(resolved_dir, state)
+    return {
+        "success": True,
+        "session_id": sid,
+        "message": "Pipeline reset to Step 0",
+        "current_step": 0,
+        "project_dir": resolved_dir
+    }
 
 
 @mcp.tool()
-def pipeline_advance(project_dir: str) -> dict:
+def pipeline_advance(project_dir: str | None = None, session_id: str | None = None) -> dict:
     """Avanza manualmente al siguiente step del pipeline.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    state = load_state(project_dir)
-    steps = load_steps(project_dir)
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
+    state = load_state(resolved_dir)
+    steps = load_steps(resolved_dir)
     current = state.get("current_step", 0)
 
     if current >= len(steps) - 1:
-        return {"success": False, "message": "Already at last step", "current_step": current}
+        return {"success": False, "session_id": sid, "message": "Already at last step", "current_step": current}
 
     state["current_step"] = current + 1
     state["completed_steps"].append({
@@ -500,32 +770,35 @@ def pipeline_advance(project_dir: str) -> dict:
         "timestamp": datetime.now().isoformat(),
         "reason": "Manual advance via MCP"
     })
-    save_state(project_dir, state)
+    save_state(resolved_dir, state)
 
     next_step = steps[current + 1]
     return {
         "success": True,
+        "session_id": sid,
         "message": f"Advanced to Step {current + 1}",
         "current_step": current + 1,
         "current_step_name": next_step.get("name", next_step.get("id")),
-        "project_dir": project_dir
+        "project_dir": resolved_dir
     }
 
 
 @mcp.tool()
-def pipeline_set_step(project_dir: str, step_index: int) -> dict:
+def pipeline_set_step(step_index: int, project_dir: str | None = None, session_id: str | None = None) -> dict:
     """Establece el pipeline en un step específico.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
         step_index: Índice del step (0-indexed)
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    steps = load_steps(project_dir)
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    steps = load_steps(resolved_dir)
 
     if step_index < 0 or step_index >= len(steps):
-        return {"success": False, "message": f"Invalid step index. Valid range: 0-{len(steps)-1}"}
+        return {"success": False, "session_id": sid, "message": f"Invalid step index. Valid range: 0-{len(steps)-1}"}
 
-    state = load_state(project_dir)
+    state = load_state(resolved_dir)
     old_step = state.get("current_step", 0)
     state["current_step"] = step_index
     state["step_history"].append({
@@ -534,50 +807,57 @@ def pipeline_set_step(project_dir: str, step_index: int) -> dict:
         "timestamp": datetime.now().isoformat(),
         "reason": "Set via MCP"
     })
-    save_state(project_dir, state)
+    save_state(resolved_dir, state)
 
     target_step = steps[step_index]
     return {
         "success": True,
+        "session_id": sid,
         "message": f"Set to Step {step_index}",
         "current_step": step_index,
         "current_step_name": target_step.get("name", target_step.get("id")),
-        "project_dir": project_dir
+        "project_dir": resolved_dir
     }
 
 
 @mcp.tool()
-def pipeline_get_config(project_dir: str) -> dict:
+def pipeline_get_config(project_dir: str | None = None, session_id: str | None = None) -> dict:
     """Obtiene la configuración actual del pipeline.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    config = load_config(project_dir)
-    config["project_dir"] = project_dir
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    config = load_config(resolved_dir)
+    config["session_id"] = sid
+    config["project_dir"] = resolved_dir
     return config
 
 
 @mcp.tool()
 def pipeline_set_config(
-    project_dir: str,
     reset_policy: Optional[str] = None,
     timeout_minutes: Optional[int] = None,
-    force_sequential: Optional[bool] = None
+    force_sequential: Optional[bool] = None,
+    project_dir: str | None = None,
+    session_id: str | None = None
 ) -> dict:
     """Modifica la configuración del pipeline.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
         reset_policy: Política de reset (manual, timeout, per_session)
         timeout_minutes: Minutos de inactividad antes de reset
         force_sequential: Si true, incluye instrucción para completar todos los steps
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    steps_file = get_steps_file(project_dir)
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    steps_file = get_steps_file(resolved_dir)
     if not steps_file.exists():
-        return {"success": False, "message": "steps.yaml not found", "project_dir": project_dir}
+        return {"success": False, "session_id": sid, "message": "steps.yaml not found", "project_dir": resolved_dir}
 
-    config = load_config(project_dir)
+    config = load_config(resolved_dir)
 
     if reset_policy is not None:
         if reset_policy not in ["manual", "timeout", "per_session"]:
@@ -620,7 +900,7 @@ def pipeline_set_config(
 
     steps_file.write_text('\n'.join(new_lines))
 
-    return {"success": True, "config": config, "project_dir": project_dir}
+    return {"success": True, "session_id": sid, "config": config, "project_dir": resolved_dir}
 
 
 def get_enforcer_config_file(project_dir: str) -> Path:
@@ -648,47 +928,54 @@ def save_enforcer_config(project_dir: str, config: dict):
 
 
 @mcp.tool()
-def pipeline_set_enabled(project_dir: str, enabled: bool) -> dict:
+def pipeline_set_enabled(enabled: bool, project_dir: str | None = None, session_id: str | None = None) -> dict:
     """Activa o desactiva el enforcer del pipeline.
 
     Cuando está desactivado, el hook aprueba todas las herramientas sin validar.
     Esto es útil para pausar temporalmente el control del pipeline.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
         enabled: True para activar el enforcer, False para desactivarlo
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
     try:
-        config = load_enforcer_config(project_dir)
+        config = load_enforcer_config(resolved_dir)
         config["enforcer_enabled"] = enabled
-        save_enforcer_config(project_dir, config)
+        save_enforcer_config(resolved_dir, config)
 
         return {
             "success": True,
+            "session_id": sid,
             "enabled": enabled,
             "message": f"Pipeline enforcer {'enabled' if enabled else 'disabled'}",
-            "project_dir": project_dir
+            "project_dir": resolved_dir
         }
     except Exception as e:
         return {
             "success": False,
+            "session_id": sid,
             "message": f"Error setting pipeline enabled state: {str(e)}",
-            "project_dir": project_dir
+            "project_dir": resolved_dir
         }
 
 
 @mcp.tool()
-def pipeline_get_enabled(project_dir: str) -> dict:
+def pipeline_get_enabled(project_dir: str | None = None, session_id: str | None = None) -> dict:
     """Obtiene el estado actual del enforcer del pipeline.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    config = load_enforcer_config(project_dir)
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    config = load_enforcer_config(resolved_dir)
     return {
+        "session_id": sid,
         "enabled": config.get("enforcer_enabled", True),
         "last_updated": config.get("last_updated"),
-        "project_dir": project_dir
+        "project_dir": resolved_dir
     }
 
 
@@ -701,20 +988,23 @@ def get_pipelines_library_dir(project_dir: str) -> Path:
 
 
 @mcp.tool()
-def pipeline_list_available(project_dir: str) -> dict:
+def pipeline_list_available(project_dir: str | None = None, session_id: str | None = None) -> dict:
     """Lista todas las pipelines disponibles en la librería del proyecto.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    pipelines_dir = get_pipelines_library_dir(project_dir)
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    pipelines_dir = get_pipelines_library_dir(resolved_dir)
 
     if not pipelines_dir.exists():
         return {
             "success": False,
+            "session_id": sid,
             "message": f"Pipelines directory not found: {pipelines_dir}",
             "pipelines": [],
-            "project_dir": project_dir
+            "project_dir": resolved_dir
         }
 
     pipelines = []
@@ -746,24 +1036,27 @@ def pipeline_list_available(project_dir: str) -> dict:
 
     return {
         "success": True,
+        "session_id": sid,
         "pipelines": pipelines,
         "total": len(pipelines),
-        "project_dir": project_dir
+        "project_dir": resolved_dir
     }
 
 
 @mcp.tool()
-def pipeline_activate(project_dir: str, pipeline_name: str) -> dict:
+def pipeline_activate(pipeline_name: str, project_dir: str | None = None, session_id: str | None = None) -> dict:
     """Activa una pipeline específica de la librería.
 
     Copia el contenido del archivo YAML de la pipeline a steps.yaml
     y actualiza el state.json con la pipeline activa y reset a step 0.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
         pipeline_name: Nombre de la pipeline (sin extensión .yaml)
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    pipelines_dir = get_pipelines_library_dir(project_dir)
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    pipelines_dir = get_pipelines_library_dir(resolved_dir)
     pipeline_file = pipelines_dir / f"{pipeline_name}.yaml"
 
     if not pipeline_file.exists():
@@ -771,9 +1064,10 @@ def pipeline_activate(project_dir: str, pipeline_name: str) -> dict:
         available = [f.stem for f in pipelines_dir.glob("*.yaml")] if pipelines_dir.exists() else []
         return {
             "success": False,
+            "session_id": sid,
             "message": f"Pipeline '{pipeline_name}' not found",
             "available_pipelines": available,
-            "project_dir": project_dir
+            "project_dir": resolved_dir
         }
 
     # Read pipeline content
@@ -782,12 +1076,13 @@ def pipeline_activate(project_dir: str, pipeline_name: str) -> dict:
     except Exception as e:
         return {
             "success": False,
+            "session_id": sid,
             "message": f"Error reading pipeline file: {str(e)}",
-            "project_dir": project_dir
+            "project_dir": resolved_dir
         }
 
     # Write to steps.yaml
-    steps_file = get_steps_file(project_dir)
+    steps_file = get_steps_file(resolved_dir)
     steps_file.parent.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -795,12 +1090,13 @@ def pipeline_activate(project_dir: str, pipeline_name: str) -> dict:
     except Exception as e:
         return {
             "success": False,
+            "session_id": sid,
             "message": f"Error writing steps.yaml: {str(e)}",
-            "project_dir": project_dir
+            "project_dir": resolved_dir
         }
 
     # Update state.json
-    state = load_state(project_dir)
+    state = load_state(resolved_dir)
     old_pipeline = state.get("active_pipeline", None)
 
     state["current_step"] = 0
@@ -814,32 +1110,35 @@ def pipeline_activate(project_dir: str, pipeline_name: str) -> dict:
         "reason": f"Pipeline activated: {pipeline_name}"
     }]
 
-    save_state(project_dir, state)
+    save_state(resolved_dir, state)
 
     # Load steps to return info
-    steps = load_steps(project_dir)
-    config = load_config(project_dir)
+    steps = load_steps(resolved_dir)
+    config = load_config(resolved_dir)
 
     return {
         "success": True,
+        "session_id": sid,
         "message": f"Pipeline '{pipeline_name}' activated",
         "previous_pipeline": old_pipeline,
         "active_pipeline": pipeline_name,
         "total_steps": len(steps),
         "steps": [{"id": s.get("id"), "name": s.get("name", s.get("id"))} for s in steps],
         "config": config,
-        "project_dir": project_dir
+        "project_dir": resolved_dir
     }
 
 
 @mcp.tool()
-def pipeline_get_steps(project_dir: str) -> dict:
+def pipeline_get_steps(project_dir: str | None = None, session_id: str | None = None) -> dict:
     """Obtiene todos los steps del pipeline con sus detalles.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    return {"steps": load_steps(project_dir), "project_dir": project_dir}
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    return {"session_id": sid, "steps": load_steps(resolved_dir), "project_dir": resolved_dir}
 
 
 @mcp.tool()
@@ -904,7 +1203,6 @@ Configuración sugerida:
 
 @mcp.tool()
 def pipeline_create_step(
-    project_dir: str,
     step_id: str,
     name: str,
     description: str,
@@ -914,12 +1212,13 @@ def pipeline_create_step(
     gate_type: str = "any",
     gate_tool: Optional[str] = None,
     gate_phrases: Optional[list[str]] = None,
-    prompt_injection: Optional[str] = None
+    prompt_injection: Optional[str] = None,
+    project_dir: str | None = None,
+    session_id: str | None = None
 ) -> dict:
     """Crea un nuevo step en el pipeline.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
         step_id: ID único del step
         name: Nombre descriptivo del step
         description: Descripción del propósito del step
@@ -930,10 +1229,13 @@ def pipeline_create_step(
         gate_tool: Tool específico que activa el gate
         gate_phrases: Frases que activan el gate
         prompt_injection: Prompt a inyectar al inicio de este step
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    steps_file = get_steps_file(project_dir)
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    steps_file = get_steps_file(resolved_dir)
     if not steps_file.exists():
-        return {"success": False, "message": "steps.yaml not found", "project_dir": project_dir}
+        return {"success": False, "session_id": sid, "message": "steps.yaml not found", "project_dir": resolved_dir}
 
     tools_blocked = tools_blocked or []
     gate_phrases = gate_phrases or []
@@ -977,13 +1279,14 @@ def pipeline_create_step(
 
     return {
         "success": True,
+        "session_id": sid,
         "message": f"Step '{step_id}' created",
         "step": {
             "id": step_id,
             "name": name,
             "order": order
         },
-        "project_dir": project_dir
+        "project_dir": resolved_dir
     }
 
 
@@ -1064,7 +1367,7 @@ def check_and_advance_gate(project_dir: str, mcp_name: str, tool_name: str) -> O
 
 
 @mcp.tool()
-def pipeline_check_phrase(project_dir: str, text: str) -> dict:
+def pipeline_check_phrase(text: str, project_dir: str | None = None, session_id: str | None = None) -> dict:
     """Verifica si el texto contiene una frase que activa el gate del step actual.
 
     Usa esta herramienta cuando quieras indicar que una condición se cumple
@@ -1077,18 +1380,21 @@ def pipeline_check_phrase(project_dir: str, text: str) -> dict:
     - 'always': Nunca avanza
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
         text: Texto a verificar contra las gate_phrases del step actual
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    state = load_state(project_dir)
-    steps = load_steps(project_dir)
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    state = load_state(resolved_dir)
+    steps = load_steps(resolved_dir)
     current_idx = state.get("current_step", 0)
 
     if current_idx >= len(steps):
         return {
             "matched": False,
+            "session_id": sid,
             "message": "Pipeline completed, no more steps",
-            "project_dir": project_dir
+            "project_dir": resolved_dir
         }
 
     current_step = steps[current_idx]
@@ -1099,18 +1405,20 @@ def pipeline_check_phrase(project_dir: str, text: str) -> dict:
     if gate_type == "always":
         return {
             "matched": False,
+            "session_id": sid,
             "message": "Gate type is 'always', no advancement possible",
             "gate_type": gate_type,
-            "project_dir": project_dir
+            "project_dir": resolved_dir
         }
 
     # Gate type: tool - don't advance on phrases
     if gate_type == "tool":
         return {
             "matched": False,
+            "session_id": sid,
             "message": "Gate type is 'tool', phrases don't trigger advancement",
             "gate_type": gate_type,
-            "project_dir": project_dir
+            "project_dir": resolved_dir
         }
 
     # Gate type: any or phrase - check for matching phrases
@@ -1120,45 +1428,50 @@ def pipeline_check_phrase(project_dir: str, text: str) -> dict:
         for phrase in gate_phrases:
             if phrase.lower() in text_lower:
                 # Phrase matched! Advance the pipeline
-                result = advance_to_next_step(project_dir, f"Gate phrase matched: '{phrase}'")
+                result = advance_to_next_step(resolved_dir, f"Gate phrase matched: '{phrase}'")
 
                 if result:
                     return {
                         "matched": True,
+                        "session_id": sid,
                         "matched_phrase": phrase,
                         "message": f"Phrase '{phrase}' matched, advanced to next step",
                         "advanced": result,
-                        "project_dir": project_dir
+                        "project_dir": resolved_dir
                     }
                 else:
                     return {
                         "matched": True,
+                        "session_id": sid,
                         "matched_phrase": phrase,
                         "message": f"Phrase '{phrase}' matched but already at last step",
-                        "project_dir": project_dir
+                        "project_dir": resolved_dir
                     }
 
         return {
             "matched": False,
+            "session_id": sid,
             "message": "No matching phrase found",
             "gate_phrases": gate_phrases,
             "gate_type": gate_type,
-            "project_dir": project_dir
+            "project_dir": resolved_dir
         }
 
     return {
         "matched": False,
+        "session_id": sid,
         "message": f"Unknown gate_type: {gate_type}",
-        "project_dir": project_dir
+        "project_dir": resolved_dir
     }
 
 
 @mcp.tool()
 async def execute_mcp_tool(
-    project_dir: str,
     mcp_name: str,
     tool_name: str,
-    arguments: dict[str, Any]
+    arguments: dict[str, Any],
+    project_dir: str | None = None,
+    session_id: str | None = None
 ) -> dict:
     """Execute any available MCP tool through the pipeline proxy.
 
@@ -1170,17 +1483,21 @@ async def execute_mcp_tool(
     for efficient reuse. MCP configurations are read from ~/.claude.json.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
         mcp_name: Name of the MCP server (e.g., "Context7", "sequential-thinking")
         tool_name: Name of the tool to execute (e.g., "get-library-docs", "sequentialthinking")
         arguments: Tool arguments as a dictionary matching the tool's schema
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
 
     Returns:
         The tool execution result or an error message
 
     Example:
+        # First set session (once)
+        set_session(project_dir="/path/to/project")
+
+        # Then execute tools without project_dir
         execute_mcp_tool(
-            project_dir="/path/to/project",
             mcp_name="Context7",
             tool_name="get-library-docs",
             arguments={"context7CompatibleLibraryID": "/vercel/next.js", "topic": "routing"}
@@ -1188,9 +1505,11 @@ async def execute_mcp_tool(
     """
     global _request_counter
 
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
     # 1. Load current step
-    state = load_state(project_dir)
-    steps = load_steps(project_dir)
+    state = load_state(resolved_dir)
+    steps = load_steps(resolved_dir)
     current_idx = state.get("current_step", 0)
 
     if current_idx >= len(steps):
@@ -1203,9 +1522,10 @@ async def execute_mcp_tool(
     if "*" not in enabled_mcps and mcp_name not in enabled_mcps:
         return {
             "error": True,
+            "session_id": sid,
             "message": f"❌ MCP '{mcp_name}' is not available in Step {current_idx}: {current_step.get('name', 'Unknown')}",
             "available_mcps": enabled_mcps,
-            "hint": "Use pipeline_status(project_dir) to see available MCPs for current step"
+            "hint": "Use pipeline_status() to see available MCPs for current step"
         }
 
     # 3. Get or create MCP connection
@@ -1237,7 +1557,7 @@ async def execute_mcp_tool(
         }
 
     # 5. Check gate condition for auto-advance
-    gate_result = check_and_advance_gate(project_dir, mcp_name, tool_name)
+    gate_result = check_and_advance_gate(resolved_dir, mcp_name, tool_name)
 
     # 6. Return result
     if "error" in result:
@@ -1268,64 +1588,274 @@ async def execute_mcp_tool(
 
 
 @mcp.tool()
-def get_available_tools(project_dir: str) -> dict:
+def get_available_tools(
+    compact: bool = True,
+    project_dir: str | None = None,
+    session_id: str | None = None
+) -> dict:
     """Get the list of available MCP tools for the current pipeline step.
 
     Returns a manifest of all tools that can be used via execute_mcp_tool
     in the current step.
 
     Args:
-        project_dir: Absolute path to the project directory (REQUIRED)
+        compact: True = only categories with counts, False = full tool list
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
     """
-    state = load_state(project_dir)
-    steps = load_steps(project_dir)
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    state = load_state(resolved_dir)
+    steps = load_steps(resolved_dir)
     current_idx = state.get("current_step", 0)
 
     if current_idx >= len(steps):
         return {
+            "session_id": sid,
             "step": "completed",
             "message": "Pipeline completed, all MCPs available",
             "mcps_enabled": ["*"],
-            "project_dir": project_dir
+            "project_dir": resolved_dir
         }
 
     current_step = steps[current_idx]
     enabled_mcps = current_step.get("mcps_enabled", [])
 
+    # Build category summary from tool index
+    category_counts = {}
+    for mcp_name, tools in _tool_index.items():
+        # Filter by enabled MCPs
+        if "*" not in enabled_mcps and mcp_name not in enabled_mcps:
+            continue
+        for tool in tools:
+            cat = tool.get("category", "other")
+            category_counts[cat] = category_counts.get(cat, 0) + 1
+
+    if compact:
+        return {
+            "session_id": sid,
+            "current_step": current_idx,
+            "step_name": current_step.get("name", current_step.get("id")),
+            "mcps_enabled": enabled_mcps,
+            "categories": category_counts,
+            "tools_blocked": current_step.get("tools_blocked", []),
+            "hint": "Use get_tools(category='X') or search_tools(query='...') for details",
+            "project_dir": resolved_dir
+        }
+
+    # Full mode: include tool list
     return {
+        "session_id": sid,
         "current_step": current_idx,
         "step_name": current_step.get("name", current_step.get("id")),
         "mcps_enabled": enabled_mcps,
+        "categories": category_counts,
         "tools_blocked": current_step.get("tools_blocked", []),
         "gate_tool": current_step.get("gate_tool", ""),
-        "hint": "Use execute_mcp_tool(project_dir, mcp_name, tool_name, arguments) to call any enabled MCP tool",
-        "project_dir": project_dir
+        "hint": "Use execute_mcp_tool(mcp_name, tool_name, arguments) to call any enabled MCP tool",
+        "project_dir": resolved_dir
     }
 
 
 @mcp.tool()
-def list_configured_mcps() -> dict:
+def list_configured_mcps(verbose: bool = False) -> dict:
     """List all MCP servers configured in ~/.claude.json.
 
     Returns the names and basic info of all configured MCPs that can be
     used with execute_mcp_tool.
+
+    Args:
+        verbose: False = only names, True = include details like command, connected status
     """
     configs = load_mcp_configs()
 
+    if not verbose:
+        # Compact mode: just names
+        return {
+            "mcps": list(configs.keys()),
+            "count": len(configs),
+            "hint": "Use list_configured_mcps(verbose=True) for details"
+        }
+
+    # Verbose mode: include details
     mcps = []
     for name, config in configs.items():
+        conn = _mcp_connections.get(name)
         mcps.append({
             "name": name,
             "command": config.get("command", ""),
             "has_args": bool(config.get("args")),
             "has_env": bool(config.get("env")),
-            "disabled": config.get("disabled", False)
+            "disabled": config.get("disabled", False),
+            "connected": conn is not None and conn.process is not None
         })
 
     return {
-        "total": len(mcps),
+        "count": len(mcps),
         "mcps": mcps,
         "hint": "Use execute_mcp_tool(mcp_name, tool_name, arguments) to call tools"
+    }
+
+
+@mcp.tool()
+def search_tools(
+    query: str,
+    max_results: int = 10,
+    mcp_filter: str | None = None
+) -> dict:
+    """Busca tools por objetivo o descripción usando similitud semántica.
+
+    Útil cuando no conoces el nombre exacto de una tool pero sabes qué quieres hacer.
+
+    Args:
+        query: Descripción del objetivo (ej: "exponer servicio a internet", "ver logs de container")
+        max_results: Máximo de resultados (default 10)
+        mcp_filter: Filtrar por MCP específico (opcional)
+
+    Examples:
+        search_tools(query="exponer servicio a internet") → tunnel_create
+        search_tools(query="ver logs de container") → container_logs
+        search_tools(query="inyectar falla de cpu") → fault_inject_cpu
+    """
+    results = semantic_search(query, mcp_filter, max_results)
+    return {
+        "query": query,
+        "results": results,
+        "count": len(results),
+        "hint": "Use execute_mcp_tool(mcp_name, tool_name, arguments) to call a tool"
+    }
+
+
+@mcp.tool()
+def get_tools(
+    mcp_name: str | None = None,
+    category: str | None = None,
+    search: str | None = None,
+    limit: int = 20,
+    names_only: bool = False
+) -> dict:
+    """Obtiene tools con filtrado inteligente.
+
+    Args:
+        mcp_name: Filtrar por MCP específico
+        category: Filtrar por categoría (containers, chaos, metrics, tunnels, knowledge, pipeline, thinking, docs, other)
+        search: Búsqueda semántica por objetivo (alias de search_tools)
+        limit: Máximo de resultados (default 20)
+        names_only: True = solo nombres, False = incluir descripción truncada
+
+    Examples:
+        get_tools(category="chaos", limit=5)
+        get_tools(mcp_name="harbor", names_only=True)
+        get_tools(search="ejecutar container")
+    """
+    # If search query provided, use semantic search
+    if search:
+        results = semantic_search(search, mcp_name, limit)
+        if names_only:
+            return {"tools": [r["tool"] for r in results], "count": len(results)}
+        return {"tools": results, "count": len(results)}
+
+    # If category provided, filter by category
+    if category:
+        results = get_tools_by_category(mcp_name, category, limit)
+        if names_only:
+            return {"tools": [t["name"] for t in results], "count": len(results)}
+        return {"tools": results, "count": len(results)}
+
+    # No filters: list all with limit
+    all_tools = []
+    for mcp, tools in _tool_index.items():
+        if mcp_name and mcp != mcp_name:
+            continue
+        for tool in tools:
+            if names_only:
+                all_tools.append(tool["name"])
+            else:
+                all_tools.append({
+                    "mcp": mcp,
+                    "name": tool["name"],
+                    "description": tool["description"],
+                    "category": tool.get("category", "other")
+                })
+            if len(all_tools) >= limit:
+                break
+        if len(all_tools) >= limit:
+            break
+
+    return {
+        "tools": all_tools,
+        "count": len(all_tools),
+        "categories": list(TOOL_CATEGORIES.keys()),
+        "hint": "Use category='X' to filter by category"
+    }
+
+
+@mcp.tool()
+async def refresh_tool_index(mcp_name: str | None = None) -> dict:
+    """Actualiza el índice de tools para búsqueda semántica.
+
+    Conecta a los MCPs y obtiene su lista de tools para indexar.
+    Ejecutar después de agregar nuevos MCPs o cuando el índice esté vacío.
+
+    Args:
+        mcp_name: MCP específico a indexar (opcional, default: todos)
+    """
+    global _tool_index
+
+    configs = load_mcp_configs()
+    indexed_count = 0
+    errors = []
+
+    mcps_to_index = [mcp_name] if mcp_name else list(configs.keys())
+
+    for name in mcps_to_index:
+        if name not in configs:
+            errors.append(f"MCP '{name}' not found in config")
+            continue
+
+        try:
+            conn = await get_mcp_connection(name)
+            if not conn:
+                errors.append(f"Could not connect to {name}")
+                continue
+
+            # Get tools list via MCP protocol
+            global _request_counter
+            _request_counter += 1
+
+            # Send tools/list request
+            if not conn.process or conn.process.returncode is not None:
+                await conn.start()
+
+            if not conn._initialized:
+                await conn._initialize()
+
+            request = {
+                "jsonrpc": "2.0",
+                "id": _request_counter,
+                "method": "tools/list",
+                "params": {}
+            }
+
+            await conn._send_message(request)
+            response = await conn._read_message(timeout=30.0)
+
+            if "error" in response:
+                errors.append(f"{name}: {response['error']}")
+                continue
+
+            tools = response.get("result", {}).get("tools", [])
+            indexed = build_tool_index(name, tools)
+            _tool_index[name] = indexed
+            indexed_count += len(indexed)
+
+        except Exception as e:
+            errors.append(f"{name}: {str(e)}")
+
+    return {
+        "success": len(errors) == 0,
+        "indexed_mcps": list(_tool_index.keys()),
+        "total_tools": indexed_count,
+        "errors": errors if errors else None
     }
 
 
