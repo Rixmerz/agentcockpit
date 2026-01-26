@@ -1,21 +1,147 @@
-MIT License
+Rixmerz License (RXL) v1.1
 
-Copyright (c) 2026 AgentCockpit Contributors
+Free Core Software License with Open Ecosystem Allowance
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Copyright (c) 2026 Rixmerz
+All rights reserved except as expressly granted by this license.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+================================================================================
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+1. Definitions
+
+"Core Software": the original software, its source code, core binaries, and
+official components released under this license.
+
+"Extension / Plugin / Add-on": any separate module, plugin, integration, theme,
+service, or extension that interfaces with the Core Software but is not a
+modification of it.
+
+"Marketplace": any platform or mechanism used to distribute Extensions or Plugins.
+
+"Derivative Work": a modification of the Core Software itself.
+
+================================================================================
+
+2. Grant of Rights (Core Software)
+
+Permission is hereby granted, free of charge, on a perpetual, worldwide,
+non-exclusive basis, to any Holder to:
+
+  - Use the Core Software for any purpose
+  - Study and modify the Core Software
+  - Redistribute the Core Software only under this same license
+
+================================================================================
+
+3. Mandatory Gratuity of the Core
+
+3.1 Core Software is always free
+
+The Core Software must always remain completely free of charge, in all cases
+and for all users.
+
+No party may:
+
+  - Sell the Core Software
+  - Charge for access, usage, activation, or licensing of the Core Software
+  - Restrict the Core Software behind paywalls or subscriptions
+
+3.2 No indirect monetization of the Core
+
+The Core Software may not be monetized directly or indirectly, including but
+not limited to:
+
+  - Paid distributions
+  - Dual licensing of the Core
+  - "Premium" Core versions
+  - Mandatory paid services tied to Core access
+
+================================================================================
+
+4. Derivative Works (Strict Copyleft)
+
+Any modification or Derivative Work of the Core Software:
+
+  - Must be released under this same Rixmerz License (RXL)
+  - Must remain completely free of charge
+  - May not introduce monetization mechanisms
+
+================================================================================
+
+5. Extensions, Plugins and Marketplace Exception
+
+5.1 Independent Extensions
+
+Extensions, plugins, add-ons, or services that:
+
+  - Are developed independently
+  - Do not modify the Core Software code
+  - Interface with the Core Software through public APIs or extension mechanisms
+
+may be released under any license, including commercial licenses, and may be
+sold or monetized.
+
+5.2 Marketplace and Commissions
+
+The author of the Core Software (Rixmerz) may operate or authorize a Marketplace
+for Extensions and Plugins.
+
+In such cases:
+
+  - Paid Extensions are allowed
+  - Marketplace fees or commissions are explicitly permitted
+  - Revenue sharing models are allowed
+
+This does not violate the gratuity of the Core Software.
+
+================================================================================
+
+6. Boundary Rule (Very Important)
+
+If a component:
+
+  - Modifies the Core Software
+  - Is required for the Core Software to function
+  - Replaces or restricts Core functionality
+
+Then it is considered part of the Core Software and must be free under this
+license.
+
+================================================================================
+
+7. Attribution
+
+All distributions of the Core Software or Derivative Works must include:
+
+  - The license name: Rixmerz License (RXL)
+  - A full copy of this license
+  - Credit to the original author: Rixmerz
+
+================================================================================
+
+8. No Warranty
+
+THE CORE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE CORE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE CORE
 SOFTWARE.
+
+================================================================================
+
+9. Termination
+
+Any violation of the Core gratuity rules automatically terminates the rights
+granted under this license.
+
+================================================================================
+
+10. Final Principle
+
+The Core belongs to everyone.
+The ecosystem may thrive freely around it.
+What is essential stays free forever.
+
+================================================================================
