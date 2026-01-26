@@ -728,6 +728,79 @@ export async function getAvailableEdges(projectPath?: string | null): Promise<Av
 }
 
 // ============================================
+// Graph Visualization
+// ============================================
+
+export interface GraphVisualization {
+  mermaid: string;
+  currentNode: string | null;
+  graphName: string | null;
+}
+
+export async function getGraphVisualization(projectPath?: string | null): Promise<GraphVisualization> {
+  const graph = await getGraph(projectPath);
+  const graphState = await getGraphState(projectPath);
+
+  if (!graph) {
+    return {
+      mermaid: 'flowchart TD\n    empty[No graph loaded]',
+      currentNode: null,
+      graphName: null
+    };
+  }
+
+  const currentNodeId = graphState.current_nodes[0] || null;
+  const lines: string[] = ['flowchart TD'];
+
+  // Generate node definitions with shapes
+  for (const node of graph.nodes) {
+    let shape: string;
+    if (node.is_start) {
+      shape = `${node.id}([${node.name}])`; // Stadium shape for start
+    } else if (node.is_end) {
+      shape = `${node.id}[/${node.name}/]`; // Parallelogram for end
+    } else {
+      shape = `${node.id}[${node.name}]`; // Rectangle for normal
+    }
+    lines.push(`    ${shape}`);
+  }
+
+  // Generate edge definitions with labels
+  for (const edge of graph.edges) {
+    let label = '';
+    if (edge.condition.type === 'tool' && edge.condition.tool) {
+      // Extract just the tool name from mcp__name__tool
+      const parts = edge.condition.tool.split('__');
+      label = parts[parts.length - 1] || edge.condition.tool;
+      if (label.length > 15) label = label.substring(0, 15) + '...';
+    } else if (edge.condition.type === 'phrase' && edge.condition.phrases?.length) {
+      label = `'${edge.condition.phrases[0].substring(0, 15)}'`;
+    } else if (edge.condition.type === 'always') {
+      label = 'always';
+    } else if (edge.condition.type === 'default') {
+      label = 'default';
+    }
+
+    if (label) {
+      lines.push(`    ${edge.from} -->|${label}| ${edge.to}`);
+    } else {
+      lines.push(`    ${edge.from} --> ${edge.to}`);
+    }
+  }
+
+  // Highlight current node
+  if (currentNodeId) {
+    lines.push(`    style ${currentNodeId} fill:#90EE90,stroke:#333,stroke-width:3px`);
+  }
+
+  return {
+    mermaid: lines.join('\n'),
+    currentNode: currentNodeId,
+    graphName: graphState.active_graph
+  };
+}
+
+// ============================================
 // Installation & Activation
 // ============================================
 

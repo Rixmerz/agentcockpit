@@ -12,7 +12,10 @@ import {
   STANDARD_TOOLS,
   getAvailableEdges,
   getGraphState,
+  getGraphVisualization,
 } from '../../services/pipelineService';
+import type { GraphVisualization } from '../../services/pipelineService';
+import { MermaidRenderer } from './MermaidRenderer';
 import type {
   PipelineState,
   PipelineStep,
@@ -45,7 +48,7 @@ interface PipelineModalProps {
   projectPath?: string | null;
 }
 
-type ViewMode = 'status' | 'steps' | 'edit-step' | 'settings';
+type ViewMode = 'status' | 'graph' | 'steps' | 'edit-step' | 'settings';
 
 export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('status');
@@ -61,6 +64,9 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
   // Graph-specific state
   const [graphState, setGraphState] = useState<GraphState | null>(null);
   const [availableEdges, setAvailableEdges] = useState<AvailableEdge[]>([]);
+  const [graphViz, setGraphViz] = useState<GraphVisualization | null>(null);
+  // selectedNode will be used for future node detail panel
+  const [_selectedNode, setSelectedNode] = useState<string | null>(null);
 
   // Load data when modal opens
   useEffect(() => {
@@ -72,13 +78,14 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
   const loadData = async () => {
     setLoading(true);
     try {
-      const [pipelineState, pipelineSteps, pipelineSettings, mcps, gState, edges] = await Promise.all([
+      const [pipelineState, pipelineSteps, pipelineSettings, mcps, gState, edges, viz] = await Promise.all([
         getPipelineState(projectPath),
         getPipelineSteps(projectPath),
         getPipelineSettings(projectPath),
         getAvailableMcps(),
         getGraphState(projectPath),
-        getAvailableEdges(projectPath)
+        getAvailableEdges(projectPath),
+        getGraphVisualization(projectPath)
       ]);
       setState(pipelineState);
       setSteps(pipelineSteps);
@@ -86,6 +93,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
       setAvailableMcps(mcps);
       setGraphState(gState);
       setAvailableEdges(edges);
+      setGraphViz(viz);
     } catch (e) {
       console.error('[PipelineModal] Failed to load:', e);
     } finally {
@@ -354,9 +362,112 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
       )}
 
       <div className="pipeline-mode-switch">
+        <button className="btn-secondary" onClick={() => setViewMode('graph')}>
+          <GitBranch size={16} />
+          View Graph
+        </button>
         <button className="btn-secondary" onClick={() => setViewMode('steps')}>
           <Edit3 size={16} />
           Edit Steps
+        </button>
+      </div>
+    </>
+  );
+
+  const handleNodeClick = (nodeId: string) => {
+    setSelectedNode(nodeId);
+    // Find the step/node by id
+    const step = steps.find(s => s.id === nodeId);
+    if (step) {
+      const index = steps.indexOf(step);
+      handleEditStep(step, index);
+    }
+  };
+
+  const renderGraphView = () => (
+    <>
+      <div className="pipeline-graph-header">
+        <h3>
+          <GitBranch size={18} />
+          Graph View
+          {graphViz?.graphName && <span className="graph-name">{graphViz.graphName}</span>}
+        </h3>
+        <div className="pipeline-actions">
+          <button
+            className="btn-icon"
+            onClick={handleReset}
+            disabled={saving}
+            title="Reset to start"
+          >
+            <RotateCcw size={18} />
+          </button>
+          <button
+            className="btn-icon"
+            onClick={() => setViewMode('settings')}
+            title="Settings"
+          >
+            <Settings2 size={18} />
+          </button>
+        </div>
+      </div>
+
+      <div className="pipeline-graph-container">
+        {graphViz?.mermaid && (
+          <MermaidRenderer
+            chart={graphViz.mermaid}
+            onNodeClick={handleNodeClick}
+          />
+        )}
+      </div>
+
+      {/* Current node info */}
+      {graphViz?.currentNode && (
+        <div className="pipeline-current-node-info">
+          <span className="current-node-label">Current:</span>
+          <span className="current-node-name">
+            {steps.find(s => s.id === graphViz.currentNode)?.name || graphViz.currentNode}
+          </span>
+          {graphState && (
+            <span className="current-node-visits">
+              <Repeat size={12} />
+              {graphState.node_visits[graphViz.currentNode] || 0} visits
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Available transitions */}
+      {availableEdges.length > 0 && (
+        <div className="pipeline-edges-section">
+          <h4>Available Transitions</h4>
+          <div className="pipeline-edges-list">
+            {availableEdges.map((edge) => (
+              <div key={edge.id} className="pipeline-edge-item">
+                <ArrowRight size={14} />
+                <span className="edge-target">{edge.toName}</span>
+                <span className={`edge-condition edge-${edge.conditionType}`}>
+                  {edge.conditionType}
+                  {edge.conditionType === 'tool' && edge.conditionTool && (
+                    <small>{edge.conditionTool.split('__').pop()}</small>
+                  )}
+                  {edge.conditionType === 'phrase' && edge.conditionPhrases?.[0] && (
+                    <small>"{edge.conditionPhrases[0]}"</small>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="pipeline-mode-switch">
+        <button className="btn-secondary" onClick={() => setViewMode('status')}>
+          <Play size={16} />
+          Status View
+        </button>
+        <button className="btn-secondary" onClick={() => setViewMode('steps')}>
+          <Edit3 size={16} />
+          Edit Nodes
         </button>
       </div>
     </>
@@ -732,6 +843,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
         ) : (
           <>
             {viewMode === 'status' && renderStatusView()}
+            {viewMode === 'graph' && renderGraphView()}
             {viewMode === 'settings' && renderSettingsView()}
             {viewMode === 'steps' && renderStepsView()}
             {viewMode === 'edit-step' && renderEditStepView()}
