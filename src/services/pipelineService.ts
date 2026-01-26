@@ -102,16 +102,57 @@ export interface PipelineStep {
 const PIPELINE_DIR = '.claude/pipeline';
 const GRAPH_STATE_FILE = 'graph_state.json';
 const GRAPH_FILE = 'graph.yaml';
-const GLOBAL_PIPELINES_DIR = '.claude/pipelines';
+const AGENTCOCKPIT_CONFIG = '.agentcockpit/config.json';
 
 let cachedHomeDir: string | null = null;
-let cachedAppDir: string | null = null;
+let cachedHubConfig: { hub_dir: string; pipelines_dir: string; states_dir: string } | null = null;
+
+// ============================================
+// Hub Configuration (Centralized Architecture)
+// ============================================
+
+interface HubConfig {
+  hub_dir: string;
+  pipelines_dir: string;
+  states_dir: string;
+}
+
+async function getHubConfig(): Promise<HubConfig | null> {
+  if (cachedHubConfig) return cachedHubConfig;
+
+  try {
+    if (!cachedHomeDir) {
+      const home = await homeDir();
+      if (!home) return null;
+      cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
+    }
+
+    const configPath = `${cachedHomeDir}/${AGENTCOCKPIT_CONFIG}`;
+    const configExists = await exists(configPath);
+    if (!configExists) return null;
+
+    const content = await readTextFile(configPath);
+    const config = JSON.parse(content);
+
+    cachedHubConfig = {
+      hub_dir: config.hub_dir,
+      pipelines_dir: config.pipelines_dir || '.claude/pipelines',
+      states_dir: config.states_dir || '.agentcockpit/states'
+    };
+
+    return cachedHubConfig;
+  } catch (e) {
+    console.error('[Graph] Error reading hub config:', e);
+    return null;
+  }
+}
 
 // ============================================
 // Path Helpers
 // ============================================
 
-async function getPipelineDir(projectPath?: string | null): Promise<string> {
+// Get local pipeline dir (for graph.yaml - active graph copy)
+async function getLocalPipelineDir(projectPath?: string | null): Promise<string> {
   if (projectPath) {
     const normalizedPath = projectPath.endsWith('/') ? projectPath.slice(0, -1) : projectPath;
     return `${normalizedPath}/${PIPELINE_DIR}`;
@@ -126,8 +167,39 @@ async function getPipelineDir(projectPath?: string | null): Promise<string> {
   return `${cachedHomeDir}/${PIPELINE_DIR}`;
 }
 
+// Get centralized state dir (for graph_state.json, config.json)
+async function getCentralizedStateDir(projectPath?: string | null): Promise<string> {
+  const hubConfig = await getHubConfig();
+
+  if (hubConfig && projectPath) {
+    // Extract project name from path
+    const projectName = projectPath.split('/').filter(Boolean).pop() || 'default';
+    const stateDir = `${hubConfig.hub_dir}/${hubConfig.states_dir}/${projectName}`;
+
+    // Ensure directory exists
+    try {
+      const dirExists = await exists(stateDir);
+      if (!dirExists) {
+        await mkdir(stateDir, { recursive: true });
+      }
+    } catch (e) {
+      console.error('[Graph] Error creating state dir:', e);
+    }
+
+    return stateDir;
+  }
+
+  // Fallback to local
+  return getLocalPipelineDir(projectPath);
+}
+
+// Legacy alias for backward compatibility
+async function getPipelineDir(projectPath?: string | null): Promise<string> {
+  return getLocalPipelineDir(projectPath);
+}
+
 export async function ensurePipelineDir(projectPath?: string | null): Promise<void> {
-  const dir = await getPipelineDir(projectPath);
+  const dir = await getLocalPipelineDir(projectPath);
   try {
     const dirExists = await exists(dir);
     if (!dirExists) {
@@ -139,22 +211,21 @@ export async function ensurePipelineDir(projectPath?: string | null): Promise<vo
   }
 }
 
-async function getAppBaseDir(): Promise<string> {
-  if (cachedAppDir) return cachedAppDir;
+async function getGlobalPipelinesDir(): Promise<string> {
+  const hubConfig = await getHubConfig();
 
+  if (hubConfig) {
+    return `${hubConfig.hub_dir}/${hubConfig.pipelines_dir}`;
+  }
+
+  // Fallback
   if (!cachedHomeDir) {
     const home = await homeDir();
     if (!home) throw new Error('Could not determine home directory');
     cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
   }
 
-  cachedAppDir = `${cachedHomeDir}/my_projects/agentcockpit`;
-  return cachedAppDir;
-}
-
-async function getGlobalPipelinesDir(): Promise<string> {
-  const appDir = await getAppBaseDir();
-  return `${appDir}/${GLOBAL_PIPELINES_DIR}`;
+  return `${cachedHomeDir}/my_projects/agentcockpit/.claude/pipelines`;
 }
 
 export async function getPipelinePath(projectPath?: string | null): Promise<string> {
@@ -179,7 +250,8 @@ function getDefaultGraphState(): GraphState {
 
 export async function getGraphState(projectPath?: string | null): Promise<GraphState> {
   try {
-    const dir = await getPipelineDir(projectPath);
+    // Use centralized state directory
+    const dir = await getCentralizedStateDir(projectPath);
     const statePath = `${dir}/${GRAPH_STATE_FILE}`;
 
     const fileExists = await exists(statePath);
@@ -197,8 +269,15 @@ export async function getGraphState(projectPath?: string | null): Promise<GraphS
 
 export async function saveGraphState(state: GraphState, projectPath?: string | null): Promise<boolean> {
   try {
-    await ensurePipelineDir(projectPath);
-    const dir = await getPipelineDir(projectPath);
+    // Use centralized state directory
+    const dir = await getCentralizedStateDir(projectPath);
+
+    // Ensure directory exists
+    const dirExists = await exists(dir);
+    if (!dirExists) {
+      await mkdir(dir, { recursive: true });
+    }
+
     const statePath = `${dir}/${GRAPH_STATE_FILE}`;
 
     state.last_activity = new Date().toISOString();
@@ -820,7 +899,8 @@ export async function isPipelineInstalled(projectPath?: string | null): Promise<
 
 export async function getEnforcerEnabled(projectPath?: string | null): Promise<boolean> {
   try {
-    const dir = await getPipelineDir(projectPath);
+    // Use centralized state directory for config
+    const dir = await getCentralizedStateDir(projectPath);
     const configPath = `${dir}/config.json`;
 
     const configExists = await exists(configPath);
