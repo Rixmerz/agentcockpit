@@ -459,14 +459,7 @@ def get_pipeline_dir(project_dir: str) -> Path:
     return project_path / ".claude" / "pipeline"
 
 
-def get_state_file(project_dir: str) -> Path:
-    """Get state file path for a project."""
-    return get_pipeline_dir(project_dir) / "state.json"
-
-
-def get_steps_file(project_dir: str) -> Path:
-    """Get steps file path for a project."""
-    return get_pipeline_dir(project_dir) / "steps.yaml"
+# DEPRECATED: get_state_file and get_steps_file removed - use graph_state.py instead
 
 # MCP Configuration paths (order of priority)
 AGENTCOCKPIT_MCP_CONFIG = Path.home() / ".agentcockpit" / "mcps.json"
@@ -720,107 +713,8 @@ async def get_mcp_connection(mcp_name: str) -> Optional[McpConnection]:
     return conn
 
 
-def load_state(project_dir: str) -> dict:
-    """Load current pipeline state for a project."""
-    try:
-        state_file = get_state_file(project_dir)
-        if state_file.exists():
-            return json.loads(state_file.read_text())
-    except Exception:
-        pass
-    return {"current_step": 0, "completed_steps": [], "step_history": []}
-
-
-def save_state(project_dir: str, state: dict):
-    """Save pipeline state for a project."""
-    state_file = get_state_file(project_dir)
-    # Ensure directory exists
-    state_file.parent.mkdir(parents=True, exist_ok=True)
-    state["last_activity"] = datetime.now().isoformat()
-    state_file.write_text(json.dumps(state, indent=2))
-
-
-def load_steps(project_dir: str) -> list:
-    """Load steps from YAML for a project (simple parser)."""
-    steps_file = get_steps_file(project_dir)
-    if not steps_file.exists():
-        return []
-
-    content = steps_file.read_text()
-    steps = []
-    current_step = None
-    in_list = None
-
-    for line in content.split('\n'):
-        stripped = line.strip()
-
-        if stripped.startswith('- id:'):
-            if current_step:
-                steps.append(current_step)
-            step_id = stripped.split('"')[1] if '"' in stripped else stripped.split(':')[1].strip()
-            current_step = {"id": step_id, "mcps_enabled": [], "tools_blocked": [], "gate_phrases": []}
-            in_list = None
-
-        elif current_step:
-            if stripped.startswith('mcps_enabled:'):
-                in_list = "mcps_enabled"
-            elif stripped.startswith('tools_blocked:'):
-                in_list = "tools_blocked"
-            elif stripped.startswith('gate_phrases:'):
-                in_list = "gate_phrases"
-            elif stripped.startswith('prompt_injection:'):
-                in_list = "prompt_injection"
-                current_step["prompt_injection"] = ""
-            elif stripped.startswith('- "') and in_list and in_list != "prompt_injection":
-                value = stripped[3:-1] if stripped.endswith('"') else stripped[3:]
-                current_step[in_list].append(value)
-            elif in_list == "prompt_injection" and not stripped.startswith(('mcps_enabled', 'tools_blocked', 'gate_')):
-                current_step["prompt_injection"] += stripped + "\n"
-            elif ':' in stripped and not stripped.startswith('-'):
-                key, _, value = stripped.partition(':')
-                key = key.strip()
-                value = value.strip().strip('"').strip("'")
-                if value and key not in ['mcps_enabled', 'tools_blocked', 'gate_phrases', 'prompt_injection']:
-                    current_step[key] = value
-                    in_list = None
-
-    if current_step:
-        steps.append(current_step)
-
-    return steps
-
-
-def load_config(project_dir: str) -> dict:
-    """Load configuration from YAML for a project."""
-    steps_file = get_steps_file(project_dir)
-    if not steps_file.exists():
-        return {"reset_policy": "timeout", "timeout_minutes": 30, "force_sequential": False}
-
-    content = steps_file.read_text()
-    config = {"reset_policy": "timeout", "timeout_minutes": 30, "force_sequential": False}
-    in_config = False
-
-    for line in content.split('\n'):
-        stripped = line.strip()
-        if stripped == "config:":
-            in_config = True
-            continue
-        if stripped == "steps:":
-            break
-        if in_config and ':' in stripped and not stripped.startswith('#'):
-            key, _, value = stripped.partition(':')
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if value:
-                if value.lower() == "true":
-                    config[key] = True
-                elif value.lower() == "false":
-                    config[key] = False
-                elif value.isdigit():
-                    config[key] = int(value)
-                else:
-                    config[key] = value
-    return config
+# DEPRECATED: load_state, save_state, load_steps, load_config removed
+# Use graph_state.py and graph_parser.py instead
 
 
 # === MCP Tools ===
@@ -844,8 +738,8 @@ def set_session(project_dir: str, session_id: str | None = None) -> dict:
         set_session(project_dir="/path/to/project")
 
         # Subsequent calls: no project_dir needed
-        pipeline_status()
-        pipeline_advance()
+        graph_status()
+        graph_traverse(edge_id)
     """
     sid = get_or_create_session(session_id)
     set_session_project_dir(sid, project_dir)
@@ -862,224 +756,8 @@ def set_session(project_dir: str, session_id: str | None = None) -> dict:
     }
 
 
-@mcp.tool()
-def pipeline_status(project_dir: str | None = None, session_id: str | None = None) -> dict:
-    """Obtiene el estado actual del pipeline: step actual, steps completados, configuración.
-
-    Args:
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-
-    state = load_state(resolved_dir)
-    steps = load_steps(resolved_dir)
-    config = load_config(resolved_dir)
-    current = state.get("current_step", 0)
-    pipeline_path = get_pipeline_dir(resolved_dir)
-
-    step_list = []
-    for i, step in enumerate(steps):
-        status = "completed" if i < current else ("current" if i == current else "pending")
-        step_list.append({
-            "index": i,
-            "id": step.get("id"),
-            "name": step.get("name", step.get("id")),
-            "status": status,
-            "mcps_enabled": step.get("mcps_enabled", []),
-            "tools_blocked": step.get("tools_blocked", [])
-        })
-
-    # Get enforcer enabled state
-    enforcer_config = load_enforcer_config(resolved_dir)
-
-    return {
-        "session_id": sid,
-        "current_step": current,
-        "total_steps": len(steps),
-        "steps": step_list,
-        "config": config,
-        "enabled": enforcer_config.get("enforcer_enabled", True),
-        "last_activity": state.get("last_activity"),
-        "completed_count": len(state.get("completed_steps", [])),
-        "pipeline_path": str(pipeline_path),
-        "project_dir": resolved_dir
-    }
-
-
-@mcp.tool()
-def pipeline_reset(project_dir: str | None = None, session_id: str | None = None) -> dict:
-    """Resetea el pipeline al Step 0.
-
-    Args:
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-
-    state = {
-        "current_step": 0,
-        "completed_steps": [],
-        "session_id": None,
-        "started_at": datetime.now().isoformat(),
-        "last_activity": None,
-        "step_history": []
-    }
-    save_state(resolved_dir, state)
-    return {
-        "success": True,
-        "session_id": sid,
-        "message": "Pipeline reset to Step 0",
-        "current_step": 0,
-        "project_dir": resolved_dir
-    }
-
-
-@mcp.tool()
-def pipeline_advance(project_dir: str | None = None, session_id: str | None = None) -> dict:
-    """Avanza manualmente al siguiente step del pipeline.
-
-    Args:
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-
-    state = load_state(resolved_dir)
-    steps = load_steps(resolved_dir)
-    current = state.get("current_step", 0)
-
-    if current >= len(steps) - 1:
-        return {"success": False, "session_id": sid, "message": "Already at last step", "current_step": current}
-
-    state["current_step"] = current + 1
-    state["completed_steps"].append({
-        "id": steps[current].get("id", f"step_{current}"),
-        "completed_at": datetime.now().isoformat(),
-        "reason": "Manual advance via MCP"
-    })
-    state["step_history"].append({
-        "from_step": current,
-        "to_step": current + 1,
-        "timestamp": datetime.now().isoformat(),
-        "reason": "Manual advance via MCP"
-    })
-    save_state(resolved_dir, state)
-
-    next_step = steps[current + 1]
-    return {
-        "success": True,
-        "session_id": sid,
-        "message": f"Advanced to Step {current + 1}",
-        "current_step": current + 1,
-        "current_step_name": next_step.get("name", next_step.get("id")),
-        "project_dir": resolved_dir
-    }
-
-
-@mcp.tool()
-def pipeline_set_step(step_index: int, project_dir: str | None = None, session_id: str | None = None) -> dict:
-    """Establece el pipeline en un step específico.
-
-    Args:
-        step_index: Índice del step (0-indexed)
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-    steps = load_steps(resolved_dir)
-
-    if step_index < 0 or step_index >= len(steps):
-        return {"success": False, "session_id": sid, "message": f"Invalid step index. Valid range: 0-{len(steps)-1}"}
-
-    state = load_state(resolved_dir)
-    old_step = state.get("current_step", 0)
-    state["current_step"] = step_index
-    state["step_history"].append({
-        "from_step": old_step,
-        "to_step": step_index,
-        "timestamp": datetime.now().isoformat(),
-        "reason": "Set via MCP"
-    })
-    save_state(resolved_dir, state)
-
-    target_step = steps[step_index]
-    return {
-        "success": True,
-        "session_id": sid,
-        "message": f"Set to Step {step_index}",
-        "current_step": step_index,
-        "current_step_name": target_step.get("name", target_step.get("id")),
-        "project_dir": resolved_dir
-    }
-
-
-@mcp.tool()
-def pipeline_set_config(
-    reset_policy: Optional[str] = None,
-    timeout_minutes: Optional[int] = None,
-    force_sequential: Optional[bool] = None,
-    project_dir: str | None = None,
-    session_id: str | None = None
-) -> dict:
-    """Modifica la configuración del pipeline.
-
-    Args:
-        reset_policy: Política de reset (manual, timeout, per_session)
-        timeout_minutes: Minutos de inactividad antes de reset
-        force_sequential: Si true, incluye instrucción para completar todos los steps
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-    steps_file = get_steps_file(resolved_dir)
-    if not steps_file.exists():
-        return {"success": False, "session_id": sid, "message": "steps.yaml not found", "project_dir": resolved_dir}
-
-    config = load_config(resolved_dir)
-
-    if reset_policy is not None:
-        if reset_policy not in ["manual", "timeout", "per_session"]:
-            return {"success": False, "message": "Invalid reset_policy. Valid: manual, timeout, per_session"}
-        config["reset_policy"] = reset_policy
-
-    if timeout_minutes is not None:
-        config["timeout_minutes"] = timeout_minutes
-
-    if force_sequential is not None:
-        config["force_sequential"] = force_sequential
-
-    # Save config back to YAML
-    content = steps_file.read_text()
-    lines = content.split('\n')
-    new_lines = []
-    in_config = False
-
-    for line in lines:
-        stripped = line.strip()
-
-        if stripped == "config:":
-            in_config = True
-            new_lines.append(line)
-            new_lines.append(f'  reset_policy: "{config["reset_policy"]}"')
-            new_lines.append(f'  timeout_minutes: {config["timeout_minutes"]}')
-            new_lines.append(f'  force_sequential: {str(config["force_sequential"]).lower()}')
-            continue
-
-        if in_config and stripped.startswith("steps:"):
-            in_config = False
-            new_lines.append("")
-            new_lines.append(line)
-            continue
-
-        if in_config and not stripped.startswith('#') and ':' in stripped:
-            continue
-
-        new_lines.append(line)
-
-    steps_file.write_text('\n'.join(new_lines))
-
-    return {"success": True, "session_id": sid, "config": config, "project_dir": resolved_dir}
+# DEPRECATED: pipeline_status, pipeline_reset, pipeline_advance, pipeline_set_step, pipeline_set_config
+# Use graph_status, graph_reset, graph_traverse, graph_set_node instead
 
 
 def get_enforcer_config_file(project_dir: str) -> Path:
@@ -1148,410 +826,11 @@ def get_pipelines_library_dir(project_dir: str) -> Path:
     return Path(project_dir) / ".claude" / "pipelines"
 
 
-@mcp.tool()
-def pipeline_list_available(project_dir: str | None = None, session_id: str | None = None) -> dict:
-    """Lista todas las pipelines disponibles en la librería del proyecto.
+# DEPRECATED: pipeline_list_available, pipeline_activate, pipeline_create_step removed
+# Use graph_list_available, graph_activate instead
 
-    Args:
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-    pipelines_dir = get_pipelines_library_dir(resolved_dir)
-
-    if not pipelines_dir.exists():
-        return {
-            "success": False,
-            "session_id": sid,
-            "message": f"Pipelines directory not found: {pipelines_dir}",
-            "pipelines": [],
-            "project_dir": resolved_dir
-        }
-
-    pipelines = []
-    for yaml_file in pipelines_dir.glob("*.yaml"):
-        pipeline_name = yaml_file.stem
-        # Try to read metadata
-        try:
-            content = yaml_file.read_text()
-            name = pipeline_name
-            description = ""
-            for line in content.split('\n'):
-                if line.strip().startswith('name:'):
-                    name = line.split(':', 1)[1].strip().strip('"').strip("'")
-                elif line.strip().startswith('description:'):
-                    description = line.split(':', 1)[1].strip().strip('"').strip("'")
-            pipelines.append({
-                "id": pipeline_name,
-                "name": name,
-                "description": description,
-                "file": str(yaml_file)
-            })
-        except Exception:
-            pipelines.append({
-                "id": pipeline_name,
-                "name": pipeline_name,
-                "description": "",
-                "file": str(yaml_file)
-            })
-
-    return {
-        "success": True,
-        "session_id": sid,
-        "pipelines": pipelines,
-        "total": len(pipelines),
-        "project_dir": resolved_dir
-    }
-
-
-@mcp.tool()
-def pipeline_activate(pipeline_name: str, project_dir: str | None = None, session_id: str | None = None) -> dict:
-    """Activa una pipeline específica de la librería.
-
-    Copia el contenido del archivo YAML de la pipeline a steps.yaml
-    y actualiza el state.json con la pipeline activa y reset a step 0.
-
-    Args:
-        pipeline_name: Nombre de la pipeline (sin extensión .yaml)
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-    pipelines_dir = get_pipelines_library_dir(resolved_dir)
-    pipeline_file = pipelines_dir / f"{pipeline_name}.yaml"
-
-    if not pipeline_file.exists():
-        # List available pipelines for helpful error
-        available = [f.stem for f in pipelines_dir.glob("*.yaml")] if pipelines_dir.exists() else []
-        return {
-            "success": False,
-            "session_id": sid,
-            "message": f"Pipeline '{pipeline_name}' not found",
-            "available_pipelines": available,
-            "project_dir": resolved_dir
-        }
-
-    # Read pipeline content
-    try:
-        pipeline_content = pipeline_file.read_text()
-    except Exception as e:
-        return {
-            "success": False,
-            "session_id": sid,
-            "message": f"Error reading pipeline file: {str(e)}",
-            "project_dir": resolved_dir
-        }
-
-    # Write to steps.yaml
-    steps_file = get_steps_file(resolved_dir)
-    steps_file.parent.mkdir(parents=True, exist_ok=True)
-
-    try:
-        steps_file.write_text(pipeline_content)
-    except Exception as e:
-        return {
-            "success": False,
-            "session_id": sid,
-            "message": f"Error writing steps.yaml: {str(e)}",
-            "project_dir": resolved_dir
-        }
-
-    # Update state.json
-    state = load_state(resolved_dir)
-    old_pipeline = state.get("active_pipeline", None)
-
-    state["current_step"] = 0
-    state["completed_steps"] = []
-    state["active_pipeline"] = pipeline_name
-    state["started_at"] = datetime.now().isoformat()
-    state["step_history"] = [{
-        "from_step": state.get("current_step", 0),
-        "to_step": 0,
-        "timestamp": datetime.now().isoformat(),
-        "reason": f"Pipeline activated: {pipeline_name}"
-    }]
-
-    save_state(resolved_dir, state)
-
-    # Load steps to return info
-    steps = load_steps(resolved_dir)
-    config = load_config(resolved_dir)
-
-    return {
-        "success": True,
-        "session_id": sid,
-        "message": f"Pipeline '{pipeline_name}' activated",
-        "previous_pipeline": old_pipeline,
-        "active_pipeline": pipeline_name,
-        "total_steps": len(steps),
-        "steps": [{"id": s.get("id"), "name": s.get("name", s.get("id"))} for s in steps],
-        "config": config,
-        "project_dir": resolved_dir
-    }
-
-
-@mcp.tool()
-def pipeline_create_step(
-    step_id: str,
-    name: str,
-    description: str,
-    order: int,
-    mcps_enabled: list[str],
-    tools_blocked: Optional[list[str]] = None,
-    gate_type: str = "any",
-    gate_tool: Optional[str] = None,
-    gate_phrases: Optional[list[str]] = None,
-    prompt_injection: Optional[str] = None,
-    project_dir: str | None = None,
-    session_id: str | None = None
-) -> dict:
-    """Crea un nuevo step en el pipeline.
-
-    Args:
-        step_id: ID único del step
-        name: Nombre descriptivo del step
-        description: Descripción del propósito del step
-        order: Orden del step (0-indexed)
-        mcps_enabled: MCPs habilitados en este step. Usar '*' para todos
-        tools_blocked: Herramientas bloqueadas en este step
-        gate_type: Tipo de gate (any, tool, phrase, always)
-        gate_tool: Tool específico que activa el gate
-        gate_phrases: Frases que activan el gate
-        prompt_injection: Prompt a inyectar al inicio de este step
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-    steps_file = get_steps_file(resolved_dir)
-    if not steps_file.exists():
-        return {"success": False, "session_id": sid, "message": "steps.yaml not found", "project_dir": resolved_dir}
-
-    tools_blocked = tools_blocked or []
-    gate_phrases = gate_phrases or []
-
-    # Build step YAML
-    step_yaml = f'''
-  - id: "{step_id}"
-    order: {order}
-    name: "{name}"
-    description: "{description}"
-'''
-
-    if prompt_injection:
-        step_yaml += f'    prompt_injection: |\n'
-        for line in prompt_injection.split('\n'):
-            step_yaml += f'      {line}\n'
-
-    step_yaml += '    mcps_enabled:\n'
-    for mcp_name in mcps_enabled:
-        step_yaml += f'      - "{mcp_name}"\n'
-
-    if tools_blocked:
-        step_yaml += '    tools_blocked:\n'
-        for tool in tools_blocked:
-            step_yaml += f'      - "{tool}"\n'
-
-    step_yaml += f'    gate_type: "{gate_type}"\n'
-
-    if gate_tool:
-        step_yaml += f'    gate_tool: "{gate_tool}"\n'
-
-    if gate_phrases:
-        step_yaml += '    gate_phrases:\n'
-        for phrase in gate_phrases:
-            step_yaml += f'      - "{phrase}"\n'
-
-    # Append to file
-    content = steps_file.read_text()
-    content += step_yaml
-    steps_file.write_text(content)
-
-    return {
-        "success": True,
-        "session_id": sid,
-        "message": f"Step '{step_id}' created",
-        "step": {
-            "id": step_id,
-            "name": name,
-            "order": order
-        },
-        "project_dir": resolved_dir
-    }
-
-
-def advance_to_next_step(project_dir: str, reason: str) -> Optional[dict]:
-    """Advance pipeline to next step with given reason.
-
-    Returns advancement info or None if already at last step.
-    """
-    state = load_state(project_dir)
-    steps = load_steps(project_dir)
-    current_idx = state.get("current_step", 0)
-
-    if current_idx >= len(steps) - 1:
-        return None  # Already at last step
-
-    current_step = steps[current_idx]
-
-    state["current_step"] = current_idx + 1
-    state["completed_steps"].append({
-        "id": current_step.get("id", f"step_{current_idx}"),
-        "completed_at": datetime.now().isoformat(),
-        "reason": reason
-    })
-    state["step_history"].append({
-        "from_step": current_idx,
-        "to_step": current_idx + 1,
-        "timestamp": datetime.now().isoformat(),
-        "reason": reason
-    })
-    save_state(project_dir, state)
-
-    next_step = steps[current_idx + 1]
-    return {
-        "advanced": True,
-        "from_step": current_idx,
-        "to_step": current_idx + 1,
-        "next_step_name": next_step.get("name", next_step.get("id"))
-    }
-
-
-def check_and_advance_gate(project_dir: str, mcp_name: str, tool_name: str) -> Optional[dict]:
-    """Check if tool usage triggers gate advancement.
-
-    Gate types:
-    - 'any': Advance on tool OR phrase (tool check here, phrase via pipeline_check_phrase)
-    - 'tool': Advance ONLY when specific tool is used
-    - 'phrase': Advance ONLY when phrase is detected (not here, use pipeline_check_phrase)
-    - 'always': Final step, never advance
-    """
-    state = load_state(project_dir)
-    steps = load_steps(project_dir)
-    current_idx = state.get("current_step", 0)
-
-    if current_idx >= len(steps):
-        return None
-
-    current_step = steps[current_idx]
-    gate_tool = current_step.get("gate_tool", "")
-    gate_type = current_step.get("gate_type", "any")
-
-    # Check if this tool triggers the gate
-    full_tool_name = f"mcp__{mcp_name}__{tool_name}"
-
-    # Gate type: always - never advance
-    if gate_type == "always":
-        return None
-
-    # Gate type: phrase - don't advance on tool usage, only phrases
-    if gate_type == "phrase":
-        return None
-
-    # Gate type: tool or any - check if tool matches
-    if gate_type in ("tool", "any"):
-        if gate_tool and (full_tool_name.startswith(gate_tool) or gate_tool in full_tool_name):
-            return advance_to_next_step(project_dir, f"Gate tool used: {full_tool_name}")
-
-    return None
-
-
-@mcp.tool()
-def pipeline_check_phrase(text: str, project_dir: str | None = None, session_id: str | None = None) -> dict:
-    """Verifica si el texto contiene una frase que activa el gate del step actual.
-
-    Usa esta herramienta cuando quieras indicar que una condición se cumple
-    mediante una frase (ej: "esto es trivial", "no requiere docs").
-
-    Gate types que responden a frases:
-    - 'any': Avanza por tool O frase
-    - 'phrase': Avanza SOLO por frase
-    - 'tool': NO avanza por frase
-    - 'always': Nunca avanza
-
-    Args:
-        text: Texto a verificar contra las gate_phrases del step actual
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-    state = load_state(resolved_dir)
-    steps = load_steps(resolved_dir)
-    current_idx = state.get("current_step", 0)
-
-    if current_idx >= len(steps):
-        return {
-            "matched": False,
-            "session_id": sid,
-            "message": "Pipeline completed, no more steps",
-            "project_dir": resolved_dir
-        }
-
-    current_step = steps[current_idx]
-    gate_type = current_step.get("gate_type", "any")
-    gate_phrases = current_step.get("gate_phrases", [])
-
-    # Gate type: always - never advance
-    if gate_type == "always":
-        return {
-            "matched": False,
-            "session_id": sid,
-            "message": "Gate type is 'always', no advancement possible",
-            "gate_type": gate_type,
-            "project_dir": resolved_dir
-        }
-
-    # Gate type: tool - don't advance on phrases
-    if gate_type == "tool":
-        return {
-            "matched": False,
-            "session_id": sid,
-            "message": "Gate type is 'tool', phrases don't trigger advancement",
-            "gate_type": gate_type,
-            "project_dir": resolved_dir
-        }
-
-    # Gate type: any or phrase - check for matching phrases
-    if gate_type in ("any", "phrase"):
-        text_lower = text.lower()
-
-        for phrase in gate_phrases:
-            if phrase.lower() in text_lower:
-                # Phrase matched! Advance the pipeline
-                result = advance_to_next_step(resolved_dir, f"Gate phrase matched: '{phrase}'")
-
-                if result:
-                    return {
-                        "matched": True,
-                        "session_id": sid,
-                        "matched_phrase": phrase,
-                        "message": f"Phrase '{phrase}' matched, advanced to next step",
-                        "advanced": result,
-                        "project_dir": resolved_dir
-                    }
-                else:
-                    return {
-                        "matched": True,
-                        "session_id": sid,
-                        "matched_phrase": phrase,
-                        "message": f"Phrase '{phrase}' matched but already at last step",
-                        "project_dir": resolved_dir
-                    }
-
-        return {
-            "matched": False,
-            "session_id": sid,
-            "message": "No matching phrase found",
-            "gate_phrases": gate_phrases,
-            "gate_type": gate_type,
-            "project_dir": resolved_dir
-        }
-
-    return {
-        "matched": False,
-        "session_id": sid,
-        "message": f"Unknown gate_type: {gate_type}",
-        "project_dir": resolved_dir
-    }
+# DEPRECATED: advance_to_next_step, check_and_advance_gate, pipeline_check_phrase removed
+# Use graph_traverse, graph_check_tool, graph_check_phrase instead
 
 
 @mcp.tool()
@@ -1562,14 +841,17 @@ async def execute_mcp_tool(
     project_dir: str | None = None,
     session_id: str | None = None
 ) -> dict:
-    """Execute any available MCP tool through the pipeline proxy.
+    """Execute any available MCP tool through the graph pipeline proxy.
 
     This is the universal gateway for calling MCP tools. The available
-    tools depend on the current pipeline step. Use pipeline_status to
-    see which MCPs are enabled for the current step.
+    tools depend on the current graph node. Use graph_status to see
+    which MCPs are enabled for the current node.
 
     The tool spawns MCP servers on-demand and maintains a connection pool
     for efficient reuse. MCP configurations are read from ~/.claude.json.
+
+    After execution, reports any available transitions that this tool
+    triggers (but does NOT auto-advance - use graph_traverse for that).
 
     Args:
         mcp_name: Name of the MCP server (e.g., "Context7", "sequential-thinking")
@@ -1579,7 +861,7 @@ async def execute_mcp_tool(
         session_id: Optional session ID for parallel session isolation
 
     Returns:
-        The tool execution result or an error message
+        The tool execution result, plus any available graph transitions
 
     Example:
         # First set session (once)
@@ -1599,25 +881,39 @@ async def execute_mcp_tool(
     # Record tool selection for weight learning (if this tool was in recent search)
     check_and_record_selection(mcp_name, tool_name)
 
-    # 1. Load current step
-    state = load_state(resolved_dir)
-    steps = load_steps(resolved_dir)
-    current_idx = state.get("current_step", 0)
+    # 1. Load graph state (if graph exists)
+    graph_file = get_graph_file(resolved_dir)
+    current_node = None
+    enabled_mcps = ["*"]
+    graph = None
+    graph_state = None
 
-    if current_idx >= len(steps):
-        current_step = {"mcps_enabled": ["*"], "name": "No steps configured"}
-    else:
-        current_step = steps[current_idx]
+    if graph_file.exists():
+        try:
+            graph = load_graph_from_file(graph_file)
+            graph_state = load_graph_state(resolved_dir)
 
-    # 2. Validate MCP is allowed in current step
-    enabled_mcps = current_step.get("mcps_enabled", [])
+            # Initialize state if empty
+            if not graph_state.current_nodes:
+                graph_state = initialize_graph_state(
+                    resolved_dir, graph, graph.metadata.get('name', 'unnamed')
+                )
+
+            current_node_id = graph_state.get_current_node()
+            current_node = graph.nodes.get(current_node_id)
+            if current_node:
+                enabled_mcps = current_node.mcps_enabled
+        except Exception:
+            pass  # Fall back to allowing all MCPs
+
+    # 2. Validate MCP is allowed in current node
     if "*" not in enabled_mcps and mcp_name not in enabled_mcps:
         return {
             "error": True,
             "session_id": sid,
-            "message": f"❌ MCP '{mcp_name}' is not available in Step {current_idx}: {current_step.get('name', 'Unknown')}",
+            "message": f"❌ MCP '{mcp_name}' is not available in node '{current_node.id if current_node else 'unknown'}': {current_node.name if current_node else 'No node'}",
             "available_mcps": enabled_mcps,
-            "hint": "Use pipeline_status() to see available MCPs for current step"
+            "hint": "Use graph_status() to see available MCPs for current node"
         }
 
     # 3. Get or create MCP connection
@@ -1648,8 +944,24 @@ async def execute_mcp_tool(
             "message": f"Error executing tool on {mcp_name}: {str(e)}"
         }
 
-    # 5. Check gate condition for auto-advance
-    gate_result = check_and_advance_gate(resolved_dir, mcp_name, tool_name)
+    # 5. Check for available graph transitions (but don't auto-advance)
+    available_transitions = None
+    if graph and graph_state:
+        trigger_value = {'mcp': mcp_name, 'tool': tool_name}
+        matching_edges = evaluate_transitions(graph, graph_state, 'tool', trigger_value)
+        if matching_edges:
+            available_transitions = {
+                "triggered_by": f"{mcp_name}.{tool_name}",
+                "available_edges": [
+                    {
+                        "id": e.id,
+                        "to": e.to_node,
+                        "to_name": graph.nodes[e.to_node].name if e.to_node in graph.nodes else e.to_node
+                    }
+                    for e in matching_edges
+                ],
+                "hint": "Use graph_traverse(edge_id) to advance"
+            }
 
     # 6. Return result
     if "error" in result:
@@ -1666,14 +978,14 @@ async def execute_mcp_tool(
 
     tool_result = result.get("result", result)
 
-    # Include gate advancement info if it happened
-    if gate_result:
+    # Include available transitions if any
+    if available_transitions:
         if isinstance(tool_result, dict):
-            tool_result["_pipeline_advanced"] = gate_result
+            tool_result["_graph_transitions_available"] = available_transitions
         else:
             tool_result = {
                 "result": tool_result,
-                "_pipeline_advanced": gate_result
+                "_graph_transitions_available": available_transitions
             }
 
     return tool_result
