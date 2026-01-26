@@ -1,34 +1,83 @@
-import { homeDir, appDataDir } from '@tauri-apps/api/path';
+import { homeDir } from '@tauri-apps/api/path';
 import { readTextFile, writeTextFile, exists, mkdir, readDir } from '@tauri-apps/plugin-fs';
 
-// Pipeline state interface
-export interface PipelineState {
-  current_step: number;
-  completed_steps: CompletedStep[];
-  session_id: string | null;
-  started_at: string | null;
-  last_activity: string | null;
-  step_history: StepHistoryEntry[];
-  // MCP pipeline-manager fields
-  active_pipeline?: string | null;
-  pipeline_version?: string | null;
-  pipeline_source?: 'local' | 'global' | null;
+// ============================================
+// Graph-Based Pipeline Types (v2.0)
+// ============================================
+
+export interface EdgeCondition {
+  type: 'tool' | 'phrase' | 'always' | 'default';
+  tool?: string;
+  phrases?: string[];
 }
 
-export interface CompletedStep {
+export interface GraphEdge {
   id: string;
-  completed_at: string;
-  reason: string;
+  from: string;
+  to: string;
+  condition: EdgeCondition;
+  priority: number;
 }
 
-export interface StepHistoryEntry {
-  from_step: number;
-  to_step: number;
+export interface GraphNode {
+  id: string;
+  name: string;
+  mcps_enabled: string[];
+  tools_blocked: string[];
+  prompt_injection?: string;
+  is_start: boolean;
+  is_end: boolean;
+  max_visits: number;
+}
+
+export interface GraphMetadata {
+  name: string;
+  description?: string;
+  version: string;
+  type: 'graph';
+}
+
+export interface PipelineGraph {
+  metadata: GraphMetadata;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface PathEntry {
+  from_node: string | null;
+  to_node: string;
+  edge_id: string | null;
   timestamp: string;
   reason: string;
 }
 
-// Pipeline step configuration
+export interface GraphState {
+  current_nodes: string[];
+  node_visits: Record<string, number>;
+  execution_path: PathEntry[];
+  active_graph: string | null;
+  max_visits_default: number;
+  total_transitions: number;
+  last_activity: string | null;
+}
+
+// Legacy compatibility - maps to graph concepts
+export interface PipelineState {
+  current_step: number;  // Maps to index of current node in nodes array
+  completed_steps: { id: string; completed_at: string; reason: string }[];
+  session_id: string | null;
+  started_at: string | null;
+  last_activity: string | null;
+  step_history: { from_step: number; to_step: number; timestamp: string; reason: string }[];
+  active_pipeline?: string | null;
+  pipeline_version?: string | null;
+  pipeline_source?: 'local' | 'global' | null;
+  // Graph-specific fields
+  current_node?: string;
+  node_visits?: Record<string, number>;
+}
+
+// Legacy compatibility
 export interface PipelineStep {
   id: string;
   order: number;
@@ -40,181 +89,169 @@ export interface PipelineStep {
   gate_type: 'any' | 'tool' | 'phrase' | 'always';
   gate_tool: string;
   gate_phrases: string[];
+  // Graph-specific
+  is_start?: boolean;
+  is_end?: boolean;
+  max_visits?: number;
 }
 
-// Full pipeline configuration
-export interface PipelineConfig {
-  steps: PipelineStep[];
-}
+// ============================================
+// Path Constants
+// ============================================
 
-// Paths
 const PIPELINE_DIR = '.claude/pipeline';
-const STATE_FILE = 'state.json';
-const STEPS_FILE = 'steps.yaml';
+const GRAPH_STATE_FILE = 'graph_state.json';
+const GRAPH_FILE = 'graph.yaml';
+const GLOBAL_PIPELINES_DIR = '.claude/pipelines';
 
-// Cache the home directory
 let cachedHomeDir: string | null = null;
+let cachedAppDir: string | null = null;
 
-// Get pipeline directory path
-// If projectPath is provided, uses per-project path: {projectPath}/.claude/pipeline/
-// Otherwise uses global path: ~/.claude/pipeline/
+// ============================================
+// Path Helpers
+// ============================================
+
 async function getPipelineDir(projectPath?: string | null): Promise<string> {
   if (projectPath) {
-    // Per-project pipeline directory
     const normalizedPath = projectPath.endsWith('/') ? projectPath.slice(0, -1) : projectPath;
     return `${normalizedPath}/${PIPELINE_DIR}`;
   }
 
-  // Global fallback
   if (!cachedHomeDir) {
-    console.log('[Pipeline] Getting home directory...');
     const home = await homeDir();
-    console.log('[Pipeline] Home directory:', home);
-
-    if (!home) {
-      throw new Error('Could not determine home directory');
-    }
-    // Normalize: remove trailing slash if present
+    if (!home) throw new Error('Could not determine home directory');
     cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
   }
 
   return `${cachedHomeDir}/${PIPELINE_DIR}`;
 }
 
-// Ensure pipeline directory exists
 export async function ensurePipelineDir(projectPath?: string | null): Promise<void> {
   const dir = await getPipelineDir(projectPath);
-  console.log('[Pipeline] Checking directory:', dir);
-
   try {
     const dirExists = await exists(dir);
     if (!dirExists) {
-      console.log('[Pipeline] Creating directory:', dir);
       await mkdir(dir, { recursive: true });
     }
   } catch (e) {
-    console.error('[Pipeline] Error ensuring directory:', e);
+    console.error('[Graph] Error ensuring directory:', e);
     throw e;
   }
 }
 
-// Get default state
-function getDefaultState(): PipelineState {
+async function getAppBaseDir(): Promise<string> {
+  if (cachedAppDir) return cachedAppDir;
+
+  if (!cachedHomeDir) {
+    const home = await homeDir();
+    if (!home) throw new Error('Could not determine home directory');
+    cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
+  }
+
+  cachedAppDir = `${cachedHomeDir}/my_projects/agentcockpit`;
+  return cachedAppDir;
+}
+
+async function getGlobalPipelinesDir(): Promise<string> {
+  const appDir = await getAppBaseDir();
+  return `${appDir}/${GLOBAL_PIPELINES_DIR}`;
+}
+
+export async function getPipelinePath(projectPath?: string | null): Promise<string> {
+  return await getPipelineDir(projectPath);
+}
+
+// ============================================
+// Graph State Management
+// ============================================
+
+function getDefaultGraphState(): GraphState {
   return {
-    current_step: 0,
-    completed_steps: [],
-    session_id: null,
-    started_at: new Date().toISOString(),
-    last_activity: new Date().toISOString(),
-    step_history: [],
-    active_pipeline: null,
-    pipeline_version: null,
-    pipeline_source: null
+    current_nodes: [],
+    node_visits: {},
+    execution_path: [],
+    active_graph: null,
+    max_visits_default: 10,
+    total_transitions: 0,
+    last_activity: new Date().toISOString()
   };
 }
 
-// Read pipeline state
-export async function getPipelineState(projectPath?: string | null): Promise<PipelineState> {
+export async function getGraphState(projectPath?: string | null): Promise<GraphState> {
   try {
     const dir = await getPipelineDir(projectPath);
-    const statePath = `${dir}/${STATE_FILE}`;
-    console.log('[Pipeline] Reading state from:', statePath);
+    const statePath = `${dir}/${GRAPH_STATE_FILE}`;
 
     const fileExists = await exists(statePath);
     if (!fileExists) {
-      console.log('[Pipeline] State file not found, using defaults');
-      return getDefaultState();
+      return getDefaultGraphState();
     }
 
     const content = await readTextFile(statePath);
-    console.log('[Pipeline] State content length:', content.length);
-
-    const parsed = JSON.parse(content) as PipelineState;
-    return parsed;
+    return JSON.parse(content) as GraphState;
   } catch (e) {
-    console.error('[Pipeline] Error reading state:', e);
-    return getDefaultState();
+    console.error('[Graph] Error reading state:', e);
+    return getDefaultGraphState();
   }
 }
 
-// Save pipeline state
-export async function savePipelineState(state: PipelineState, projectPath?: string | null): Promise<boolean> {
+export async function saveGraphState(state: GraphState, projectPath?: string | null): Promise<boolean> {
   try {
     await ensurePipelineDir(projectPath);
     const dir = await getPipelineDir(projectPath);
-    const statePath = `${dir}/${STATE_FILE}`;
+    const statePath = `${dir}/${GRAPH_STATE_FILE}`;
 
     state.last_activity = new Date().toISOString();
-    const content = JSON.stringify(state, null, 2);
-
-    console.log('[Pipeline] Saving state to:', statePath);
-    await writeTextFile(statePath, content);
+    await writeTextFile(statePath, JSON.stringify(state, null, 2));
     return true;
   } catch (e) {
-    console.error('[Pipeline] Error saving state:', e);
+    console.error('[Graph] Error saving state:', e);
     return false;
   }
 }
 
-// Reset pipeline to step 0
-export async function resetPipeline(projectPath?: string | null): Promise<boolean> {
-  console.log('[Pipeline] Resetting pipeline...');
-  const state = getDefaultState();
-  return savePipelineState(state, projectPath);
-}
+// ============================================
+// Graph YAML Parser
+// ============================================
 
-// Advance to next step manually
-export async function advancePipeline(projectPath?: string | null): Promise<PipelineState> {
-  console.log('[Pipeline] Advancing pipeline...');
-  const state = await getPipelineState(projectPath);
-  const steps = await getPipelineSteps(projectPath);
+function parseGraphYaml(content: string): PipelineGraph {
+  const graph: PipelineGraph = {
+    metadata: { name: '', version: '2.0.0', type: 'graph' },
+    nodes: [],
+    edges: []
+  };
 
-  if (state.current_step >= steps.length - 1) {
-    console.log('[Pipeline] Already at last step');
-    return state;
-  }
-
-  const currentStep = steps[state.current_step];
-  state.completed_steps.push({
-    id: currentStep?.id || `step-${state.current_step}`,
-    completed_at: new Date().toISOString(),
-    reason: 'Manual advance'
-  });
-
-  state.step_history.push({
-    from_step: state.current_step,
-    to_step: state.current_step + 1,
-    timestamp: new Date().toISOString(),
-    reason: 'Manual advance'
-  });
-
-  state.current_step += 1;
-  await savePipelineState(state, projectPath);
-  return state;
-}
-
-// Parse YAML steps (simplified parser)
-function parseStepsYaml(content: string): PipelineStep[] {
-  const steps: PipelineStep[] = [];
-  let currentStep: Partial<PipelineStep> | null = null;
+  const lines = content.split('\n');
+  let currentSection: 'metadata' | 'nodes' | 'edges' | null = null;
+  let currentItem: Record<string, unknown> | null = null;
   let currentList: string | null = null;
   let inMultiline = false;
   let multilineKey = '';
   let multilineContent: string[] = [];
-  let indentLevel = 0;
-
-  const lines = content.split('\n');
+  let baseIndent = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const stripped = line.trim();
 
-    // Skip comments and empty lines (but capture in multiline)
     if (!stripped || stripped.startsWith('#')) {
-      if (inMultiline) {
-        multilineContent.push('');
-      }
+      if (inMultiline) multilineContent.push('');
       continue;
+    }
+
+    const indent = line.length - line.trimStart().length;
+
+    // Handle multiline
+    if (inMultiline) {
+      if (indent > baseIndent || stripped === '') {
+        multilineContent.push(stripped);
+        continue;
+      } else {
+        if (currentItem && multilineKey) {
+          currentItem[multilineKey] = multilineContent.join('\n');
+        }
+        inMultiline = false;
+      }
     }
 
     // Detect multiline start
@@ -222,264 +259,667 @@ function parseStepsYaml(content: string): PipelineStep[] {
       inMultiline = true;
       multilineKey = stripped.slice(0, -1).trim().replace(':', '');
       multilineContent = [];
-      indentLevel = line.length - line.trimStart().length;
+      baseIndent = indent;
       continue;
     }
 
-    // Collect multiline content
-    if (inMultiline) {
-      const currentIndent = line.length - line.trimStart().length;
-      if (currentIndent > indentLevel || stripped === '') {
-        multilineContent.push(stripped);
-        continue;
-      } else {
-        // End of multiline
-        if (currentStep && multilineKey) {
-          (currentStep as Record<string, unknown>)[multilineKey] = multilineContent.join('\n');
-        }
-        inMultiline = false;
-        multilineKey = '';
-      }
+    // Section detection
+    if (stripped === 'metadata:') {
+      currentSection = 'metadata';
+      currentItem = graph.metadata as unknown as Record<string, unknown>;
+      continue;
     }
-
-    // New step
-    if (stripped.startsWith('- id:')) {
-      if (currentStep && currentStep.id) {
-        steps.push(currentStep as PipelineStep);
-      }
-      const idMatch = stripped.match(/["']([^"']+)["']/);
-      currentStep = {
-        id: idMatch ? idMatch[1] : stripped.split(':')[1]?.trim() || `step-${steps.length}`,
-        order: steps.length,
-        name: '',
-        description: '',
-        prompt_injection: '',
-        mcps_enabled: [],
-        tools_blocked: [],
-        gate_type: 'any',
-        gate_tool: '',
-        gate_phrases: []
-      };
-      currentList = null;
+    if (stripped === 'nodes:') {
+      currentSection = 'nodes';
+      currentItem = null;
+      continue;
+    }
+    if (stripped === 'edges:') {
+      currentSection = 'edges';
+      currentItem = null;
       continue;
     }
 
-    // Step properties
-    if (currentStep) {
-      if (stripped.startsWith('- ')) {
-        // List item
-        if (currentList) {
-          const value = stripped.slice(2).trim().replace(/^["']|["']$/g, '');
-          const list = (currentStep as Record<string, unknown>)[currentList];
-          if (Array.isArray(list)) {
-            list.push(value);
-          }
+    // New item in list
+    if (stripped.startsWith('- ')) {
+      if (currentSection === 'nodes' || currentSection === 'edges') {
+        if (currentItem && currentSection === 'nodes') {
+          graph.nodes.push(currentItem as unknown as GraphNode);
+        } else if (currentItem && currentSection === 'edges') {
+          graph.edges.push(currentItem as unknown as GraphEdge);
         }
-      } else if (stripped.includes(':')) {
-        const colonIndex = stripped.indexOf(':');
-        const key = stripped.slice(0, colonIndex).trim();
-        const value = stripped.slice(colonIndex + 1).trim().replace(/^["']|["']$/g, '');
 
-        if (!value) {
-          // Start of list
-          currentList = key;
-          if (!(currentStep as Record<string, unknown>)[key]) {
-            (currentStep as Record<string, unknown>)[key] = [];
-          }
+        const itemContent = stripped.slice(2).trim();
+        if (itemContent.includes(':')) {
+          const [key, ...valueParts] = itemContent.split(':');
+          const value = valueParts.join(':').trim().replace(/^["']|["']$/g, '');
+          currentItem = { [key.trim()]: value || undefined };
         } else {
-          (currentStep as Record<string, unknown>)[key] = value;
+          currentItem = {};
+        }
+        currentList = null;
+      } else if (currentList && currentItem) {
+        const value = stripped.slice(2).trim().replace(/^["']|["']$/g, '');
+        const list = currentItem[currentList];
+        if (Array.isArray(list)) {
+          list.push(value);
+        }
+      }
+      continue;
+    }
+
+    // Key-value pairs
+    if (stripped.includes(':') && currentItem) {
+      const colonIdx = stripped.indexOf(':');
+      const key = stripped.slice(0, colonIdx).trim();
+      const value = stripped.slice(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+
+      if (!value) {
+        // Start of list or nested object
+        currentList = key;
+        if (key === 'condition') {
+          currentItem[key] = {};
+        } else if (!currentItem[key]) {
+          currentItem[key] = [];
+        }
+      } else {
+        // Handle nested condition properties
+        if (currentList === 'condition' && typeof currentItem.condition === 'object') {
+          (currentItem.condition as Record<string, unknown>)[key] = value;
+        } else {
+          // Parse value types
+          if (value === 'true') {
+            currentItem[key] = true;
+          } else if (value === 'false') {
+            currentItem[key] = false;
+          } else if (/^\d+$/.test(value)) {
+            currentItem[key] = parseInt(value, 10);
+          } else {
+            currentItem[key] = value;
+          }
           currentList = null;
         }
       }
     }
   }
 
-  // Don't forget the last step
-  if (currentStep && currentStep.id) {
-    steps.push(currentStep as PipelineStep);
+  // Push last item
+  if (currentItem) {
+    if (currentSection === 'nodes') {
+      graph.nodes.push(currentItem as unknown as GraphNode);
+    } else if (currentSection === 'edges') {
+      graph.edges.push(currentItem as unknown as GraphEdge);
+    }
   }
 
-  return steps;
+  // Set defaults for nodes
+  graph.nodes = graph.nodes.map(node => ({
+    ...node,
+    mcps_enabled: node.mcps_enabled || ['*'],
+    tools_blocked: node.tools_blocked || [],
+    is_start: node.is_start ?? false,
+    is_end: node.is_end ?? false,
+    max_visits: node.max_visits ?? 10
+  }));
+
+  // Set defaults for edges
+  graph.edges = graph.edges.map(edge => ({
+    ...edge,
+    condition: edge.condition || { type: 'always' },
+    priority: edge.priority ?? 1
+  }));
+
+  return graph;
 }
 
-// Get default steps (MVP)
+// ============================================
+// Graph Loading
+// ============================================
+
+export async function getGraph(projectPath?: string | null): Promise<PipelineGraph | null> {
+  try {
+    const dir = await getPipelineDir(projectPath);
+    const graphPath = `${dir}/${GRAPH_FILE}`;
+
+    const fileExists = await exists(graphPath);
+    if (!fileExists) {
+      return null;
+    }
+
+    const content = await readTextFile(graphPath);
+    return parseGraphYaml(content);
+  } catch (e) {
+    console.error('[Graph] Error reading graph:', e);
+    return null;
+  }
+}
+
+export async function getGlobalGraph(graphName: string): Promise<PipelineGraph | null> {
+  try {
+    const dir = await getGlobalPipelinesDir();
+    // Try graph format first, then legacy format
+    let filePath = `${dir}/${graphName}-graph.yaml`;
+    let fileExists = await exists(filePath);
+
+    if (!fileExists) {
+      filePath = `${dir}/${graphName}.yaml`;
+      fileExists = await exists(filePath);
+    }
+
+    if (!fileExists) {
+      return null;
+    }
+
+    const content = await readTextFile(filePath);
+    return parseGraphYaml(content);
+  } catch (e) {
+    console.error('[Graph] Error reading global graph:', e);
+    return null;
+  }
+}
+
+// ============================================
+// Legacy Compatibility Layer
+// ============================================
+
+// Convert graph state to legacy pipeline state
+export async function getPipelineState(projectPath?: string | null): Promise<PipelineState> {
+  const graphState = await getGraphState(projectPath);
+  const graph = await getGraph(projectPath);
+
+  const currentNodeId = graphState.current_nodes[0];
+  let currentStepIndex = 0;
+
+  if (graph && currentNodeId) {
+    currentStepIndex = graph.nodes.findIndex(n => n.id === currentNodeId);
+    if (currentStepIndex === -1) currentStepIndex = 0;
+  }
+
+  // Convert execution path to step history
+  const stepHistory = graphState.execution_path.map((entry) => {
+    const fromIdx = graph?.nodes.findIndex(n => n.id === entry.from_node) ?? -1;
+    const toIdx = graph?.nodes.findIndex(n => n.id === entry.to_node) ?? 0;
+    return {
+      from_step: fromIdx >= 0 ? fromIdx : 0,
+      to_step: toIdx >= 0 ? toIdx : 0,
+      timestamp: entry.timestamp,
+      reason: entry.reason
+    };
+  });
+
+  return {
+    current_step: currentStepIndex,
+    completed_steps: graphState.execution_path
+      .filter(e => e.from_node !== null)
+      .map(e => ({
+        id: e.from_node || '',
+        completed_at: e.timestamp,
+        reason: e.reason
+      })),
+    session_id: null,
+    started_at: graphState.execution_path[0]?.timestamp || null,
+    last_activity: graphState.last_activity,
+    step_history: stepHistory,
+    active_pipeline: graphState.active_graph,
+    current_node: currentNodeId,
+    node_visits: graphState.node_visits
+  };
+}
+
+export async function savePipelineState(_state: PipelineState, projectPath?: string | null): Promise<boolean> {
+  // This is now handled through graph state
+  // For legacy compatibility, we just save the graph state
+  const graphState = await getGraphState(projectPath);
+  graphState.last_activity = new Date().toISOString();
+  return saveGraphState(graphState, projectPath);
+}
+
+// Convert graph nodes to legacy steps
+export async function getPipelineSteps(projectPath?: string | null): Promise<PipelineStep[]> {
+  const graph = await getGraph(projectPath);
+  if (!graph) {
+    return getDefaultSteps();
+  }
+
+  return graph.nodes.map((node, idx) => {
+    // Find outgoing edges to determine gate info
+    const outgoingEdges = graph.edges.filter(e => e.from === node.id);
+    const toolEdge = outgoingEdges.find(e => e.condition.type === 'tool');
+    const phraseEdge = outgoingEdges.find(e => e.condition.type === 'phrase');
+
+    let gateType: 'any' | 'tool' | 'phrase' | 'always' = 'always';
+    if (toolEdge && phraseEdge) gateType = 'any';
+    else if (toolEdge) gateType = 'tool';
+    else if (phraseEdge) gateType = 'phrase';
+    else if (node.is_end) gateType = 'always';
+
+    return {
+      id: node.id,
+      order: idx,
+      name: node.name,
+      description: '',
+      prompt_injection: node.prompt_injection || '',
+      mcps_enabled: node.mcps_enabled,
+      tools_blocked: node.tools_blocked,
+      gate_type: gateType,
+      gate_tool: toolEdge?.condition.tool || '',
+      gate_phrases: phraseEdge?.condition.phrases || [],
+      is_start: node.is_start,
+      is_end: node.is_end,
+      max_visits: node.max_visits
+    };
+  });
+}
+
 function getDefaultSteps(): PipelineStep[] {
   return [
     {
       id: 'complexity-check',
       order: 0,
       name: 'Complexity Gate',
-      description: 'Evalúa si la tarea requiere razonamiento estructurado',
-      prompt_injection: '🔍 STEP 0 - COMPLEXITY CHECK\nAntes de responder, evalúa la complejidad.',
+      description: 'Evalua la complejidad de la tarea',
+      prompt_injection: 'STEP 1: Evalua la complejidad antes de implementar.',
       mcps_enabled: ['sequential-thinking'],
       tools_blocked: ['Write', 'Edit'],
       gate_type: 'any',
       gate_tool: 'mcp__sequential-thinking__sequentialthinking',
-      gate_phrases: ['Tarea simple', 'procedo directamente']
-    },
-    {
-      id: 'library-context',
-      order: 1,
-      name: 'Library Context Gate',
-      description: 'Verifica si necesita documentación de librerías',
-      prompt_injection: '📚 STEP 1 - LIBRARY CONTEXT\n¿Necesitas documentación externa?',
-      mcps_enabled: ['Context7'],
-      tools_blocked: ['Write', 'Edit'],
-      gate_type: 'any',
-      gate_tool: 'mcp__Context7__',
-      gate_phrases: ['No requiere documentación', 'sin librerías externas']
+      gate_phrases: ['trivial', 'simple'],
+      is_start: true,
+      is_end: false,
+      max_visits: 5
     },
     {
       id: 'implementation',
-      order: 2,
-      name: 'Implementation Gate',
-      description: 'Habilita escritura después de validar contexto',
-      prompt_injection: '✅ CONTEXTO VALIDADO\nPuedes implementar.',
+      order: 1,
+      name: 'Implementation',
+      description: 'Implementa la solucion',
+      prompt_injection: 'Todas las herramientas habilitadas.',
       mcps_enabled: ['*'],
       tools_blocked: [],
       gate_type: 'always',
       gate_tool: '',
-      gate_phrases: []
+      gate_phrases: [],
+      is_start: false,
+      is_end: true,
+      max_visits: 10
     }
   ];
 }
 
-// Get pipeline steps configuration
-export async function getPipelineSteps(projectPath?: string | null): Promise<PipelineStep[]> {
-  try {
-    const dir = await getPipelineDir(projectPath);
-    const stepsPath = `${dir}/${STEPS_FILE}`;
-    console.log('[Pipeline] Reading steps from:', stepsPath);
+// ============================================
+// Graph Operations
+// ============================================
 
-    const fileExists = await exists(stepsPath);
-    if (!fileExists) {
-      console.log('[Pipeline] Steps file not found, using defaults');
-      return getDefaultSteps();
-    }
+export async function resetPipeline(projectPath?: string | null): Promise<boolean> {
+  const graph = await getGraph(projectPath);
+  if (!graph) return false;
 
-    const content = await readTextFile(stepsPath);
-    console.log('[Pipeline] Steps content length:', content.length);
+  const startNode = graph.nodes.find(n => n.is_start) || graph.nodes[0];
+  if (!startNode) return false;
 
-    const parsed = parseStepsYaml(content);
-    console.log('[Pipeline] Parsed steps count:', parsed.length);
+  const state: GraphState = {
+    current_nodes: [startNode.id],
+    node_visits: { [startNode.id]: 1 },
+    execution_path: [{
+      from_node: null,
+      to_node: startNode.id,
+      edge_id: null,
+      timestamp: new Date().toISOString(),
+      reason: 'Graph reset'
+    }],
+    active_graph: (await getGraphState(projectPath)).active_graph,
+    max_visits_default: 10,
+    total_transitions: 0,
+    last_activity: new Date().toISOString()
+  };
 
-    if (parsed.length === 0) {
-      console.log('[Pipeline] No steps parsed, using defaults');
-      return getDefaultSteps();
-    }
-
-    return parsed;
-  } catch (e) {
-    console.error('[Pipeline] Error reading steps:', e);
-    return getDefaultSteps();
-  }
+  return saveGraphState(state, projectPath);
 }
 
-// Generate YAML from steps
-function stepsToYaml(steps: PipelineStep[]): string {
-  let yaml = `# Flow-Controlled MCP Pipeline
-# Generated by AgentCockpit
+export async function advancePipeline(projectPath?: string | null): Promise<PipelineState> {
+  // In graph mode, we need to traverse an edge
+  // For legacy compatibility, find the first available edge and traverse it
+  const graph = await getGraph(projectPath);
+  const graphState = await getGraphState(projectPath);
 
-steps:\n`;
-
-  for (const step of steps) {
-    yaml += `  - id: "${step.id}"
-    order: ${step.order}
-    name: "${step.name}"
-    description: "${step.description}"
-    prompt_injection: |
-${step.prompt_injection.split('\n').map(l => `      ${l}`).join('\n')}
-    mcps_enabled:\n`;
-
-    for (const mcp of step.mcps_enabled || []) {
-      yaml += `      - "${mcp}"\n`;
-    }
-
-    yaml += `    tools_blocked:\n`;
-    for (const tool of step.tools_blocked || []) {
-      yaml += `      - "${tool}"\n`;
-    }
-
-    yaml += `    gate_type: "${step.gate_type}"
-    gate_tool: "${step.gate_tool}"
-    gate_phrases:\n`;
-
-    for (const phrase of step.gate_phrases || []) {
-      yaml += `      - "${phrase}"\n`;
-    }
-
-    yaml += '\n';
+  if (!graph) {
+    return getPipelineState(projectPath);
   }
 
-  return yaml;
+  const currentNodeId = graphState.current_nodes[0];
+  if (!currentNodeId) {
+    return getPipelineState(projectPath);
+  }
+
+  // Find first outgoing edge
+  const outgoingEdges = graph.edges.filter(e => e.from === currentNodeId);
+  if (outgoingEdges.length === 0) {
+    return getPipelineState(projectPath);
+  }
+
+  // Sort by priority and take first
+  const edge = outgoingEdges.sort((a, b) => a.priority - b.priority)[0];
+
+  // Check max visits
+  const targetNode = graph.nodes.find(n => n.id === edge.to);
+  const currentVisits = graphState.node_visits[edge.to] || 0;
+  const maxVisits = targetNode?.max_visits || graphState.max_visits_default;
+
+  if (currentVisits >= maxVisits) {
+    console.log('[Graph] Max visits reached for node:', edge.to);
+    return getPipelineState(projectPath);
+  }
+
+  // Execute transition
+  graphState.current_nodes = [edge.to];
+  graphState.node_visits[edge.to] = currentVisits + 1;
+  graphState.execution_path.push({
+    from_node: currentNodeId,
+    to_node: edge.to,
+    edge_id: edge.id,
+    timestamp: new Date().toISOString(),
+    reason: 'Manual advance'
+  });
+  graphState.total_transitions++;
+
+  await saveGraphState(graphState, projectPath);
+  return getPipelineState(projectPath);
 }
 
-// Save pipeline steps
-export async function savePipelineSteps(steps: PipelineStep[], projectPath?: string | null): Promise<boolean> {
-  try {
-    await ensurePipelineDir(projectPath);
-    const dir = await getPipelineDir(projectPath);
-    const stepsPath = `${dir}/${STEPS_FILE}`;
+export async function traverseEdge(edgeId: string, projectPath?: string | null, reason: string = 'Manual traverse'): Promise<boolean> {
+  const graph = await getGraph(projectPath);
+  const graphState = await getGraphState(projectPath);
 
-    const yaml = stepsToYaml(steps);
-    console.log('[Pipeline] Saving steps to:', stepsPath);
-    await writeTextFile(stepsPath, yaml);
-    return true;
-  } catch (e) {
-    console.error('[Pipeline] Error saving steps:', e);
+  if (!graph) return false;
+
+  const edge = graph.edges.find(e => e.id === edgeId);
+  if (!edge) return false;
+
+  const currentNodeId = graphState.current_nodes[0];
+  if (edge.from !== currentNodeId) return false;
+
+  // Check max visits
+  const targetNode = graph.nodes.find(n => n.id === edge.to);
+  const currentVisits = graphState.node_visits[edge.to] || 0;
+  const maxVisits = targetNode?.max_visits || graphState.max_visits_default;
+
+  if (currentVisits >= maxVisits) {
     return false;
   }
+
+  // Execute transition
+  graphState.current_nodes = [edge.to];
+  graphState.node_visits[edge.to] = currentVisits + 1;
+  graphState.execution_path.push({
+    from_node: currentNodeId,
+    to_node: edge.to,
+    edge_id: edge.id,
+    timestamp: new Date().toISOString(),
+    reason
+  });
+  graphState.total_transitions++;
+
+  return saveGraphState(graphState, projectPath);
 }
 
-// Check if pipeline is installed (directory exists)
+export async function setCurrentNode(nodeId: string, projectPath?: string | null): Promise<boolean> {
+  const graph = await getGraph(projectPath);
+  const graphState = await getGraphState(projectPath);
+
+  if (!graph) return false;
+
+  const node = graph.nodes.find(n => n.id === nodeId);
+  if (!node) return false;
+
+  const currentVisits = graphState.node_visits[nodeId] || 0;
+
+  graphState.current_nodes = [nodeId];
+  graphState.node_visits[nodeId] = currentVisits + 1;
+  graphState.execution_path.push({
+    from_node: graphState.current_nodes[0] || null,
+    to_node: nodeId,
+    edge_id: null,
+    timestamp: new Date().toISOString(),
+    reason: 'Admin jump'
+  });
+
+  return saveGraphState(graphState, projectPath);
+}
+
+// ============================================
+// Available Edges
+// ============================================
+
+export interface AvailableEdge {
+  id: string;
+  to: string;
+  toName: string;
+  conditionType: string;
+  conditionTool?: string;
+  conditionPhrases?: string[];
+  priority: number;
+}
+
+export async function getAvailableEdges(projectPath?: string | null): Promise<AvailableEdge[]> {
+  const graph = await getGraph(projectPath);
+  const graphState = await getGraphState(projectPath);
+
+  if (!graph) return [];
+
+  const currentNodeId = graphState.current_nodes[0];
+  if (!currentNodeId) return [];
+
+  const outgoingEdges = graph.edges
+    .filter(e => e.from === currentNodeId)
+    .sort((a, b) => a.priority - b.priority);
+
+  return outgoingEdges.map(edge => {
+    const targetNode = graph.nodes.find(n => n.id === edge.to);
+    return {
+      id: edge.id,
+      to: edge.to,
+      toName: targetNode?.name || edge.to,
+      conditionType: edge.condition.type,
+      conditionTool: edge.condition.tool,
+      conditionPhrases: edge.condition.phrases,
+      priority: edge.priority
+    };
+  });
+}
+
+// ============================================
+// Installation & Activation
+// ============================================
+
 export async function isPipelineInstalled(projectPath?: string | null): Promise<boolean> {
   try {
     const dir = await getPipelineDir(projectPath);
-    // Check if the pipeline directory exists
     const dirExists = await exists(dir);
-    console.log('[Pipeline] Directory exists:', dirExists, 'at', dir);
+    if (!dirExists) return false;
 
-    if (!dirExists) {
-      return false;
-    }
-
-    // If we can read steps (even defaults), consider it "installed"
-    // The actual hooks are configured in .claude/settings.json
-    // which is separate from this UI
-    return true;
+    // Check for graph.yaml
+    const graphPath = `${dir}/${GRAPH_FILE}`;
+    return await exists(graphPath);
   } catch (e) {
-    console.error('[Pipeline] Error checking installation:', e);
     return false;
   }
 }
 
-// Get pipeline directory for external use
-export async function getPipelinePath(projectPath?: string | null): Promise<string> {
-  return await getPipelineDir(projectPath);
-}
-
-// Get enforcer enabled state from config.json
 export async function getEnforcerEnabled(projectPath?: string | null): Promise<boolean> {
   try {
     const dir = await getPipelineDir(projectPath);
     const configPath = `${dir}/config.json`;
 
     const configExists = await exists(configPath);
-    if (!configExists) {
-      return true; // Default to enabled if no config
-    }
+    if (!configExists) return true;
 
     const content = await readTextFile(configPath);
     const config = JSON.parse(content);
-    return config.enforcer_enabled !== false; // Default true if not specified
+    return config.enforcer_enabled !== false;
   } catch (e) {
-    console.debug('[Pipeline] Error reading enforcer config:', e);
-    return true; // Default to enabled on error
+    return true;
+  }
+}
+
+export async function getActivePipelineName(projectPath: string | null): Promise<string | null> {
+  if (!projectPath) return null;
+  const state = await getGraphState(projectPath);
+  return state.active_graph;
+}
+
+export async function activatePipeline(projectPath: string, graphName: string): Promise<boolean> {
+  try {
+    await ensurePipelineDir(projectPath);
+    const dir = await getPipelineDir(projectPath);
+
+    // Copy graph file from global pipelines
+    const globalDir = await getGlobalPipelinesDir();
+    let sourcePath = `${globalDir}/${graphName}-graph.yaml`;
+    let sourceExists = await exists(sourcePath);
+
+    if (!sourceExists) {
+      sourcePath = `${globalDir}/${graphName}.yaml`;
+      sourceExists = await exists(sourcePath);
+    }
+
+    if (!sourceExists) {
+      console.error('[Graph] Source graph not found:', graphName);
+      return false;
+    }
+
+    const content = await readTextFile(sourcePath);
+    const graphPath = `${dir}/${GRAPH_FILE}`;
+    await writeTextFile(graphPath, content);
+
+    // Parse and initialize state
+    const graph = parseGraphYaml(content);
+    const startNode = graph.nodes.find(n => n.is_start) || graph.nodes[0];
+
+    const state: GraphState = {
+      current_nodes: startNode ? [startNode.id] : [],
+      node_visits: startNode ? { [startNode.id]: 1 } : {},
+      execution_path: startNode ? [{
+        from_node: null,
+        to_node: startNode.id,
+        edge_id: null,
+        timestamp: new Date().toISOString(),
+        reason: 'Graph activated'
+      }] : [],
+      active_graph: graphName,
+      max_visits_default: 10,
+      total_transitions: 0,
+      last_activity: new Date().toISOString()
+    };
+
+    await saveGraphState(state, projectPath);
+    return true;
+  } catch (e) {
+    console.error('[Graph] Error activating pipeline:', e);
+    return false;
+  }
+}
+
+export async function deactivatePipeline(projectPath: string): Promise<boolean> {
+  try {
+    // Reset the state (graph file removal would require Tauri remove())
+    const state = getDefaultGraphState();
+    return saveGraphState(state, projectPath);
+  } catch {
+    return false;
   }
 }
 
 // ============================================
-// Pipeline Configuration
+// Global Pipelines
+// ============================================
+
+export interface GlobalPipelineInfo {
+  name: string;
+  displayName: string;
+  description: string;
+  stepsCount: number;
+  isGraph: boolean;
+}
+
+export async function listGlobalPipelines(): Promise<GlobalPipelineInfo[]> {
+  const pipelines: GlobalPipelineInfo[] = [];
+
+  try {
+    const dir = await getGlobalPipelinesDir();
+    const dirExists = await exists(dir);
+    if (!dirExists) return pipelines;
+
+    const entries = await readDir(dir);
+
+    for (const entry of entries) {
+      if (!entry.name?.endsWith('.yaml')) continue;
+
+      const name = entry.name.replace('-graph.yaml', '').replace('.yaml', '');
+      const isGraph = entry.name.includes('-graph');
+      const filePath = `${dir}/${entry.name}`;
+
+      try {
+        const content = await readTextFile(filePath);
+        const graph = parseGraphYaml(content);
+
+        pipelines.push({
+          name,
+          displayName: graph.metadata.name || name,
+          description: graph.metadata.description || '',
+          stepsCount: graph.nodes.length,
+          isGraph
+        });
+      } catch (e) {
+        pipelines.push({
+          name,
+          displayName: name,
+          description: '',
+          stepsCount: 0,
+          isGraph
+        });
+      }
+    }
+
+    return pipelines;
+  } catch (e) {
+    return pipelines;
+  }
+}
+
+export async function getGlobalPipelineSteps(pipelineName: string): Promise<PipelineStep[]> {
+  const graph = await getGlobalGraph(pipelineName);
+  if (!graph) return [];
+
+  return graph.nodes.map((node, idx) => {
+    const outgoingEdges = graph.edges.filter(e => e.from === node.id);
+    const toolEdge = outgoingEdges.find(e => e.condition.type === 'tool');
+    const phraseEdge = outgoingEdges.find(e => e.condition.type === 'phrase');
+
+    let gateType: 'any' | 'tool' | 'phrase' | 'always' = 'always';
+    if (toolEdge && phraseEdge) gateType = 'any';
+    else if (toolEdge) gateType = 'tool';
+    else if (phraseEdge) gateType = 'phrase';
+
+    return {
+      id: node.id,
+      order: idx,
+      name: node.name,
+      description: '',
+      prompt_injection: node.prompt_injection || '',
+      mcps_enabled: node.mcps_enabled,
+      tools_blocked: node.tools_blocked,
+      gate_type: gateType,
+      gate_tool: toolEdge?.condition.tool || '',
+      gate_phrases: phraseEdge?.condition.phrases || [],
+      is_start: node.is_start,
+      is_end: node.is_end,
+      max_visits: node.max_visits
+    };
+  });
+}
+
+// ============================================
+// Settings & MCPs
 // ============================================
 
 export interface PipelineSettings {
@@ -488,121 +928,26 @@ export interface PipelineSettings {
   force_sequential: boolean;
 }
 
-const DEFAULT_SETTINGS: PipelineSettings = {
-  reset_policy: 'timeout',
-  timeout_minutes: 30,
-  force_sequential: false
-};
-
-// Parse config section from steps.yaml content
-function parseConfigFromYaml(content: string): PipelineSettings {
-  const config = { ...DEFAULT_SETTINGS };
-  const lines = content.split('\n');
-  let inConfig = false;
-
-  for (const line of lines) {
-    const stripped = line.trim();
-
-    if (stripped === 'config:') {
-      inConfig = true;
-      continue;
-    }
-
-    if (stripped === 'steps:') {
-      break;
-    }
-
-    if (inConfig && stripped.includes(':') && !stripped.startsWith('#')) {
-      const [key, ...valueParts] = stripped.split(':');
-      const value = valueParts.join(':').trim().replace(/^["']|["']$/g, '');
-
-      if (key.trim() === 'reset_policy' && ['manual', 'timeout', 'per_session'].includes(value)) {
-        config.reset_policy = value as PipelineSettings['reset_policy'];
-      } else if (key.trim() === 'timeout_minutes') {
-        config.timeout_minutes = parseInt(value, 10) || 30;
-      } else if (key.trim() === 'force_sequential') {
-        config.force_sequential = value.toLowerCase() === 'true';
-      }
-    }
-  }
-
-  return config;
+export async function getPipelineSettings(_projectPath?: string | null): Promise<PipelineSettings> {
+  return {
+    reset_policy: 'timeout',
+    timeout_minutes: 30,
+    force_sequential: true
+  };
 }
 
-// Get pipeline settings
-export async function getPipelineSettings(projectPath?: string | null): Promise<PipelineSettings> {
-  try {
-    const dir = await getPipelineDir(projectPath);
-    const stepsPath = `${dir}/${STEPS_FILE}`;
-
-    const fileExists = await exists(stepsPath);
-    if (!fileExists) {
-      return DEFAULT_SETTINGS;
-    }
-
-    const content = await readTextFile(stepsPath);
-    return parseConfigFromYaml(content);
-  } catch (e) {
-    console.error('[Pipeline] Error reading settings:', e);
-    return DEFAULT_SETTINGS;
-  }
+export async function savePipelineSettings(_settings: PipelineSettings, _projectPath?: string | null): Promise<boolean> {
+  // Settings are now embedded in the graph YAML
+  // For now, return true as a no-op
+  return true;
 }
 
-// Save pipeline settings
-export async function savePipelineSettings(settings: PipelineSettings, projectPath?: string | null): Promise<boolean> {
-  try {
-    const dir = await getPipelineDir(projectPath);
-    const stepsPath = `${dir}/${STEPS_FILE}`;
-
-    const fileExists = await exists(stepsPath);
-    if (!fileExists) {
-      return false;
-    }
-
-    const content = await readTextFile(stepsPath);
-    const lines = content.split('\n');
-    const newLines: string[] = [];
-    let inConfig = false;
-
-    for (const line of lines) {
-      const stripped = line.trim();
-
-      if (stripped === 'config:') {
-        inConfig = true;
-        newLines.push(line);
-        // Write new config values
-        newLines.push(`  reset_policy: "${settings.reset_policy}"`);
-        newLines.push(`  timeout_minutes: ${settings.timeout_minutes}`);
-        newLines.push(`  force_sequential: ${settings.force_sequential}`);
-        continue;
-      }
-
-      if (inConfig && stripped === 'steps:') {
-        inConfig = false;
-        newLines.push('');
-        newLines.push(line);
-        continue;
-      }
-
-      if (inConfig && !stripped.startsWith('#') && stripped.includes(':')) {
-        // Skip old config lines
-        continue;
-      }
-
-      newLines.push(line);
-    }
-
-    await writeTextFile(stepsPath, newLines.join('\n'));
-    return true;
-  } catch (e) {
-    console.error('[Pipeline] Error saving settings:', e);
-    return false;
-  }
+export async function savePipelineSteps(_steps: PipelineStep[], _projectPath?: string | null): Promise<boolean> {
+  // Converting steps to graph format would require significant work
+  // For now, this is a no-op - use graph YAML directly
+  console.warn('[Graph] savePipelineSteps is deprecated. Edit graph.yaml directly.');
+  return true;
 }
-
-// ============================================
-// Available MCPs Discovery
-// ============================================
 
 export interface AvailableMcp {
   name: string;
@@ -610,28 +955,16 @@ export interface AvailableMcp {
   command?: string;
 }
 
-// Standard Claude tools that are always available
 export const STANDARD_TOOLS = [
-  'Read',
-  'Write',
-  'Edit',
-  'Bash',
-  'Glob',
-  'Grep',
-  'WebFetch',
-  'WebSearch',
-  'Task',
-  'TodoWrite',
-  'NotebookEdit',
-  'AskUserQuestion'
+  'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep',
+  'WebFetch', 'WebSearch', 'Task', 'TodoWrite',
+  'NotebookEdit', 'AskUserQuestion'
 ];
 
-// Get available MCPs from Claude Desktop config
 export async function getAvailableMcps(): Promise<AvailableMcp[]> {
-  const mcps: AvailableMcp[] = [];
+  const mcps: AvailableMcp[] = [{ name: '*', source: 'claude_desktop' }];
 
   try {
-    // Try Claude Desktop config
     const home = await homeDir();
     const claudeDesktopPath = `${home}/Library/Application Support/Claude/claude_desktop_config.json`;
 
@@ -651,269 +984,8 @@ export async function getAvailableMcps(): Promise<AvailableMcp[]> {
       }
     }
   } catch (e) {
-    console.error('[Pipeline] Error reading Claude Desktop config:', e);
+    console.error('[Graph] Error reading MCPs:', e);
   }
-
-  // Add wildcard option
-  mcps.unshift({ name: '*', source: 'claude_desktop' });
 
   return mcps;
-}
-
-// ============================================
-// Global Pipelines Management
-// ============================================
-
-const GLOBAL_PIPELINES_DIR = '.claude/pipelines';
-
-// App project directory for global pipelines (bundled with the app)
-// In development: uses the project directory
-// In production: could use appDataDir() from Tauri
-let cachedAppDir: string | null = null;
-
-export interface GlobalPipelineInfo {
-  name: string;
-  displayName: string;
-  description: string;
-  stepsCount: number;
-}
-
-// Get the app's base directory for global resources
-async function getAppBaseDir(): Promise<string> {
-  if (cachedAppDir) {
-    return cachedAppDir;
-  }
-
-  // Try to detect if we're in development or production
-  // In development, __dirname or import.meta would point to the project
-  // For now, we use a known project path that can be configured
-
-  // Check for AGENTCOCKPIT_DIR environment variable first (for flexibility)
-  // @ts-ignore - window.__TAURI__ may exist
-  if (typeof window !== 'undefined' && window.__TAURI__) {
-    try {
-      // In Tauri, try to get the resource directory or app data directory
-      const dataDir = await appDataDir();
-      if (dataDir) {
-        // Use app data dir but look for pipelines in a known location
-        // For now, fallback to home-based detection
-      }
-    } catch {
-      // Ignore errors, fallback below
-    }
-  }
-
-  // Fallback: Use home directory + known project path
-  // This allows the app to find pipelines bundled with the project
-  if (!cachedHomeDir) {
-    const home = await homeDir();
-    if (!home) {
-      throw new Error('Could not determine home directory');
-    }
-    cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
-  }
-
-  // Default to project directory (can be overridden via config)
-  // The pipelines are now stored in the agentcockpit project itself
-  cachedAppDir = `${cachedHomeDir}/my_projects/agentcockpit`;
-
-  return cachedAppDir;
-}
-
-// Get global pipelines directory path
-// Now uses the app's project directory instead of home directory
-async function getGlobalPipelinesDir(): Promise<string> {
-  const appDir = await getAppBaseDir();
-  return `${appDir}/${GLOBAL_PIPELINES_DIR}`;
-}
-
-// Parse pipeline metadata from YAML content
-function parsePipelineMetadata(content: string): { displayName: string; description: string; stepsCount: number } {
-  let displayName = '';
-  let description = '';
-  let stepsCount = 0;
-  let inMetadata = false;
-
-  const lines = content.split('\n');
-  for (const line of lines) {
-    const stripped = line.trim();
-
-    if (stripped === 'metadata:') {
-      inMetadata = true;
-      continue;
-    }
-
-    if (stripped === 'config:' || stripped === 'steps:') {
-      inMetadata = false;
-    }
-
-    if (inMetadata && stripped.includes(':')) {
-      const [key, ...valueParts] = stripped.split(':');
-      const value = valueParts.join(':').trim().replace(/^["']|["']$/g, '');
-
-      if (key.trim() === 'name') {
-        displayName = value;
-      } else if (key.trim() === 'description') {
-        description = value;
-      }
-    }
-
-    // Count steps
-    if (stripped.startsWith('- id:')) {
-      stepsCount++;
-    }
-  }
-
-  return { displayName, description, stepsCount };
-}
-
-// List all global pipelines
-export async function listGlobalPipelines(): Promise<GlobalPipelineInfo[]> {
-  const pipelines: GlobalPipelineInfo[] = [];
-
-  try {
-    const dir = await getGlobalPipelinesDir();
-    const dirExists = await exists(dir);
-
-    if (!dirExists) {
-      console.log('[Pipeline] Global pipelines directory does not exist');
-      return pipelines;
-    }
-
-    // Read directory contents using Tauri readDir
-    const entries = await readDir(dir);
-    console.log('[Pipeline] Directory entries:', entries.length);
-
-    for (const entry of entries) {
-      // Only process .yaml files
-      if (entry.name && entry.name.endsWith('.yaml')) {
-        const name = entry.name.replace('.yaml', '');
-        const filePath = `${dir}/${entry.name}`;
-
-        try {
-          const content = await readTextFile(filePath);
-          const metadata = parsePipelineMetadata(content);
-          pipelines.push({
-            name,
-            displayName: metadata.displayName || name,
-            description: metadata.description || '',
-            stepsCount: metadata.stepsCount
-          });
-        } catch (e) {
-          console.error('[Pipeline] Error reading pipeline file:', filePath, e);
-        }
-      }
-    }
-
-    console.log('[Pipeline] Found global pipelines:', pipelines.length);
-    return pipelines;
-  } catch (e) {
-    console.error('[Pipeline] Error listing global pipelines:', e);
-    return pipelines;
-  }
-}
-
-// Get active pipeline name for a project
-export async function getActivePipelineName(projectPath: string | null): Promise<string | null> {
-  if (!projectPath) return null;
-
-  try {
-    const dir = await getPipelineDir(projectPath);
-    const statePath = `${dir}/${STATE_FILE}`;
-
-    const fileExists = await exists(statePath);
-    if (!fileExists) {
-      return null;
-    }
-
-    const content = await readTextFile(statePath);
-    const state = JSON.parse(content);
-    return state.active_pipeline || null;
-  } catch (e) {
-    console.error('[Pipeline] Error getting active pipeline:', e);
-    return null;
-  }
-}
-
-// Activate a global pipeline for a project
-export async function activatePipeline(projectPath: string, pipelineName: string): Promise<boolean> {
-  try {
-    await ensurePipelineDir(projectPath);
-    const dir = await getPipelineDir(projectPath);
-    const statePath = `${dir}/${STATE_FILE}`;
-
-    // Load existing state or create new
-    let state: PipelineState;
-
-    const fileExists = await exists(statePath);
-    if (fileExists) {
-      const content = await readTextFile(statePath);
-      state = JSON.parse(content);
-    } else {
-      state = getDefaultState();
-    }
-
-    // Update with new active pipeline
-    state.active_pipeline = pipelineName;
-    state.pipeline_version = '1.0.0';
-    state.current_step = 0;
-    state.completed_steps = [];
-    state.step_history = [];
-    state.started_at = new Date().toISOString();
-    state.last_activity = new Date().toISOString();
-
-    await writeTextFile(statePath, JSON.stringify(state, null, 2));
-    console.log('[Pipeline] Activated pipeline:', pipelineName, 'for project:', projectPath);
-    return true;
-  } catch (e) {
-    console.error('[Pipeline] Error activating pipeline:', e);
-    return false;
-  }
-}
-
-// Deactivate pipeline for a project
-export async function deactivatePipeline(projectPath: string): Promise<boolean> {
-  try {
-    const dir = await getPipelineDir(projectPath);
-    const statePath = `${dir}/${STATE_FILE}`;
-
-    const fileExists = await exists(statePath);
-    if (!fileExists) {
-      return true;
-    }
-
-    const content = await readTextFile(statePath);
-    const state = JSON.parse(content);
-
-    state.active_pipeline = null;
-    state.pipeline_version = null;
-    state.last_activity = new Date().toISOString();
-
-    await writeTextFile(statePath, JSON.stringify(state, null, 2));
-    console.log('[Pipeline] Deactivated pipeline for project:', projectPath);
-    return true;
-  } catch (e) {
-    console.error('[Pipeline] Error deactivating pipeline:', e);
-    return false;
-  }
-}
-
-// Get global pipeline steps by name
-export async function getGlobalPipelineSteps(pipelineName: string): Promise<PipelineStep[]> {
-  try {
-    const dir = await getGlobalPipelinesDir();
-    const filePath = `${dir}/${pipelineName}.yaml`;
-
-    const fileExists = await exists(filePath);
-    if (!fileExists) {
-      console.log('[Pipeline] Global pipeline not found:', pipelineName);
-      return [];
-    }
-
-    const content = await readTextFile(filePath);
-    return parseStepsYaml(content);
-  } catch (e) {
-    console.error('[Pipeline] Error reading global pipeline:', e);
-    return [];
-  }
 }
