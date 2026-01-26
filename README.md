@@ -222,7 +222,7 @@ None reported for V2.0.0
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Rixmerz License (RXL) - see [LICENSE](LICENSE) for details.
 
 ---
 
