@@ -1004,21 +1004,6 @@ def pipeline_set_step(step_index: int, project_dir: str | None = None, session_i
 
 
 @mcp.tool()
-def pipeline_get_config(project_dir: str | None = None, session_id: str | None = None) -> dict:
-    """Obtiene la configuración actual del pipeline.
-
-    Args:
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-    config = load_config(resolved_dir)
-    config["session_id"] = sid
-    config["project_dir"] = resolved_dir
-    return config
-
-
-@mcp.tool()
 def pipeline_set_config(
     reset_policy: Optional[str] = None,
     timeout_minutes: Optional[int] = None,
@@ -1142,24 +1127,6 @@ def pipeline_set_enabled(enabled: bool, project_dir: str | None = None, session_
             "message": f"Error setting pipeline enabled state: {str(e)}",
             "project_dir": resolved_dir
         }
-
-
-@mcp.tool()
-def pipeline_get_enabled(project_dir: str | None = None, session_id: str | None = None) -> dict:
-    """Obtiene el estado actual del enforcer del pipeline.
-
-    Args:
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-    config = load_enforcer_config(resolved_dir)
-    return {
-        "session_id": sid,
-        "enabled": config.get("enforcer_enabled", True),
-        "last_updated": config.get("last_updated"),
-        "project_dir": resolved_dir
-    }
 
 
 def get_pipelines_library_dir(project_dir: str) -> Path:
@@ -1310,78 +1277,6 @@ def pipeline_activate(pipeline_name: str, project_dir: str | None = None, sessio
         "config": config,
         "project_dir": resolved_dir
     }
-
-
-@mcp.tool()
-def pipeline_get_steps(project_dir: str | None = None, session_id: str | None = None) -> dict:
-    """Obtiene todos los steps del pipeline con sus detalles.
-
-    Args:
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-    return {"session_id": sid, "steps": load_steps(resolved_dir), "project_dir": resolved_dir}
-
-
-@mcp.tool()
-def pipeline_suggest_flow(task_description: str) -> dict:
-    """Sugiere un flujo óptimo de pipeline para una tarea específica.
-
-    Args:
-        task_description: Descripción de la tarea para la cual sugerir un flujo
-    """
-    suggestions = {
-        "analysis": f"""Sugerencia de flujo para: {task_description}
-
-Flujo recomendado:
-1. **Complexity Gate** (Step 0)
-   - Evalúa complejidad con sequential-thinking
-   - Bloquea Write/Edit hasta validar
-
-2. **Context Gate** (Step 1)
-   - Usa Context7 si hay librerías externas
-   - Valida dependencias antes de implementar
-
-3. **Implementation** (Step 2)
-   - Habilita todas las herramientas
-   - Ejecuta con FFD (lee antes de escribir)
-
-Configuración sugerida:
-- reset_policy: "timeout" (30 min) para sesiones de trabajo
-- force_sequential: true si necesitas pasos estrictos
-""",
-        "recommended_steps": [
-            {
-                "id": "complexity-check",
-                "name": "Complexity Gate",
-                "purpose": "Evalúa si la tarea requiere razonamiento estructurado",
-                "mcps": ["sequential-thinking"],
-                "blocked": ["Write", "Edit"]
-            },
-            {
-                "id": "context-validation",
-                "name": "Context Gate",
-                "purpose": "Obtiene documentación de librerías si es necesario",
-                "mcps": ["Context7"],
-                "blocked": ["Write", "Edit"]
-            },
-            {
-                "id": "implementation",
-                "name": "Implementation",
-                "purpose": "Ejecuta la implementación con todas las herramientas",
-                "mcps": ["*"],
-                "blocked": []
-            }
-        ],
-        "tips": [
-            "Usa gate_type: 'any' para permitir avanzar por tool O frase",
-            "Usa gate_type: 'tool' si quieres forzar uso de herramienta específica",
-            "Agrega gate_phrases para permitir saltar pasos no necesarios"
-        ]
-    }
-
-    return suggestions
 
 
 @mcp.tool()
@@ -1774,115 +1669,6 @@ async def execute_mcp_tool(
 
 
 @mcp.tool()
-def get_available_tools(
-    compact: bool = True,
-    project_dir: str | None = None,
-    session_id: str | None = None
-) -> dict:
-    """Get the list of available MCP tools for the current pipeline step.
-
-    Returns a manifest of all tools that can be used via execute_mcp_tool
-    in the current step.
-
-    Args:
-        compact: True = only categories with counts, False = full tool list
-        project_dir: Absolute path to the project directory (optional after set_session)
-        session_id: Optional session ID for parallel session isolation
-    """
-    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
-    state = load_state(resolved_dir)
-    steps = load_steps(resolved_dir)
-    current_idx = state.get("current_step", 0)
-
-    if current_idx >= len(steps):
-        return {
-            "session_id": sid,
-            "step": "completed",
-            "message": "Pipeline completed, all MCPs available",
-            "mcps_enabled": ["*"],
-            "project_dir": resolved_dir
-        }
-
-    current_step = steps[current_idx]
-    enabled_mcps = current_step.get("mcps_enabled", [])
-
-    # Build category summary from tool index
-    category_counts = {}
-    for mcp_name, tools in _tool_index.items():
-        # Filter by enabled MCPs
-        if "*" not in enabled_mcps and mcp_name not in enabled_mcps:
-            continue
-        for tool in tools:
-            cat = tool.get("category", "other")
-            category_counts[cat] = category_counts.get(cat, 0) + 1
-
-    if compact:
-        return {
-            "session_id": sid,
-            "current_step": current_idx,
-            "step_name": current_step.get("name", current_step.get("id")),
-            "mcps_enabled": enabled_mcps,
-            "categories": category_counts,
-            "tools_blocked": current_step.get("tools_blocked", []),
-            "hint": "Use get_tools(category='X') or search_tools(query='...') for details",
-            "project_dir": resolved_dir
-        }
-
-    # Full mode: include tool list
-    return {
-        "session_id": sid,
-        "current_step": current_idx,
-        "step_name": current_step.get("name", current_step.get("id")),
-        "mcps_enabled": enabled_mcps,
-        "categories": category_counts,
-        "tools_blocked": current_step.get("tools_blocked", []),
-        "gate_tool": current_step.get("gate_tool", ""),
-        "hint": "Use execute_mcp_tool(mcp_name, tool_name, arguments) to call any enabled MCP tool",
-        "project_dir": resolved_dir
-    }
-
-
-@mcp.tool()
-def list_configured_mcps(verbose: bool = False) -> dict:
-    """List all MCP servers configured in ~/.claude.json.
-
-    Returns the names and basic info of all configured MCPs that can be
-    used with execute_mcp_tool.
-
-    Args:
-        verbose: False = only names, True = include details like command, connected status
-    """
-    configs = load_mcp_configs()
-
-    if not verbose:
-        # Compact mode: just names
-        return {
-            "mcps": list(configs.keys()),
-            "count": len(configs),
-            "hint": "Use list_configured_mcps(verbose=True) for details"
-        }
-
-    # Verbose mode: include details
-    mcps = []
-    for name, config in configs.items():
-        conn = _mcp_connections.get(name)
-        mcps.append({
-            "name": name,
-            "command": config.get("command", ""),
-            "has_args": bool(config.get("args")),
-            "has_env": bool(config.get("env")),
-            "disabled": config.get("disabled", False),
-            "connected": conn is not None and conn.process is not None
-        })
-
-    return {
-        "count": len(mcps),
-        "mcps": mcps,
-        "hint": "Use execute_mcp_tool(mcp_name, tool_name, arguments) to call tools"
-    }
-
-
-@mcp.tool()
 def search_tools(
     query: str,
     max_results: int = 10,
@@ -1989,70 +1775,6 @@ def reset_learned_weights(confirm: bool = False) -> dict:
         "success": True,
         "message": "All learned weights have been reset",
         "file": str(LEARNED_WEIGHTS_FILE)
-    }
-
-
-@mcp.tool()
-def get_tools(
-    mcp_name: str | None = None,
-    category: str | None = None,
-    search: str | None = None,
-    limit: int = 20,
-    names_only: bool = False
-) -> dict:
-    """Obtiene tools con filtrado inteligente.
-
-    Args:
-        mcp_name: Filtrar por MCP específico
-        category: Filtrar por categoría (containers, chaos, metrics, tunnels, knowledge, pipeline, thinking, docs, other)
-        search: Búsqueda semántica por objetivo (alias de search_tools)
-        limit: Máximo de resultados (default 20)
-        names_only: True = solo nombres, False = incluir descripción truncada
-
-    Examples:
-        get_tools(category="chaos", limit=5)
-        get_tools(mcp_name="harbor", names_only=True)
-        get_tools(search="ejecutar container")
-    """
-    # If search query provided, use semantic search
-    if search:
-        results = semantic_search(search, mcp_name, limit)
-        if names_only:
-            return {"tools": [r["tool"] for r in results], "count": len(results)}
-        return {"tools": results, "count": len(results)}
-
-    # If category provided, filter by category
-    if category:
-        results = get_tools_by_category(mcp_name, category, limit)
-        if names_only:
-            return {"tools": [t["name"] for t in results], "count": len(results)}
-        return {"tools": results, "count": len(results)}
-
-    # No filters: list all with limit
-    all_tools = []
-    for mcp, tools in _tool_index.items():
-        if mcp_name and mcp != mcp_name:
-            continue
-        for tool in tools:
-            if names_only:
-                all_tools.append(tool["name"])
-            else:
-                all_tools.append({
-                    "mcp": mcp,
-                    "name": tool["name"],
-                    "description": tool["description"],
-                    "category": tool.get("category", "other")
-                })
-            if len(all_tools) >= limit:
-                break
-        if len(all_tools) >= limit:
-            break
-
-    return {
-        "tools": all_tools,
-        "count": len(all_tools),
-        "categories": list(TOOL_CATEGORIES.keys()),
-        "hint": "Use category='X' to filter by category"
     }
 
 
