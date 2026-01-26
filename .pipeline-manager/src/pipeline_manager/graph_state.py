@@ -1,6 +1,11 @@
 """Graph State - Persistence layer for graph execution state.
 
 Handles loading and saving graph_state.json files.
+
+Architecture (Centralized Hub - AgentCockpit):
+- States: CENTRALIZED in {agentcockpit}/.agentcockpit/states/{project_name}/
+- Active graph.yaml: LOCAL in {project}/.claude/pipeline/graph.yaml
+- Config: ~/.agentcockpit/config.json defines hub_dir
 """
 
 import json
@@ -11,13 +16,58 @@ from typing import Optional
 from .graph_engine import GraphState, PathEntry, Graph
 
 
+# ============================================================================
+# Hub Configuration (Centralized State Storage)
+# ============================================================================
+
+AGENTCOCKPIT_CONFIG_FILE = Path.home() / ".agentcockpit" / "config.json"
+_hub_config_cache: dict | None = None
+
+
+def _load_hub_config() -> dict:
+    """Load AgentCockpit hub configuration."""
+    global _hub_config_cache
+
+    if _hub_config_cache is not None:
+        return _hub_config_cache
+
+    if not AGENTCOCKPIT_CONFIG_FILE.exists():
+        # Fallback to local storage if no hub configured
+        return {}
+
+    try:
+        _hub_config_cache = json.loads(AGENTCOCKPIT_CONFIG_FILE.read_text())
+        _hub_config_cache.setdefault("states_dir", ".agentcockpit/states")
+        return _hub_config_cache
+    except Exception:
+        return {}
+
+
+def _get_centralized_state_dir(project_dir: str) -> Path:
+    """Get the centralized state directory for a project.
+
+    If hub is configured: {agentcockpit}/.agentcockpit/states/{project_name}/
+    Otherwise fallback: {project}/.claude/pipeline/
+    """
+    config = _load_hub_config()
+
+    if "hub_dir" in config:
+        project_name = Path(project_dir).name
+        state_dir = Path(config["hub_dir"]) / config["states_dir"] / project_name
+        state_dir.mkdir(parents=True, exist_ok=True)
+        return state_dir
+
+    # Fallback to local
+    return Path(project_dir) / ".claude" / "pipeline"
+
+
 def get_graph_state_file(project_dir: str) -> Path:
-    """Get the graph state file path for a project."""
-    return Path(project_dir) / ".claude" / "pipeline" / "graph_state.json"
+    """Get the graph state file path for a project (CENTRALIZED in hub)."""
+    return _get_centralized_state_dir(project_dir) / "graph_state.json"
 
 
 def get_graph_file(project_dir: str) -> Path:
-    """Get the active graph file path for a project."""
+    """Get the active graph file path for a project (LOCAL copy)."""
     return Path(project_dir) / ".claude" / "pipeline" / "graph.yaml"
 
 

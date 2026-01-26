@@ -8,9 +8,10 @@ Permite a Claude autogestionar el pipeline de flujo:
 - Sugerir flujos óptimos
 - Ejecutar tools de otros MCPs via proxy (execute_mcp_tool)
 
-Per-Project Support:
-- If CLAUDE_PROJECT_DIR env var is set, uses {project}/.claude/pipeline/
-- Otherwise falls back to ~/.claude/pipeline/
+Architecture (Centralized Hub - AgentCockpit):
+- Pipelines: GLOBAL in {agentcockpit}/.claude/pipelines/
+- States: CENTRALIZED in {agentcockpit}/.agentcockpit/states/{project_name}/
+- Config: ~/.agentcockpit/config.json defines hub_dir
 """
 
 import os
@@ -37,6 +38,70 @@ from .graph_state import (
 
 # Create FastMCP server
 mcp = FastMCP("pipeline-manager")
+
+# ============================================================================
+# AgentCockpit Hub Configuration (Centralized Architecture)
+# ============================================================================
+
+AGENTCOCKPIT_CONFIG_FILE = Path.home() / ".agentcockpit" / "config.json"
+_hub_config: dict | None = None
+
+
+def load_hub_config() -> dict:
+    """Load AgentCockpit hub configuration from ~/.agentcockpit/config.json.
+
+    Returns config with keys:
+        - hub_dir: Absolute path to agentcockpit project
+        - pipelines_dir: Relative path for pipelines (default: .claude/pipelines)
+        - states_dir: Relative path for states (default: .agentcockpit/states)
+    """
+    global _hub_config
+
+    if _hub_config is not None:
+        return _hub_config
+
+    if not AGENTCOCKPIT_CONFIG_FILE.exists():
+        raise ValueError(
+            f"AgentCockpit config not found at {AGENTCOCKPIT_CONFIG_FILE}. "
+            "Create it with: {\"hub_dir\": \"/path/to/agentcockpit\"}"
+        )
+
+    try:
+        _hub_config = json.loads(AGENTCOCKPIT_CONFIG_FILE.read_text())
+    except Exception as e:
+        raise ValueError(f"Error reading AgentCockpit config: {e}")
+
+    if "hub_dir" not in _hub_config:
+        raise ValueError("AgentCockpit config missing 'hub_dir' key")
+
+    # Set defaults
+    _hub_config.setdefault("pipelines_dir", ".claude/pipelines")
+    _hub_config.setdefault("states_dir", ".agentcockpit/states")
+
+    return _hub_config
+
+
+def get_hub_dir() -> Path:
+    """Get the AgentCockpit hub directory."""
+    config = load_hub_config()
+    return Path(config["hub_dir"])
+
+
+def get_global_pipelines_dir() -> Path:
+    """Get the GLOBAL pipelines directory (in AgentCockpit hub)."""
+    config = load_hub_config()
+    return Path(config["hub_dir"]) / config["pipelines_dir"]
+
+
+def get_project_state_dir(project_dir: str) -> Path:
+    """Get the centralized state directory for a specific project.
+
+    States are stored in: {agentcockpit}/.agentcockpit/states/{project_name}/
+    """
+    config = load_hub_config()
+    project_name = Path(project_dir).name
+    return Path(config["hub_dir"]) / config["states_dir"] / project_name
+
 
 # ============================================================================
 # Session Management (Global dict - persists across MCP calls)
@@ -761,8 +826,8 @@ def set_session(project_dir: str, session_id: str | None = None) -> dict:
 
 
 def get_enforcer_config_file(project_dir: str) -> Path:
-    """Get the enforcer config file path."""
-    return get_pipeline_dir(project_dir) / "config.json"
+    """Get the enforcer config file path (CENTRALIZED in hub)."""
+    return get_project_state_dir(project_dir) / "config.json"
 
 
 def load_enforcer_config(project_dir: str) -> dict:
@@ -819,17 +884,15 @@ def pipeline_set_enabled(enabled: bool, project_dir: str | None = None, session_
 
 
 def get_pipelines_library_dir(project_dir: str | None = None) -> Path:
-    """Get the GLOBAL pipelines library directory.
+    """Get the GLOBAL pipelines library directory from AgentCockpit hub.
 
-    Pipelines are ALWAYS global (shared across all projects).
-    Returns ~/.claude/pipelines/ where reusable pipeline templates are stored.
-
-    State is stored locally per-project in {project}/.claude/pipeline/state.json
+    Pipelines are ALWAYS global (centralized in AgentCockpit).
+    Returns {agentcockpit}/.claude/pipelines/
 
     Args:
         project_dir: Ignored - kept for backward compatibility
     """
-    return Path.home() / ".claude" / "pipelines"
+    return get_global_pipelines_dir()
 
 
 # DEPRECATED: pipeline_list_available, pipeline_activate, pipeline_create_step removed
