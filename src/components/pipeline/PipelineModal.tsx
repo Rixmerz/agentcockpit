@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Modal } from '../common/Modal';
 import {
   getPipelineState,
@@ -15,7 +15,9 @@ import {
   getGraphVisualization,
 } from '../../services/pipelineService';
 import type { GraphVisualization } from '../../services/pipelineService';
-import { MermaidRenderer } from './MermaidRenderer';
+
+// Lazy load MermaidRenderer to avoid loading mermaid (~700kB) until needed
+const MermaidRenderer = lazy(() => import('./MermaidRenderer').then(m => ({ default: m.MermaidRenderer })));
 import type {
   PipelineState,
   PipelineStep,
@@ -413,10 +415,12 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
 
       <div className="pipeline-graph-container">
         {graphViz?.mermaid && (
-          <MermaidRenderer
-            chart={graphViz.mermaid}
-            onNodeClick={handleNodeClick}
-          />
+          <Suspense fallback={<div className="mermaid-loading">Loading graph...</div>}>
+            <MermaidRenderer
+              chart={graphViz.mermaid}
+              onNodeClick={handleNodeClick}
+            />
+          </Suspense>
         )}
       </div>
 
