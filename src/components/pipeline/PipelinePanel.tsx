@@ -11,11 +11,14 @@ import {
   deactivatePipeline,
   getGlobalPipelineSteps,
   getEnforcerEnabled,
+  getAvailableEdges,
+  traverseEdge,
+  getGraphState,
 } from '../../services/pipelineService';
 
 // Polling interval in milliseconds (2 seconds)
 const POLLING_INTERVAL = 2000;
-import type { PipelineState, PipelineStep, GlobalPipelineInfo } from '../../services/pipelineService';
+import type { PipelineState, PipelineStep, GlobalPipelineInfo, AvailableEdge, GraphState } from '../../services/pipelineService';
 import {
   updateProjectPipelineConfig,
 } from '../../services/projectSessionService';
@@ -40,7 +43,9 @@ import {
   Power,
   ChevronDown,
   GitBranch,
-  X
+  X,
+  ArrowRight,
+  Repeat,
 } from 'lucide-react';
 
 interface PipelinePanelProps {
@@ -70,6 +75,11 @@ export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanel
   const [pipelineDropdownOpen, setPipelineDropdownOpen] = useState(false);
   const [changingPipeline, setChangingPipeline] = useState(false);
   const [refreshingDropdown, setRefreshingDropdown] = useState(false);
+
+  // Graph-specific state
+  const [availableEdges, setAvailableEdges] = useState<AvailableEdge[]>([]);
+  const [graphState, setGraphState] = useState<GraphState | null>(null);
+  const [showEdges, setShowEdges] = useState(false);
 
   // Refs for polling optimization
   const lastStateRef = useRef<string | null>(null);
@@ -124,6 +134,13 @@ export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanel
 
       setState(pipelineState);
       setSteps(pipelineSteps);
+
+      // Load graph-specific data
+      const edges = await getAvailableEdges(projectPath);
+      setAvailableEdges(edges);
+      const gState = await getGraphState(projectPath);
+      setGraphState(gState);
+      console.log('[PipelinePanel] Graph state:', gState.current_nodes, 'edges:', edges.length);
 
       // Load project-specific pipeline config if we have a project
       if (projectPath) {
@@ -200,6 +217,12 @@ export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanel
           }
           setSteps(newSteps);
         }
+
+        // Update graph-specific state
+        const edges = await getAvailableEdges(projectPath);
+        setAvailableEdges(edges);
+        const gState = await getGraphState(projectPath);
+        setGraphState(gState);
       }
     } catch (e) {
       // Silently ignore polling errors to avoid spam
@@ -247,6 +270,19 @@ export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanel
       await loadData();
     } catch (e) {
       console.error('[PipelinePanel] Advance error:', e);
+    } finally {
+      resumePolling();
+    }
+  };
+
+  const handleTraverseEdge = async (edgeId: string) => {
+    pausePolling();
+    try {
+      await traverseEdge(edgeId, projectPath, 'Manual UI traverse');
+      await loadData();
+      setShowEdges(false);
+    } catch (e) {
+      console.error('[PipelinePanel] Traverse error:', e);
     } finally {
       resumePolling();
     }
@@ -566,7 +602,7 @@ export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanel
                 </span>
               </div>
 
-              {/* Current step */}
+              {/* Current step/node */}
               {currentStep ? (
                 <div className="pipeline-current-step">
                   <div className="pipeline-current-icon">
@@ -577,6 +613,13 @@ export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanel
                     <span className="pipeline-current-mcps">
                       {currentStep.mcps_enabled?.join(', ') || 'none'}
                     </span>
+                    {/* Show visit count for current node */}
+                    {graphState && state?.current_node && (
+                      <span className="pipeline-node-visits">
+                        <Repeat size={10} />
+                        {graphState.node_visits[state.current_node] || 1}/{currentStep.max_visits || 10}
+                      </span>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -585,22 +628,62 @@ export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanel
                 </div>
               )}
 
-              {/* Quick steps view */}
+              {/* Quick steps view with visit counts */}
               {steps.length > 0 && (
                 <div className="pipeline-quick-steps">
                   {steps.map((step, index) => {
                     const isCompleted = state && index < state.current_step;
                     const isCurrent = state && index === state.current_step;
+                    const visits = graphState?.node_visits[step.id] || 0;
                     return (
                       <div
                         key={step.id || index}
                         className={`pipeline-quick-step ${isCompleted ? 'completed' : ''} ${isCurrent ? 'current' : ''}`}
-                        title={step.name}
+                        title={`${step.name} (${visits}/${step.max_visits || 10} visits)`}
                       >
                         {isCompleted ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+                        {visits > 1 && <span className="visit-badge">{visits}</span>}
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {/* Available edges (graph transitions) */}
+              {availableEdges.length > 0 && (
+                <div className="pipeline-edges-section">
+                  <button
+                    className="pipeline-edges-toggle"
+                    onClick={() => setShowEdges(!showEdges)}
+                  >
+                    <GitBranch size={12} />
+                    <span>{availableEdges.length} edge{availableEdges.length > 1 ? 's' : ''}</span>
+                    <ChevronDown size={12} className={showEdges ? 'open' : ''} />
+                  </button>
+
+                  {showEdges && (
+                    <div className="pipeline-edges-list">
+                      {availableEdges.map((edge) => (
+                        <div
+                          key={edge.id}
+                          className="pipeline-edge-item"
+                          onClick={() => handleTraverseEdge(edge.id)}
+                        >
+                          <ArrowRight size={12} />
+                          <div className="edge-info">
+                            <span className="edge-target">{edge.toName}</span>
+                            <span className="edge-condition">
+                              {edge.conditionType === 'tool' && `tool: ${edge.conditionTool?.split('__').pop()}`}
+                              {edge.conditionType === 'phrase' && `phrases: ${edge.conditionPhrases?.slice(0, 2).join(', ')}`}
+                              {edge.conditionType === 'always' && 'always'}
+                              {edge.conditionType === 'default' && 'default'}
+                            </span>
+                          </div>
+                          <span className="edge-priority">P{edge.priority}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
