@@ -10,12 +10,16 @@ import {
   savePipelineSettings,
   getAvailableMcps,
   STANDARD_TOOLS,
+  getAvailableEdges,
+  getGraphState,
 } from '../../services/pipelineService';
 import type {
   PipelineState,
   PipelineStep,
   PipelineSettings,
-  AvailableMcp
+  AvailableMcp,
+  AvailableEdge,
+  GraphState,
 } from '../../services/pipelineService';
 import {
   Play,
@@ -30,7 +34,9 @@ import {
   Circle,
   ArrowRight,
   Settings2,
-  Zap
+  Zap,
+  Repeat,
+  GitBranch,
 } from 'lucide-react';
 
 interface PipelineModalProps {
@@ -52,6 +58,10 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
   const [editingStep, setEditingStep] = useState<PipelineStep | null>(null);
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
+  // Graph-specific state
+  const [graphState, setGraphState] = useState<GraphState | null>(null);
+  const [availableEdges, setAvailableEdges] = useState<AvailableEdge[]>([]);
+
   // Load data when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -62,16 +72,20 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
   const loadData = async () => {
     setLoading(true);
     try {
-      const [pipelineState, pipelineSteps, pipelineSettings, mcps] = await Promise.all([
+      const [pipelineState, pipelineSteps, pipelineSettings, mcps, gState, edges] = await Promise.all([
         getPipelineState(projectPath),
         getPipelineSteps(projectPath),
         getPipelineSettings(projectPath),
-        getAvailableMcps()
+        getAvailableMcps(),
+        getGraphState(projectPath),
+        getAvailableEdges(projectPath)
       ]);
       setState(pipelineState);
       setSteps(pipelineSteps);
       setSettings(pipelineSettings);
       setAvailableMcps(mcps);
+      setGraphState(gState);
+      setAvailableEdges(edges);
     } catch (e) {
       console.error('[PipelineModal] Failed to load:', e);
     } finally {
@@ -275,6 +289,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
       <div className="pipeline-steps-status">
         {steps.map((step, index) => {
           const status = getStepStatus(index);
+          const visits = graphState?.node_visits[step.id] || 0;
           return (
             <div key={step.id} className={`pipeline-step-status pipeline-step-${status}`}>
               <div className="pipeline-step-icon">
@@ -284,7 +299,16 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
               </div>
               <div className="pipeline-step-info">
                 <span className="pipeline-step-name">{step.name}</span>
-                <span className="pipeline-step-desc">{step.description}</span>
+                <span className="pipeline-step-desc">
+                  {step.description || step.mcps_enabled?.join(', ') || 'No description'}
+                </span>
+                {/* Show visit count for graph nodes */}
+                {visits > 0 && (
+                  <span className="pipeline-step-visits">
+                    <Repeat size={10} />
+                    {visits}/{step.max_visits || 10}
+                  </span>
+                )}
               </div>
               {index < steps.length - 1 && (
                 <div className="pipeline-step-arrow">
@@ -295,6 +319,21 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
           );
         })}
       </div>
+
+      {/* Available edges for current node */}
+      {availableEdges.length > 0 && (
+        <div className="pipeline-edges-modal">
+          <h4><GitBranch size={14} /> Available Transitions</h4>
+          <div className="pipeline-edges-grid">
+            {availableEdges.map((edge) => (
+              <div key={edge.id} className="pipeline-edge-card">
+                <span className="edge-target">{edge.toName}</span>
+                <span className="edge-condition-type">{edge.conditionType}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {settings && (
         <div className="pipeline-config-summary">

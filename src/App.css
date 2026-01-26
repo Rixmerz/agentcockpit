@@ -4864,6 +4864,137 @@ input[type="checkbox"] {
   opacity: 1;
 }
 
+.pipeline-quick-step {
+  position: relative;
+}
+
+.pipeline-quick-step .visit-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 8px;
+  font-weight: 600;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-radius: 50%;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Node visit count in current step */
+.pipeline-node-visits {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-top: 2px;
+}
+
+/* Graph edges section */
+.pipeline-edges-section {
+  margin-bottom: 12px;
+}
+
+.pipeline-edges-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 500;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pipeline-edges-toggle:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: var(--text-primary);
+}
+
+.pipeline-edges-toggle svg:last-child {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.pipeline-edges-toggle svg:last-child.open {
+  transform: rotate(180deg);
+}
+
+.pipeline-edges-list {
+  margin-top: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.pipeline-edge-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pipeline-edge-item:last-child {
+  border-bottom: none;
+}
+
+.pipeline-edge-item:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.pipeline-edge-item svg:first-child {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.pipeline-edge-item .edge-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pipeline-edge-item .edge-target {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pipeline-edge-item .edge-condition {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pipeline-edge-item .edge-priority {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
 /* Panel actions */
 .pipeline-panel-actions {
   display: flex;
@@ -5143,6 +5274,65 @@ input[type="checkbox"] {
 .pipeline-step-desc {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+.pipeline-step-visits {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: var(--accent);
+  background: rgba(0, 212, 170, 0.1);
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
+/* Available edges in modal */
+.pipeline-edges-modal {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.pipeline-edges-modal h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pipeline-edges-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pipeline-edge-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+}
+
+.pipeline-edge-card .edge-target {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pipeline-edge-card .edge-condition-type {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
 }
 
 .pipeline-step-arrow {
