@@ -10,12 +10,12 @@
       "from_node": null,
       "to_node": "url-capture",
       "edge_id": null,
-      "timestamp": "2026-01-28T06:12:24.767Z",
-      "reason": "Graph reset"
+      "timestamp": "2026-01-28T03:13:33.090847",
+      "reason": "Graph initialized"
     }
   ],
-  "active_graph": "denofresh-analyzer",
+  "active_graph": "denofresh-analyzer-graph",
   "max_visits_default": 10,
   "total_transitions": 0,
-  "last_activity": "2026-01-28T06:12:24.769Z"
+  "last_activity": "2026-01-28T03:13:33.090943"
 }

@@ -3591,51 +3591,67 @@ input[type="checkbox"] {
 
 .marketplace-item-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .marketplace-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  font-size: 12px;
-  border: none;
-  border-radius: 3px;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   color: white;
   font-weight: 500;
+  white-space: nowrap;
+  min-height: 32px;
 }
 
 .marketplace-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
+}
+
+.marketplace-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .marketplace-btn-primary {
   background-color: #3b82f6;
+  border-color: #2563eb;
 }
 
 .marketplace-btn-primary:hover:not(:disabled) {
   background-color: #2563eb;
+  border-color: #1d4ed8;
 }
 
 .marketplace-btn-success {
   background-color: #22c55e;
+  border-color: #16a34a;
 }
 
 .marketplace-btn-success:hover:not(:disabled) {
   background-color: #16a34a;
+  border-color: #15803d;
 }
 
 .marketplace-btn-danger {
   background-color: #ef4444;
+  border-color: #dc2626;
 }
 
 .marketplace-btn-danger:hover:not(:disabled) {
   background-color: #dc2626;
+  border-color: #b91c1c;
 }
 
 /* Sidebar scrollbar styling */
