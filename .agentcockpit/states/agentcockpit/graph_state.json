@@ -1,0 +1,21 @@
+{
+  "current_nodes": [
+    "thinking"
+  ],
+  "node_visits": {
+    "thinking": 1
+  },
+  "execution_path": [
+    {
+      "from_node": null,
+      "to_node": "thinking",
+      "edge_id": null,
+      "timestamp": "2026-01-28T01:19:42.621539",
+      "reason": "Graph reset"
+    }
+  ],
+  "active_graph": "Haiku Orchestrator",
+  "max_visits_default": 10,
+  "total_transitions": 0,
+  "last_activity": "2026-01-28T01:19:42.621590"
+}

@@ -1,0 +1,247 @@
+# DenoFresh Web Creation Pipeline
+# Pipeline para creación de páginas web con Deno Fresh + Lighthouse
+
+metadata:
+  name: "DenoFresh Web Creation"
+  description: "Pipeline completo para crear landing pages con Deno Fresh, SEO, accesibilidad y auditoría Lighthouse"
+  version: "1.0.0"
+  author: "AgentCockpit"
+  mcps_required:
+    - "denofreshmcp"
+    - "lighthouse"
+    - "sequential-thinking"
+
+config:
+  reset_policy: "manual"
+  timeout_minutes: 60
+  force_sequential: true
+
+steps:
+  - id: "web-planning"
+    order: 0
+    name: "Planificación Web"
+    description: "Define estructura, secciones y requisitos de la landing page usando sequential-thinking"
+    prompt_injection: |
+      PLANIFICACIÓN WEB: Antes de crear código, usa sequential-thinking para:
+      1. Definir el propósito de la landing page
+      2. Listar las secciones necesarias (hero, features, cta, etc.)
+      3. Identificar islands interactivos requeridos
+      4. Definir paleta de colores y tipografía
+      5. Planificar SEO básico (keywords, meta description)
+      Avanza cuando tengas un plan claro documentado.
+    mcps_enabled:
+      - "sequential-thinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+    gate_type: "tool"
+    gate_tool: "mcp__sequential-thinking__sequentialthinking"
+
+  - id: "project-init"
+    order: 1
+    name: "Inicialización Fresh"
+    description: "Inicializa el proyecto Deno Fresh con Tailwind CSS"
+    prompt_injection: |
+      INICIALIZACIÓN: Usa fresh_init_project para crear el proyecto Fresh.
+      - Especifica la ruta absoluta del proyecto
+      - El proyecto se creará con Tailwind CSS preconfigurado
+      - Se generará un CLAUDE.md con las reglas del proyecto
+      Avanza después de verificar que el proyecto se creó correctamente.
+    mcps_enabled:
+      - "denofreshmcp"
+    gate_type: "tool"
+    gate_tool: "fresh_init_project"
+
+  - id: "sections-structure"
+    order: 2
+    name: "Estructura de Secciones"
+    description: "Añade las secciones principales de la landing page (hero, features, cta, footer, etc.)"
+    prompt_injection: |
+      ESTRUCTURA BASE: Añade las secciones según el plan:
+      - fresh_list_sections para ver opciones disponibles
+      - fresh_add_section para cada sección del plan
+      Secciones típicas: hero, features, about, testimonials, pricing, cta, footer
+      Usa las variantes apropiadas (centered, grid-3, etc.)
+      Di "secciones completadas" cuando termines todas las secciones planificadas.
+    mcps_enabled:
+      - "denofreshmcp"
+    gate_type: "phrase"
+    gate_phrases:
+      - "secciones completadas"
+      - "estructura lista"
+      - "sections done"
+
+  - id: "islands-interactivity"
+    order: 3
+    name: "Islands Interactivos"
+    description: "Añade componentes interactivos (scroll-to-top, mobile-menu, whatsapp, etc.)"
+    prompt_injection: |
+      INTERACTIVIDAD: Añade islands según el plan:
+      - fresh_list_islands para ver opciones
+      - fresh_add_island para cada componente interactivo
+      Islands recomendados: mobile-menu, scroll-to-top, cookie-consent
+      Opcionales: whatsapp-button, newsletter, contact-form, dark-mode-toggle
+      Di "islands completados" cuando termines.
+    mcps_enabled:
+      - "denofreshmcp"
+    gate_type: "phrase"
+    gate_phrases:
+      - "islands completados"
+      - "interactividad lista"
+      - "islands done"
+
+  - id: "seo-meta"
+    order: 4
+    name: "SEO y Meta Tags"
+    description: "Configura meta tags, Open Graph, Schema.org para SEO"
+    prompt_injection: |
+      SEO BÁSICO: Configura el SEO de la página:
+      - Genera meta tags con las herramientas de meta
+      - Configura Open Graph para redes sociales (og_validator)
+      - Añade Schema.org JSON-LD (schema tools)
+      - Revisa acentuación y ortografía en títulos y descripciones
+      Di "seo configurado" cuando termines.
+    mcps_enabled:
+      - "denofreshmcp"
+    gate_type: "phrase"
+    gate_phrases:
+      - "seo configurado"
+      - "meta tags listos"
+      - "seo done"
+
+  - id: "technical-files"
+    order: 5
+    name: "Archivos Técnicos"
+    description: "Genera robots.txt, sitemap.xml, favicon y analytics"
+    prompt_injection: |
+      ARCHIVOS TÉCNICOS: Genera archivos necesarios:
+      - robots.txt con las herramientas de robots
+      - sitemap.xml con las herramientas de sitemap
+      - Favicons con las herramientas de favicon
+      - Analytics (GTM/GA4 si aplica) con herramientas de analytics
+      Di "archivos técnicos listos" cuando termines.
+    mcps_enabled:
+      - "denofreshmcp"
+    gate_type: "phrase"
+    gate_phrases:
+      - "archivos técnicos listos"
+      - "technical files done"
+
+  - id: "accessibility-legal"
+    order: 6
+    name: "Accesibilidad y Legal"
+    description: "Verifica contraste WCAG, añade páginas legales (privacy, terms)"
+    prompt_injection: |
+      ACCESIBILIDAD Y LEGAL:
+      1. Accesibilidad:
+         - Verifica contraste de colores (contrast tools)
+         - Revisa patrones ARIA (accessibility tools)
+      2. Legal:
+         - Privacy Policy (legal tools)
+         - Terms of Service (legal tools)
+         - Cookie banner (si no está como island)
+      Di "accesibilidad y legal listos" cuando termines.
+    mcps_enabled:
+      - "denofreshmcp"
+    gate_type: "phrase"
+    gate_phrases:
+      - "accesibilidad y legal listos"
+      - "accessibility done"
+
+  - id: "lighthouse-audit-1"
+    order: 7
+    name: "Auditoría Lighthouse 1"
+    description: "Primera auditoría con Lighthouse para Performance, SEO, Accessibility, Best Practices"
+    prompt_injection: |
+      AUDITORÍA LIGHTHOUSE #1:
+      IMPORTANTE: El servidor debe estar corriendo (deno task start)
+      1. Ejecuta auditoría completa con lighthouse MCP (run_audit)
+      2. Revisa scores de: Performance, Accessibility, Best Practices, SEO
+      3. Documenta los issues encontrados
+      4. Avanza para corregir los problemas detectados.
+      Nota: Necesitas la URL del servidor local (ej: http://localhost:8000)
+    mcps_enabled:
+      - "lighthouse"
+      - "denofreshmcp"
+    gate_type: "tool"
+    gate_tool: "run_audit"
+
+  - id: "lighthouse-fixes"
+    order: 8
+    name: "Correcciones Lighthouse"
+    description: "Corrige issues detectados por Lighthouse: performance, accesibilidad, SEO"
+    prompt_injection: |
+      CORRECCIONES LIGHTHOUSE:
+      Basándote en la auditoría anterior, corrige:
+      1. Performance:
+         - Optimiza imágenes (images tools)
+         - Revisa Core Web Vitals (performance tools)
+      2. Accessibility:
+         - Corrige contraste (contrast tools)
+         - Añade labels ARIA faltantes
+      3. SEO:
+         - Corrige meta tags faltantes
+         - Verifica acentuación en textos
+      4. Best Practices:
+         - Security headers (security tools)
+      Di "correcciones aplicadas" cuando termines.
+    mcps_enabled:
+      - "denofreshmcp"
+      - "lighthouse"
+    gate_type: "phrase"
+    gate_phrases:
+      - "correcciones aplicadas"
+      - "fixes done"
+      - "issues corregidos"
+
+  - id: "lighthouse-audit-2"
+    order: 9
+    name: "Auditoría Final Lighthouse"
+    description: "Segunda auditoría para validar que los scores mejoraron"
+    prompt_injection: |
+      AUDITORÍA FINAL:
+      1. Ejecuta segunda auditoría Lighthouse
+      2. Compara scores con la primera auditoría
+      3. Objetivos mínimos:
+         - Performance: >80
+         - Accessibility: >90
+         - Best Practices: >90
+         - SEO: >90
+      Si no se alcanzan, regresa al step anterior.
+      Di "scores aceptables" si todos los objetivos se cumplen.
+    mcps_enabled:
+      - "lighthouse"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+    gate_type: "phrase"
+    gate_phrases:
+      - "scores aceptables"
+      - "auditoría pasada"
+      - "audit passed"
+
+  - id: "deployment-prep"
+    order: 10
+    name: "Preparación Deploy"
+    description: "Checklist final de deployment, security headers, CI/CD"
+    prompt_injection: |
+      PREPARACIÓN PARA DEPLOY:
+      1. Ejecuta checklist de deployment (deployment tools)
+      2. Configura security headers (security tools)
+      3. Verifica:
+         - [ ] Todos los textos sin errores de acentuación
+         - [ ] Imágenes optimizadas
+         - [ ] Meta tags completos
+         - [ ] robots.txt y sitemap.xml
+         - [ ] Privacy policy y terms
+         - [ ] Favicon configurado
+         - [ ] Analytics configurado
+      4. Prepara para Deno Deploy si aplica
+      Di "listo para deploy" cuando todo esté verificado.
+    mcps_enabled:
+      - "denofreshmcp"
+    gate_type: "phrase"
+    gate_phrases:
+      - "listo para deploy"
+      - "ready to deploy"
+      - "deployment ready"

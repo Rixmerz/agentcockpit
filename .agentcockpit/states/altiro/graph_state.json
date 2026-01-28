@@ -1,0 +1,73 @@
+{
+  "current_nodes": [
+    "review"
+  ],
+  "node_visits": {
+    "thinking": 1,
+    "classification": 2,
+    "delegate-opus": 1,
+    "review": 4
+  },
+  "execution_path": [
+    {
+      "from_node": null,
+      "to_node": "thinking",
+      "edge_id": null,
+      "timestamp": "2026-01-26T18:17:10.297937",
+      "reason": "Graph reset"
+    },
+    {
+      "from_node": "thinking",
+      "to_node": "classification",
+      "edge_id": "thinking-to-classification",
+      "timestamp": "2026-01-26T18:17:17.469507",
+      "reason": "Nueva tarea: Dise\u00f1ar soluci\u00f3n Docker con Android emulator para desarrollo remoto"
+    },
+    {
+      "from_node": "classification",
+      "to_node": "delegate-opus",
+      "edge_id": "classification-to-opus",
+      "timestamp": "2026-01-26T18:17:20.640130",
+      "reason": "requiere planificaci\u00f3n - Arquitectura Docker multi-servicio con Android emulator, decisiones t\u00e9cnicas complejas"
+    },
+    {
+      "from_node": "delegate-opus",
+      "to_node": "review",
+      "edge_id": "opus-to-review",
+      "timestamp": "2026-01-27T08:05:42.133994",
+      "reason": "planificaci\u00f3n completada - Procedo a implementar con herramientas harbor"
+    },
+    {
+      "from_node": "review",
+      "to_node": "classification",
+      "edge_id": "review-to-classification",
+      "timestamp": "2026-01-27T08:05:47.519537",
+      "reason": "tarea incompleta - Necesito ejecutar Docker con harbor MCP"
+    },
+    {
+      "from_node": "classification",
+      "to_node": "review",
+      "edge_id": null,
+      "timestamp": "2026-01-27T08:06:02.545290",
+      "reason": "Admin jump to review"
+    },
+    {
+      "from_node": "review",
+      "to_node": "review",
+      "edge_id": null,
+      "timestamp": "2026-01-27T08:17:50.249746",
+      "reason": "Admin jump to review"
+    },
+    {
+      "from_node": "review",
+      "to_node": "review",
+      "edge_id": null,
+      "timestamp": "2026-01-27T08:42:33.438297",
+      "reason": "Admin jump to review"
+    }
+  ],
+  "active_graph": "haiku-orchestrator",
+  "max_visits_default": 10,
+  "total_transitions": 7,
+  "last_activity": "2026-01-27T08:42:33.438326"
+}

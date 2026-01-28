@@ -1,0 +1,18 @@
+metadata:
+  name: "CFA4 Session Save"
+  description: "Pipeline para guardar estado de sesion con CFA4"
+  version: "1.0.0"
+
+config:
+  reset_policy: "timeout"
+  timeout_minutes: 30
+  force_sequential: true
+
+steps:
+  - id: "cfa4-access"
+    order: 0
+    name: "CFA4 Access"
+    mcps_enabled:
+      - "cfa4"
+      - "sequential-thinking"
+    gate_type: "any"

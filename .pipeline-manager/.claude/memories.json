@@ -1,0 +1,15 @@
+[
+  {
+    "key": "browser-multi-tab-architecture",
+    "value": "Browser tabs use one webview per tab (not shared). Each tab creates its own native webview with unique label 'browser-{tabId}'. Switching tabs hides previous webview and shows new one via show()/hide(), preserving full state (scroll, forms, session). Files: browser.rs (BrowserState with HashMap<tab_id, label>), browserService.ts (tabStates Map), BrowserPanel.tsx (webviewCreated flag per tab). CSS fix: removed flex:1 from .browser-tabs so + button stays next to last tab.",
+    "tags": [
+      "browser",
+      "tabs",
+      "webview",
+      "architecture",
+      "state-management"
+    ],
+    "created_at": "2026-01-25T14:52:55.424289",
+    "updated_at": "2026-01-25T14:52:55.424289"
+  }
+]

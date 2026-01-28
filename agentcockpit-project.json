@@ -1,13 +1,57 @@
 {
   "sessions": [
     {
-      "id": "8f9f000b-e7ed-42bf-a189-ddd33d5ed941",
-      "name": "Session 1",
-      "createdAt": 1768039717637,
-      "lastUsed": 1768958622338,
+      "id": "7e4f78e5-3d0f-460d-8375-ef05b6675b3b",
+      "name": "Session 2",
+      "createdAt": 1769380239733,
+      "lastUsed": 1769440229151,
       "model": "sonnet",
-      "wasPreExisting": false,
-      "terminalId": "6a9f86db-56b2-49be-9257-4c114dd87a12"
+      "wasPreExisting": true,
+      "terminalId": "86a17482-d372-4e63-a3e4-2192e3ccadcc"
+    },
+    {
+      "id": "79b5672c-1fc0-4285-ade8-89393366dd53",
+      "name": "Session 2",
+      "createdAt": 1769440236315,
+      "lastUsed": 1769453834302,
+      "model": "sonnet",
+      "wasPreExisting": true,
+      "terminalId": "34fd3dd2-1e25-43dd-8317-e2b186efb6f3"
+    },
+    {
+      "id": "5a95cf1e-3042-4041-a0cf-0df69250cfcf",
+      "name": "Session 3",
+      "createdAt": 1769453842807,
+      "lastUsed": 1769460868002,
+      "model": "sonnet",
+      "wasPreExisting": true,
+      "terminalId": "76ff2124-9ce9-4abd-9ad3-cc410b4cb5dc"
+    },
+    {
+      "id": "528fcf5a-e05a-4a36-b99c-9cebaadbd276",
+      "name": "Session 4",
+      "createdAt": 1769460870543,
+      "lastUsed": 1769576057953,
+      "model": "sonnet",
+      "wasPreExisting": true,
+      "terminalId": "404de3e1-c1ce-4f7d-9706-686d05491ab1"
+    },
+    {
+      "id": "527655f5-b99e-4a6e-8378-584e0f6cac79",
+      "name": "Session 6",
+      "createdAt": 1769572647945,
+      "lastUsed": 1769576048520,
+      "model": "sonnet",
+      "wasPreExisting": true,
+      "terminalId": "404de3e1-c1ce-4f7d-9706-686d05491ab1"
+    },
+    {
+      "id": "4f5c7170-0c4b-45d4-ab9d-b157a7ac6979",
+      "name": "Session 6",
+      "createdAt": 1769576067537,
+      "lastUsed": 1769576067537,
+      "model": "sonnet",
+      "wasPreExisting": true
     }
   ],
   "defaultModel": "sonnet",
@@ -15,5 +59,8 @@
     "enableDesktop": true,
     "enableCode": true,
     "selectedServers": []
+  },
+  "pipeline": {
+    "installedAt": 1769438683331
   }
 }

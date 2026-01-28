@@ -1,0 +1,17 @@
+{
+  "current_step": 0,
+  "completed_steps": [],
+  "session_id": null,
+  "started_at": "2026-01-26T11:14:15.039025",
+  "last_activity": "2026-01-26T11:14:15.039054",
+  "step_history": [
+    {
+      "from_step": 0,
+      "to_step": 0,
+      "timestamp": "2026-01-26T11:14:15.039032",
+      "reason": "Pipeline activated: ffd-graph"
+    }
+  ],
+  "active_pipeline": "ffd-graph",
+  "pipeline_version": null
+}

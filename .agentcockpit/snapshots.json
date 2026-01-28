@@ -1,144 +1,146 @@
 {
   "snapshots": [
     {
-      "version": 103,
-      "commitHash": "874f9f213697add8dfd962302c22300fbecfb6f9",
-      "tag": "snapshot-v103",
-      "timestamp": 1768146216237,
-      "message": "Snapshot V103",
+      "version": 135,
+      "commitHash": "dad2a23f5fdd3d565b538ee0758589516f91bb06",
+      "tag": "snapshot-v135",
+      "timestamp": 1769049124000,
+      "message": "Snapshot V135",
       "filesChanged": [
-        "src/App.css",
+        ".pipeline-manager/src/pipeline_manager/server.py"
+      ]
+    },
+    {
+      "version": 136,
+      "commitHash": "e93b5ed7ffd6b9277631e99ba84d3bb2c01f81ca",
+      "tag": "snapshot-v136",
+      "timestamp": 1769049132000,
+      "message": "Snapshot V136",
+      "filesChanged": [
+        ".pipeline-manager/src/pipeline_manager/__pycache__/server.cpython-311.pyc"
+      ]
+    },
+    {
+      "version": 137,
+      "commitHash": "a7fa6a320b9094653e6298063d8cd6e0aef46c49",
+      "tag": "snapshot-v137",
+      "timestamp": 1769049833000,
+      "message": "Snapshot V137",
+      "filesChanged": [
+        ".pipeline-manager/src/pipeline_manager/__pycache__/server.cpython-311.pyc"
+      ]
+    },
+    {
+      "version": 138,
+      "commitHash": "17d47529a3b1449821a0c51f4291b159e12df25c",
+      "tag": "snapshot-v138",
+      "timestamp": 1769050406000,
+      "message": "Snapshot V138",
+      "filesChanged": [
+        ".pipeline-manager/src/pipeline_manager/server.py"
+      ]
+    },
+    {
+      "version": 139,
+      "commitHash": "dec2a43dfa10d51fc377b1bd1af7ada52ca48fdd",
+      "tag": "snapshot-v139",
+      "timestamp": 1769050412000,
+      "message": "Snapshot V139",
+      "filesChanged": [
+        ".pipeline-manager/src/pipeline_manager/__pycache__/server.cpython-311.pyc"
+      ]
+    },
+    {
+      "version": 209,
+      "commitHash": "13c7f44f15e31e86ea0297a2cebae9340275c91a",
+      "tag": "snapshot-v209",
+      "timestamp": 1769522152940,
+      "message": "Snapshot V209",
+      "filesChanged": [
+        ".pipeline-manager/data/ig-mcp.db-shm",
+        ".pipeline-manager/data/ig-mcp.db-wal"
+      ]
+    },
+    {
+      "version": 210,
+      "commitHash": "065a2dfd2bce595a0a51d4b67cd25cc1861eff1e",
+      "tag": "snapshot-v210",
+      "timestamp": 1769522163634,
+      "message": "Snapshot V210",
+      "filesChanged": [
+        ".pipeline-manager/data/ig-mcp.db-shm",
+        ".pipeline-manager/data/ig-mcp.db-wal"
+      ]
+    },
+    {
+      "version": 211,
+      "commitHash": "f9404b0988e89761d0d348dc2f42797678adfccc",
+      "tag": "snapshot-v211",
+      "timestamp": 1769564241591,
+      "message": "Snapshot V211",
+      "filesChanged": [
+        "src/services/pipelineService.ts"
+      ]
+    },
+    {
+      "version": 212,
+      "commitHash": "3d86ed37b3d2ea1a4ca777bcec27316e7186ac58",
+      "tag": "snapshot-v212",
+      "timestamp": 1769564590719,
+      "message": "Snapshot V212",
+      "filesChanged": [
+        ".agent/skills/find-skills",
+        ".agents/skills/find-skills/SKILL.md",
+        ".gemini/skills/find-skills",
+        ".opencode/skills/find-skills",
+        ".trae/skills/find-skills"
+      ]
+    },
+    {
+      "version": 213,
+      "commitHash": "f82fb1e14301d9c9c493d2b3fb57fb14389202b7",
+      "tag": "snapshot-v213",
+      "timestamp": 1769573735461,
+      "message": "Snapshot V213",
+      "filesChanged": [
+        "src/components/pipeline/PipelineModal.tsx",
+        "src/components/pipeline/PipelinePanel.tsx"
+      ]
+    },
+    {
+      "version": 214,
+      "commitHash": "4e843cef3e92f96f91b78ea65942d0e032fd6ef5",
+      "tag": "snapshot-v214",
+      "timestamp": 1769573858426,
+      "message": "Snapshot V214",
+      "filesChanged": [
+        "src/services/pipelineService.ts"
+      ]
+    },
+    {
+      "version": 215,
+      "commitHash": "f2d8f7e4273f4c8393718e660f6b98ae0606b88e",
+      "tag": "snapshot-v215",
+      "timestamp": 1769573926724,
+      "message": "Snapshot V215",
+      "filesChanged": [
+        "src/services/pipelineService.ts"
+      ]
+    },
+    {
+      "version": 216,
+      "commitHash": "286939450d6957d480c6ec87459efcc7049222f0",
+      "tag": "snapshot-v216",
+      "timestamp": 1769574595162,
+      "message": "Snapshot V216",
+      "filesChanged": [
         "src/components/pipeline/PipelineModal.tsx",
         "src/components/pipeline/PipelinePanel.tsx",
-        "src/components/pipeline/index.ts",
-        "src/components/sidebar-right/ActionsPanel.tsx",
-        "src/services/pipelineService.ts"
-      ]
-    },
-    {
-      "version": 104,
-      "commitHash": "14b5c82ff2cc083af1d3cd0c78629aecb9c491bb",
-      "tag": "snapshot-v104",
-      "timestamp": 1768146774350,
-      "message": "Snapshot V104",
-      "filesChanged": [
-        "src/components/pipeline/PipelineModal.tsx",
-        "src/components/pipeline/PipelinePanel.tsx",
-        "src/services/pipelineService.ts"
-      ]
-    },
-    {
-      "version": 105,
-      "commitHash": "3b4b32ee47d7d691ac6ca85c3bf35ead32f1e68d",
-      "tag": "snapshot-v105",
-      "timestamp": 1768147048000,
-      "message": "Snapshot V105",
-      "filesChanged": [
-        "src/components/pipeline/PipelinePanel.tsx",
-        "src/services/pipelineService.ts"
-      ]
-    },
-    {
-      "version": 106,
-      "commitHash": "2b08c991104556c4b9e892b22e25d533cd95f5e4",
-      "tag": "snapshot-v106",
-      "timestamp": 1768147421094,
-      "message": "Snapshot V106",
-      "filesChanged": [
-        "src/App.css"
-      ]
-    },
-    {
-      "version": 107,
-      "commitHash": "2e8b0d12fffaa21a44e25160e2a3032544bc1a21",
-      "tag": "snapshot-v107",
-      "timestamp": 1768148286647,
-      "message": "Snapshot V107",
-      "filesChanged": [
-        "src/App.css",
-        "src/services/pipelineService.ts"
-      ]
-    },
-    {
-      "version": 108,
-      "commitHash": "9405dcc2cc4b100c1819b4d52f21058a6d58aeef",
-      "tag": "snapshot-v108",
-      "timestamp": 1768152610296,
-      "message": "Snapshot V108",
-      "filesChanged": [
-        "src/App.css",
-        "src/components/pipeline/PipelineModal.tsx",
-        "src/services/pipelineService.ts"
-      ]
-    },
-    {
-      "version": 109,
-      "commitHash": "8e3a8394b8ec2d8a9c335b09986e2bf8b69bb188",
-      "tag": "snapshot-v109",
-      "timestamp": 1768157119867,
-      "message": "Snapshot V109",
-      "filesChanged": [
-        "src/App.css",
-        "src/components/mcp/McpIndicator.tsx",
-        "src/components/mcp/McpManagerModal.tsx",
-        "src/components/pipeline/PipelineModal.tsx",
-        "src/components/sidebar-right/ActionsPanel.tsx",
-        "src/services/mcpConfigService.ts"
-      ]
-    },
-    {
-      "version": 110,
-      "commitHash": "4c9f1d82de78f0c835cbb5120c52f56d0e72077f",
-      "tag": "snapshot-v110",
-      "timestamp": 1768223842797,
-      "message": "Snapshot V110",
-      "filesChanged": [
-        "src/App.css",
-        "src/components/mcp/McpIndicator.tsx",
-        "src/components/mcp/McpManagerModal.tsx",
-        "src/components/sidebar-right/ActionsPanel.tsx",
-        "src/services/pluginConfigService.ts"
-      ]
-    },
-    {
-      "version": 111,
-      "commitHash": "753ead0e6901befe90f6dfc4cfb3a9376ac524c2",
-      "tag": "snapshot-v111",
-      "timestamp": 1768958599180,
-      "message": "Snapshot V111",
-      "filesChanged": [
-        "src/App.css",
-        "src/components/mcp/McpManagerModal.tsx"
-      ]
-    },
-    {
-      "version": 112,
-      "commitHash": "368629a5e2d15cadee32529762c0777bbec44a18",
-      "tag": "snapshot-v112",
-      "timestamp": 1768963728355,
-      "message": "Snapshot V112",
-      "filesChanged": [
-        "src/App.css",
-        "src/components/pipeline/PipelineModal.tsx",
-        "src/components/pipeline/PipelinePanel.tsx",
-        "src/components/sidebar-right/ActionsPanel.tsx",
-        "src/services/hookService.ts",
         "src/services/pipelineService.ts",
-        "src/services/projectSessionService.ts",
         "src/types/index.ts"
-      ]
-    },
-    {
-      "version": 113,
-      "commitHash": "aeff88da2e9d2f5f6aa51ccb1ea962a55845a90e",
-      "tag": "snapshot-v113",
-      "timestamp": 1768963985374,
-      "message": "Snapshot V113",
-      "filesChanged": [
-        "src/agents/claude/components/QuickActions.tsx"
       ]
     }
   ],
-  "nextVersion": 114,
-  "currentVersion": 113
+  "nextVersion": 217,
+  "currentVersion": 216
 }

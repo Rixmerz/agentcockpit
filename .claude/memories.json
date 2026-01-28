@@ -38,5 +38,71 @@
     ],
     "created_at": "2026-01-21T09:32:23.744570",
     "updated_at": "2026-01-21T09:32:23.744570"
+  },
+  {
+    "key": "denofresh-pipeline-v32",
+    "value": "Pipeline DenoFresh Analyzer v3.2.0 completado. Arquitectura hibrida multi-agente con 7 agentes (url-capture, web-analyzer, orchestrator, fresh-developer, creative-director, seo-specialist, ui-perfectionist). Cada nodo usa prompt_injection con 'OBLIGATORIO: Delega al subagente X'. Modelos: haiku=mecanico, sonnet=analisis, opus=estrategia. 17 nodos, 2 loops. activatePipeline ahora copia agents.",
+    "tags": [
+      "pipeline",
+      "denofresh",
+      "architecture"
+    ],
+    "created_at": "2026-01-28T01:22:06.029315",
+    "updated_at": "2026-01-28T01:22:06.029315"
+  },
+  {
+    "key": "agent-format-claudecode",
+    "value": "Formato correcto agentes Claude Code: YAML frontmatter con name, description (requeridos), tools (comma-separated), disallowedTools, model (sonnet/opus/haiku/inherit), skills (list), permissionMode, hooks. NO usar YAML list para tools. Documentacion: https://code.claude.com/docs/en/sub-agents",
+    "tags": [
+      "agents",
+      "format",
+      "documentation"
+    ],
+    "created_at": "2026-01-28T01:22:14.596692",
+    "updated_at": "2026-01-28T01:22:14.596692"
+  },
+  {
+    "key": "bug-fix-mcps-enabled",
+    "value": "Bug critico corregido: mcps_enabled?.join() crasheaba cuando campo no existia. Fix: hacer campo opcional en tipos (mcps_enabled?: string[]) y usar Array.isArray() check antes de .join() en PipelinePanel.tsx:614, PipelineModal.tsx:313 y :600.",
+    "tags": [
+      "bugfix",
+      "pipeline",
+      "critical"
+    ],
+    "created_at": "2026-01-28T01:22:26.462231",
+    "updated_at": "2026-01-28T01:22:26.462231"
+  },
+  {
+    "key": "activate-pipeline-agents-copy",
+    "value": "activatePipeline() en pipelineService.ts ahora copia agents requeridos. Lee metadata.agents_required del YAML, copia cada .md desde getGlobalAgentsDir() a {project}/.claude/agents/. Tambien crea skill /pipeline. Funciones nuevas: getGlobalAgentsDir(), getGlobalSkillsDir().",
+    "tags": [
+      "pipeline",
+      "feature",
+      "agents"
+    ],
+    "created_at": "2026-01-28T01:22:35.691121",
+    "updated_at": "2026-01-28T01:22:35.691121"
+  },
+  {
+    "key": "denofresh-220-rule",
+    "value": "REGLA CRITICA Deno Fresh 2.2.0: deno task dev esta DEPRECADO. SIEMPRE usar 'deno task build && deno task start'. Esta regla esta inyectada en global_prompt del pipeline denofresh-analyzer.",
+    "tags": [
+      "denofresh",
+      "gotcha",
+      "critical"
+    ],
+    "created_at": "2026-01-28T01:22:44.227733",
+    "updated_at": "2026-01-28T01:22:44.227733"
+  },
+  {
+    "key": "denofresh-7-agents",
+    "value": "7 agentes en .claude/agents/: url-capture (haiku, captura datos), web-analyzer (sonnet, lighthouse), orchestrator (opus, sequential-thinking), fresh-developer (haiku, denofreshmcp), creative-director (opus, creatividad visual), seo-specialist (sonnet, SEO/legal), ui-perfectionist (sonnet, critica UI).",
+    "tags": [
+      "agents",
+      "denofresh",
+      "roles"
+    ],
+    "created_at": "2026-01-28T01:22:52.615756",
+    "updated_at": "2026-01-28T01:22:52.615756"
   }
 ]

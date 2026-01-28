@@ -1,0 +1,50 @@
+metadata:
+  name: "FFD Standard"
+  description: "Pipeline estándar de 3 pasos para Flow-First Development"
+  version: "1.0.0"
+
+config:
+  reset_policy: "timeout"
+  timeout_minutes: 30
+  force_sequential: true
+
+steps:
+  - id: "complexity-check"
+    order: 0
+    name: "Complexity Gate"
+    description: "Evalúa complejidad antes de implementar"
+    mcps_enabled:
+      - "sequential-thinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+    gate_type: "any"
+    gate_tool: "mcp__sequential-thinking__sequentialthinking"
+    gate_phrases:
+      - "trivial"
+      - "simple"
+      - "directo"
+
+  - id: "context-validation"
+    order: 1
+    name: "Context Gate"
+    description: "Obtiene documentación si hay librerías externas"
+    mcps_enabled:
+      - "Context7"
+      - "sequential-thinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+    gate_type: "any"
+    gate_tool: "mcp__Context7__get-library-docs"
+    gate_phrases:
+      - "no requiere docs"
+      - "sin librerías externas"
+
+  - id: "implementation"
+    order: 2
+    name: "Implementation"
+    description: "Implementación con todas las herramientas habilitadas"
+    mcps_enabled:
+      - "*"
+    gate_type: "always"

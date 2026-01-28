@@ -1,0 +1,126 @@
+metadata:
+  name: "FFD Standard Graph"
+  description: "Flow-First Development graph with loops and conditional transitions"
+  version: "2.0.0"
+  type: "graph"
+
+nodes:
+  - id: "complexity-check"
+    name: "Complexity Gate"
+    is_start: true
+    mcps_enabled:
+      - "sequential-thinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+    max_visits: 5
+    prompt_injection: |
+      STEP 1: COMPLEXITY CHECK
+      Before implementing, analyze the task complexity using sequential thinking.
+      If the task is trivial/simple/straightforward, say "trivial" to skip analysis.
+      Otherwise, use sequential-thinking to break down the approach.
+
+  - id: "context-validation"
+    name: "Context Gate"
+    mcps_enabled:
+      - "Context7"
+      - "sequential-thinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+    max_visits: 5
+    prompt_injection: |
+      STEP 2: CONTEXT VALIDATION
+      Check if external library documentation is needed.
+      Use Context7 to fetch docs for any unfamiliar libraries.
+      If no external docs needed, say "no requiere docs" to proceed.
+
+  - id: "implementation"
+    name: "Implementation"
+    is_end: true
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      STEP 3: IMPLEMENTATION
+      All tools are now available. Implement the solution.
+      If you discover you need more context, you can go back.
+
+edges:
+  # Forward transitions from complexity-check
+  - id: "complexity-to-context-tool"
+    from: "complexity-check"
+    to: "context-validation"
+    condition:
+      type: "tool"
+      tool: "mcp__sequential-thinking__sequentialthinking"
+    priority: 1
+
+  - id: "complexity-to-context-phrase"
+    from: "complexity-check"
+    to: "context-validation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "trivial"
+        - "simple"
+        - "directo"
+        - "straightforward"
+    priority: 2
+
+  # Forward transitions from context-validation
+  - id: "context-to-impl-tool"
+    from: "context-validation"
+    to: "implementation"
+    condition:
+      type: "tool"
+      tool: "mcp__Context7__get-library-docs"
+    priority: 1
+
+  - id: "context-to-impl-phrase"
+    from: "context-validation"
+    to: "implementation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "no requiere docs"
+        - "sin librerías externas"
+        - "no external docs"
+    priority: 2
+
+  # Back-edges for loops (NEW in graph version)
+  - id: "impl-to-context-back"
+    from: "implementation"
+    to: "context-validation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "need more context"
+        - "necesito más contexto"
+        - "missing docs"
+        - "falta documentación"
+    priority: 1
+
+  - id: "context-to-complexity-back"
+    from: "context-validation"
+    to: "complexity-check"
+    condition:
+      type: "phrase"
+      phrases:
+        - "need to rethink"
+        - "replantear"
+        - "too complex"
+        - "demasiado complejo"
+    priority: 1
+
+  - id: "impl-to-complexity-back"
+    from: "implementation"
+    to: "complexity-check"
+    condition:
+      type: "phrase"
+      phrases:
+        - "start over"
+        - "empezar de nuevo"
+        - "wrong approach"
+        - "enfoque incorrecto"
+    priority: 2

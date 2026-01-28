@@ -1,0 +1,29 @@
+{
+  "current_nodes": [
+    "web-analysis"
+  ],
+  "node_visits": {
+    "url-capture": 1,
+    "web-analysis": 1
+  },
+  "execution_path": [
+    {
+      "from_node": null,
+      "to_node": "url-capture",
+      "edge_id": null,
+      "timestamp": "2026-01-28T04:48:54.845Z",
+      "reason": "Graph activated"
+    },
+    {
+      "from_node": "url-capture",
+      "to_node": "web-analysis",
+      "edge_id": "capture-to-analysis",
+      "timestamp": "2026-01-28T01:50:38.256538",
+      "reason": "URL capturada y validada - informaci\u00f3n completa recopilada"
+    }
+  ],
+  "active_graph": "denofresh-analyzer",
+  "max_visits_default": 10,
+  "total_transitions": 1,
+  "last_activity": "2026-01-28T01:50:38.256566"
+}
