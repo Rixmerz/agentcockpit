@@ -5,7 +5,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { hideAllBrowserWebviews, showBrowserWebview, getTabState } from '../../services/browserService';
+import { hideAllBrowserWebviews } from '../../services/browserService';
 
 interface DropdownPanelProps {
   trigger: ReactNode;
