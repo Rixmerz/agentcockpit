@@ -1,6 +1,7 @@
 import { integrationWrapperService, WrapperContext } from './integrationWrapperService';
 import { hookPauseResumeService } from './hookPauseResumeService';
 import { skillExecutionService } from './skillExecutionService';
+import { wrapperStateService } from './wrapperStateService';
 
 export interface Phase3ExecutionConfig {
   projectPath: string;
@@ -10,6 +11,7 @@ export interface Phase3ExecutionConfig {
   timeoutMinutes: number;
   fallbackEdge?: string;
   context: WrapperContext;
+  executionId?: string; // Phase 5: For state persistence
 }
 
 export interface Phase3ExecutionResult {
@@ -35,16 +37,30 @@ export interface Phase3ExecutionResult {
  */
 export const phase3WrapperExecutor = {
   /**
-   * Execute complete wrapper with all phases
+   * Execute complete wrapper with all phases (Phase 5: With state persistence)
    */
   async executeWrapper(config: Phase3ExecutionConfig): Promise<Phase3ExecutionResult> {
     const startTime = Date.now();
     const stages: string[] = [];
 
+    // Phase 5: Generate execution ID if not provided
+    const executionId = config.executionId || `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Phase 5: Create initial state
+    await wrapperStateService.createState(
+      executionId,
+      config.integrationId,
+      config.projectPath,
+      config.context.currentTask
+    );
+
     try {
       // ===== PHASE 1: Validation =====
       console.log('[Phase3] Stage 1: Validation');
       stages.push('validation');
+
+      // Phase 5: Add stage to state
+      await wrapperStateService.addStage(executionId, 'validation', 'running');
 
       const validation = await integrationWrapperService.validateIntegration(config.integrationId);
       if (!validation.valid) {
