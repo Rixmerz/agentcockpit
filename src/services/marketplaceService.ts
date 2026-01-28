@@ -112,12 +112,18 @@ async function ensureStructure(): Promise<void> {
         integrations_dir: intDir,
         installed: []
       };
-      await writeTextFile(cfgPath, JSON.stringify(defaultConfig, null, 2));
-      cachedConfig = defaultConfig;
+      try {
+        await writeTextFile(cfgPath, JSON.stringify(defaultConfig, null, 2));
+        cachedConfig = defaultConfig;
+      } catch (writeErr) {
+        // If we can't write config, at least set cached version
+        console.warn('[Marketplace] Could not write config file:', writeErr);
+        cachedConfig = defaultConfig;
+      }
     }
   } catch (error) {
     console.error('[Marketplace] Error ensuring structure:', error);
-    throw error;
+    // Don't throw - let it continue with in-memory defaults
   }
 }
 
@@ -126,12 +132,34 @@ async function loadConfig(): Promise<MarketplaceConfig> {
   try {
     await ensureStructure();
     const cfgPath = await getConfigPath();
+
+    if (!(await exists(cfgPath))) {
+      console.warn('[Marketplace] Config file does not exist, using defaults');
+      const mktDir = await getMarketplaceDir();
+      const intDir = await getIntegrationsDir();
+      const defaultConfig: MarketplaceConfig = {
+        hub_dir: mktDir,
+        integrations_dir: intDir,
+        installed: []
+      };
+      cachedConfig = defaultConfig;
+      return defaultConfig;
+    }
+
     const content = await readTextFile(cfgPath);
     cachedConfig = JSON.parse(content);
     return cachedConfig as MarketplaceConfig;
   } catch (error) {
     console.error('[Marketplace] Error loading config:', error);
-    throw error;
+    // Return default config instead of throwing
+    const mktDir = await getMarketplaceDir();
+    const intDir = await getIntegrationsDir();
+    cachedConfig = {
+      hub_dir: mktDir,
+      integrations_dir: intDir,
+      installed: []
+    };
+    return cachedConfig;
   }
 }
 
@@ -177,18 +205,36 @@ async function saveManifest(manifest: IntegrationManifest): Promise<void> {
 export const marketplaceService = {
   async listAvailable(): Promise<AvailableIntegration[]> {
     try {
-      const config = await loadConfig();
+      // Load config, but don't fail if it doesn't exist
+      let config: MarketplaceConfig | null = null;
+      try {
+        config = await loadConfig();
+      } catch (err) {
+        console.warn('[Marketplace] Config not found, using defaults:', err);
+        config = { hub_dir: '', integrations_dir: '', installed: [] };
+      }
+
+      // Always return from HARDCODED_REGISTRY
+      const installed = config?.installed || [];
       return Object.values(HARDCODED_REGISTRY).map(integration => ({
         id: integration.id,
         name: integration.name,
         version: integration.version,
         description: integration.description,
         author: integration.author,
-        status: config.installed.includes(integration.id) ? 'installed' : 'available'
+        status: installed.includes(integration.id) ? 'installed' : 'available'
       }));
     } catch (error) {
       console.error('[Marketplace] Error listing available:', error);
-      return [];
+      // Fallback: return at least the hardcoded registry as available
+      return Object.values(HARDCODED_REGISTRY).map(integration => ({
+        id: integration.id,
+        name: integration.name,
+        version: integration.version,
+        description: integration.description,
+        author: integration.author,
+        status: 'available'
+      }));
     }
   },
 
