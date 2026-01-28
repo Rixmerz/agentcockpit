@@ -10,17 +10,12 @@ import { Settings, Github } from 'lucide-react';
 import { usePlugins } from '../../plugins/context/PluginContext';
 import { AgentTabs } from '../../core/components/AgentTabs';
 import { SessionManager } from './SessionManager';
-import { PortMonitor } from './PortMonitor';
-import { GitSettings } from './GitSettings';
 import { SettingsModal } from '../settings/SettingsModal';
 import { GitHubLoginModal } from '../sidebar-left/GitHubLoginModal';
-import { PipelinePanel } from '../pipeline';
-import { McpIndicator } from '../mcp/McpIndicator';
 import { createSession, updateSessionLastUsed, getSessions, markSessionAsPreExisting, type ProjectSession } from '../../services/projectSessionService';
 import { buildClaudeCommand } from '../../services/claudeService';
 import { executeAction } from '../../core/utils/terminalCommands';
 import { getCurrentUser, type GitHubUser } from '../../services/githubService';
-import { getClaudePluginConfig, type ClaudePluginConfig } from '../../services/pluginConfigService';
 import type { McpServerInfo } from '../../plugins/types/plugin';
 
 interface ActionsPanelProps {
@@ -53,17 +48,12 @@ export function ActionsPanel({
   const [showGitHubLogin, setShowGitHubLogin] = useState(false);
   const [gitHubUser, setGitHubUser] = useState<GitHubUser | null>(null);
   const [skipPermissions, setSkipPermissions] = useState(false);
-  const [showLegacyMcpPanel, setShowLegacyMcpPanel] = useState(true);
-
-  // Track child component modal states
-  const [pipelineModalOpen, setPipelineModalOpen] = useState(false);
-  const [mcpModalOpen, setMcpModalOpen] = useState(false);
 
   // Notify parent when any modal is open (for browser panel z-index)
   useEffect(() => {
-    const anyModalOpen = showSettings || showGitHubLogin || pipelineModalOpen || mcpModalOpen;
+    const anyModalOpen = showSettings || showGitHubLogin;
     onModalStateChange?.(anyModalOpen);
-  }, [showSettings, showGitHubLogin, pipelineModalOpen, mcpModalOpen, onModalStateChange]);
+  }, [showSettings, showGitHubLogin, onModalStateChange]);
 
   // Clear session when project changes (fixes ghost session bug)
   useEffect(() => {
@@ -84,26 +74,6 @@ export function ActionsPanel({
         console.warn('[ActionsPanel] Failed to load GitHub user on mount:', err);
       });
     return () => { cancelled = true; };
-  }, []);
-
-  // Load plugin config on mount (non-blocking)
-  useEffect(() => {
-    let cancelled = false;
-    getClaudePluginConfig()
-      .then(config => {
-        if (!cancelled) {
-          setShowLegacyMcpPanel(config.showLegacyMcpPanel);
-        }
-      })
-      .catch(err => {
-        console.warn('[ActionsPanel] Failed to load plugin config:', err);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  // Handle plugin config changed from MCP Manager
-  const handlePluginConfigChanged = useCallback((config: ClaudePluginConfig) => {
-    setShowLegacyMcpPanel(config.showLegacyMcpPanel);
   }, []);
 
   // Ensure session exists BEFORE building command
@@ -382,9 +352,8 @@ export function ActionsPanel({
             />
           )}
 
-          {/* MCP Panel (conditionally shown based on plugin settings) */}
-          {/* For Claude: respect showLegacyMcpPanel setting. For others: always show if available */}
-          {activePlugin.McpPanel && (activePlugin.manifest.id !== 'claude' || showLegacyMcpPanel) && (
+          {/* MCP Panel - always show if plugin provides one */}
+          {activePlugin.McpPanel && (
             <activePlugin.McpPanel
               projectPath={projectPath}
               onMcpsChange={handleMcpsChange}
@@ -411,32 +380,15 @@ export function ActionsPanel({
         </div>
       )}
 
-      {/* Claude-specific components: Sessions, Pipeline, MCP management */}
+      {/* Claude-specific components: Sessions */}
       {activePlugin?.manifest.id === 'claude' && (
-        <>
-          <SessionManager
-            projectPath={projectPath}
-            selectedSession={selectedSession}
-            onSessionSelect={setSelectedSession}
-            onSessionCreated={handleSessionCreated}
-          />
-
-          <PipelinePanel
-            projectPath={projectPath}
-            terminalId={terminalId}
-            onModalStateChange={setPipelineModalOpen}
-          />
-
-          <McpIndicator
-            onPluginConfigChanged={handlePluginConfigChanged}
-            onModalStateChange={setMcpModalOpen}
-          />
-        </>
+        <SessionManager
+          projectPath={projectPath}
+          selectedSession={selectedSession}
+          onSessionSelect={setSelectedSession}
+          onSessionCreated={handleSessionCreated}
+        />
       )}
-
-      <PortMonitor />
-
-      <GitSettings projectPath={projectPath} />
     </div>
   );
 }

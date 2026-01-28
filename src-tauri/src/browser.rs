@@ -177,30 +177,29 @@ pub async fn browser_create(
 
             function reportMediaState() {{
                 const platform = detectPlatform();
-                if (platform === 'unknown') return;
-
                 const video = document.querySelector('video');
                 if (!video) return;
 
+                const effectivePlatform = platform === 'unknown' ? 'html5' : platform;
                 const title = getMediaTitle();
                 const isPlaying = !video.paused && !video.ended && video.readyState > 2;
-                const duration = video.duration || 0;
-                const currentTime = video.currentTime || 0;
 
-                // Only report if state changed or periodically when playing
-                const stateKey = `${{title}}-${{isPlaying}}-${{Math.floor(currentTime)}}`;
-                if (stateKey === lastState && !isPlaying) return;
+                // Only report when isPlaying state actually changes
+                const stateKey = `${{isPlaying}}`;
+                if (stateKey === lastState) return;
                 lastState = stateKey;
+
+                if (!window.__TAURI_INTERNALS__) return;
 
                 try {{
                     window.__TAURI_INTERNALS__.invoke('media_state_report', {{
                         report: {{
                             tab_id: tabId,
-                            platform: platform,
+                            platform: effectivePlatform,
                             title: title,
                             is_playing: isPlaying,
-                            duration: duration,
-                            current_time: currentTime
+                            duration: video.duration || 0,
+                            current_time: video.currentTime || 0
                         }}
                     }});
                 }} catch(e) {{}}
@@ -290,6 +289,7 @@ pub async fn browser_create(
 
     let webview_builder = WebviewBuilder::new(&label, webview_url)
         .user_agent(safari_user_agent)
+        .devtools(true)  // Enable devtools for debugging
         .on_navigation(move |url| {
             let url_string = url.to_string();
 
@@ -513,7 +513,7 @@ pub fn media_state_report(
     app: AppHandle,
     report: MediaStateReport,
 ) -> Result<(), String> {
-    log::debug!("[Browser] Media state for tab {}: {} - playing: {}",
+    log::info!("[Browser] Media state for tab {}: {} - playing: {}",
         report.tab_id, report.title, report.is_playing);
 
     app.emit("media-state-changed", MediaStatePayload {

@@ -312,6 +312,31 @@ export async function loadCodeMcps(): Promise<Record<string, McpServerConfig>> {
 }
 
 /**
+ * Load MCPs from Gemini CLI config (~/.gemini/settings.json)
+ */
+export async function loadGeminiMcps(): Promise<Record<string, McpServerConfig>> {
+  try {
+    const home = await getHomePath();
+    const geminiPath = `${home}/.gemini/settings.json`;
+
+    const fileExists = await exists(geminiPath);
+    if (!fileExists) return {};
+
+    const content = await withTimeout(
+      readTextFile(geminiPath),
+      INVOKE_TIMEOUT_MS,
+      'read gemini config'
+    );
+
+    const config = JSON.parse(content);
+    return config.mcpServers || {};
+  } catch (e) {
+    console.error('[McpConfig] Load Gemini MCPs error:', e);
+    return {};
+  }
+}
+
+/**
  * Add or update an MCP in Claude Code config (~/.claude.json)
  * This makes the MCP available to Claude Code directly
  */
@@ -457,6 +482,57 @@ export async function importAllFromCode(): Promise<{ success: boolean; imported:
       config: serverConfig,
       importedFrom: 'code',
       importedAt: new Date().toISOString()
+    };
+    imported++;
+  }
+
+  if (imported > 0) {
+    await saveMcpConfig(config);
+  }
+
+  return {
+    success: true,
+    imported,
+    skipped,
+    message: `Imported ${imported} MCPs, skipped ${skipped} (already exist)`
+  };
+}
+
+/**
+ * Import MCP from Gemini config (copies, does NOT remove from original)
+ */
+export async function importFromGemini(name: string): Promise<{ success: boolean; message: string }> {
+  const geminiMcps = await loadGeminiMcps();
+
+  if (!geminiMcps[name]) {
+    return { success: false, message: `MCP "${name}" not found in Gemini config` };
+  }
+
+  return addMcp(name, geminiMcps[name], 'manual', 'Imported from Gemini CLI');
+}
+
+/**
+ * Import all MCPs from Gemini config
+ */
+export async function importAllFromGemini(): Promise<{ success: boolean; imported: number; skipped: number; message: string }> {
+  const geminiMcps = await loadGeminiMcps();
+  const config = await loadMcpConfig();
+
+  let imported = 0;
+  let skipped = 0;
+
+  for (const [name, serverConfig] of Object.entries(geminiMcps)) {
+    if (config.mcpServers[name]) {
+      skipped++;
+      continue;
+    }
+
+    config.mcpServers[name] = {
+      name,
+      config: serverConfig,
+      importedFrom: 'manual',
+      importedAt: new Date().toISOString(),
+      notes: 'Imported from Gemini CLI'
     };
     imported++;
   }

@@ -174,6 +174,22 @@ export function BrowserPanel({
     }
   }, [isIdle, hideForModal, isOpen, webviewsHidden, activeTabId]);
 
+  // Listen for dropdowns closing to restore webview visibility
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleDropdownsClosed = () => {
+      // Only restore if not idle and no modal
+      if (!isIdle && !hideForModal && activeTabId) {
+        console.log('[BrowserPanel] Dropdowns closed, restoring webview:', activeTabId);
+        showBrowserWebview(activeTabId);
+      }
+    };
+
+    window.addEventListener('dropdowns-closed', handleDropdownsClosed);
+    return () => window.removeEventListener('dropdowns-closed', handleDropdownsClosed);
+  }, [isOpen, isIdle, hideForModal, activeTabId]);
+
   const getPosition = useCallback(() => {
     if (!containerRef.current) return null;
     const rect = containerRef.current.getBoundingClientRect();

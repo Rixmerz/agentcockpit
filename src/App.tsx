@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { AppProvider, useApp, useTerminalActions, useAppSettings, useTerminalActivityState } from './contexts/AppContext';
 import { PluginProvider } from './plugins/context/PluginContext';
+import { MediaProvider } from './contexts/MediaContext';
 import { claudePlugin } from './agents/claude';
 import { cursorAgentPlugin } from './agents/cursor-agent';
 import { geminiPlugin } from './agents/gemini-cli';
@@ -12,7 +13,6 @@ import { BrowserPanel } from './components/browser/BrowserPanel';
 import { hideAllBrowserWebviews } from './services/browserService';
 import { ProjectOpener } from './components/sidebar-left/ProjectOpener';
 import { GitHubLoginModal } from './components/sidebar-left/GitHubLoginModal';
-import { SnapshotPanel } from './components/sidebar-left/SnapshotPanel';
 import { ActionsPanel } from './components/sidebar-right/ActionsPanel';
 import { ControlBar, PipelineStepsBar } from './components/control-bar';
 import {
@@ -335,16 +335,6 @@ function MainContent() {
           )}
         </div>
 
-        {/* Snapshots Section - Fixed position for active project */}
-        {activeProject && (
-          <div className="navigator-section">
-            <div className="section-header" style={{ height: '32px', border: 'none', paddingLeft: '8px' }}>
-              VERSIONS
-            </div>
-            <SnapshotPanel projectPath={activeProject.path} />
-          </div>
-        )}
-
         <div className="navigator-section">
           <div className="section-header" style={{ height: '32px', border: 'none', paddingLeft: '8px' }}>
             OPEN PROJECT
@@ -452,9 +442,11 @@ function MainContent() {
 function App() {
   return (
     <AppProvider>
-      <PluginProvider initialPlugins={[claudePlugin, cursorAgentPlugin, geminiPlugin]}>
-        <MainContent />
-      </PluginProvider>
+      <MediaProvider>
+        <PluginProvider initialPlugins={[claudePlugin, cursorAgentPlugin, geminiPlugin]}>
+          <MainContent />
+        </PluginProvider>
+      </MediaProvider>
     </AppProvider>
   );
 }

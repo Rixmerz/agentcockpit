@@ -16,28 +16,44 @@
   position: relative;
 }
 
-/* Sidebar Styling - Cyber Glass Effect */
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR STYLING - BF3 Military Style
+   ═══════════════════════════════════════════════════════════════ */
 .sidebar-left,
 .sidebar-right {
   display: flex;
   flex-direction: column;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-color: var(--glass-border);
-  border-style: solid;
   z-index: 10;
-  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  position: relative;
 }
 
 .sidebar-left {
   width: var(--sidebar-width-left);
-  border-right-width: 1px;
-  background: linear-gradient(
-    180deg,
-    var(--glass-bg) 0%,
-    rgba(10, 10, 15, 0.95) 100%
+  background: rgba(8, 12, 18, 0.95);
+  border-right: 1px solid rgba(0, 212, 170, 0.15);
+  /* Subtle inner glow */
+  box-shadow:
+    inset -1px 0 0 rgba(0, 212, 170, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+/* BF3 scan lines overlay for sidebar */
+.sidebar-left::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
   );
+  pointer-events: none;
+  z-index: 1;
 }
 
 .sidebar-right {
@@ -57,23 +73,34 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Header Sections - Cyber Glass Effect */
+/* Header Sections - BF3 Military Style */
 .sidebar-header,
 .section-header {
   height: var(--header-height);
   display: flex;
   align-items: center;
-  padding: 0 20px;
-  background: linear-gradient(90deg, rgba(0, 212, 170, 0.03) 0%, transparent 100%);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 16px;
+  background: linear-gradient(90deg, rgba(0, 212, 170, 0.08) 0%, transparent 70%);
+  border-bottom: 1px solid rgba(0, 212, 170, 0.2);
   font-family: var(--font-display);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
-  color: var(--text-secondary);
-  letter-spacing: 0.08em;
+  color: rgba(0, 212, 170, 0.9);
+  letter-spacing: 0.15em;
+  position: relative;
+  z-index: 2;
+}
+
+/* BF3 accent line on header */
+.sidebar-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(0, 212, 170, 0.8), transparent);
 }
 
 /* Terminal Header - Prominent with glow accent */
@@ -138,38 +165,59 @@
   box-shadow: var(--shadow-lg);
 }
 
-/* -- PROJECT TREE STYLES -- */
+/* ═══════════════════════════════════════════════════════════════
+   PROJECT TREE STYLES - BF3 Military Style
+   ═══════════════════════════════════════════════════════════════ */
 .project-tree {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
+  padding: 8px;
+  position: relative;
+  z-index: 2;
 }
 
 .project-item {
   display: flex;
   flex-direction: column;
+  margin-bottom: 2px;
 }
 
 .project-header {
   display: flex;
   align-items: center;
-  padding: 0 8px;
-  /* Compact padding */
+  padding: 0 10px;
   cursor: pointer;
-  color: var(--text-secondary);
-  transition: background-color 0.1s;
-  height: 28px;
-  gap: 4px;
+  color: rgba(255, 255, 255, 0.6);
+  height: 30px;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+  transition: all 0.15s ease;
+  position: relative;
 }
 
 .project-header:hover {
-  background-color: var(--bg-hover);
-  color: var(--text-primary);
+  background: rgba(0, 212, 170, 0.08);
+  border-color: rgba(0, 212, 170, 0.2);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .project-header.active {
-  background-color: var(--bg-active);
-  color: var(--text-primary);
+  background: rgba(0, 212, 170, 0.12);
+  border-color: rgba(0, 212, 170, 0.4);
+  color: var(--color-accent-primary);
+}
+
+/* Active indicator line */
+.project-header.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--color-accent-primary);
 }
 
 .project-icon {
@@ -202,44 +250,52 @@
   opacity: 1;
 }
 
-/* Terminal List (nested) */
+/* Terminal List (nested) - BF3 Style */
 .terminal-list {
   display: flex;
   flex-direction: column;
+  padding: 4px 0 4px 12px;
+  margin-left: 8px;
+  border-left: 1px solid rgba(0, 212, 170, 0.1);
 }
 
 .terminal-item {
   display: flex;
   align-items: center;
-  padding: 0 8px 0 28px;
-  /* Indent */
+  padding: 0 8px 0 12px;
   cursor: pointer;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.5);
   height: 26px;
-  gap: 6px;
+  gap: 8px;
   position: relative;
-  font-size: 13px;
-  transition: background-color 0.1s;
+  font-size: 12px;
+  transition: all 0.15s ease;
+  background: transparent;
+  border: 1px solid transparent;
+  margin: 1px 0;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%);
 }
 
 .terminal-item:hover {
-  background-color: var(--bg-hover);
-  color: var(--text-primary);
+  background: rgba(0, 212, 170, 0.06);
+  border-color: rgba(0, 212, 170, 0.15);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .terminal-item.active {
-  background-color: var(--bg-active);
-  color: var(--text-primary);
+  background: rgba(0, 212, 170, 0.1);
+  border-color: rgba(0, 212, 170, 0.3);
+  color: var(--color-accent-primary);
 }
 
 .terminal-item.active::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background-color: var(--accent);
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--color-accent-primary);
 }
 
 .terminal-name-input {
@@ -2975,12 +3031,39 @@ input[type="checkbox"] {
   max-width: 600px;
   max-height: 80vh;
   overflow-y: auto;
-  background: rgba(24, 24, 27, 0.95);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  position: relative;
+  isolation: isolate;
+  /* BF3: Background = border color */
+  background: var(--color-border-default, #333338);
+  border: none;
+  border-radius: 0;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 212, 170, 0.1);
   animation: slideUp 0.3s ease-out;
+  /* BF3: Angular cut corners */
+  clip-path: polygon(
+    0 0,
+    calc(100% - 24px) 0,
+    100% 24px,
+    100% 100%,
+    24px 100%,
+    0 calc(100% - 24px)
+  );
+}
+
+.modal-container::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-overlay, #1c1c20);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 22px) 0,
+    100% 22px,
+    100% 100%,
+    22px 100%,
+    0 calc(100% - 22px)
+  );
+  z-index: -1;
 }
 
 @keyframes slideUp {
@@ -2999,7 +3082,9 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: 2px solid var(--color-border-default, #333338);
+  position: relative;
+  z-index: 1;
 }
 
 .modal-title {
@@ -3015,22 +3100,128 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-default, #333338);
+  border: none;
+  border-radius: 0;
   color: var(--text-muted);
   cursor: pointer;
   transition: all var(--transition-fast);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+}
+
+.modal-close-btn::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 4px) 0,
+    100% 4px,
+    100% 100%,
+    4px 100%,
+    0 calc(100% - 4px)
+  );
+  z-index: -1;
+}
+
+.modal-close-btn svg {
+  position: relative;
+  z-index: 1;
 }
 
 .modal-close-btn:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: var(--error);
-  color: var(--error);
+  background: var(--error, #ef4444);
+  color: white;
 }
 
 .modal-content {
   padding: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================
+   BF3 MODAL BUTTONS
+   ============================================ */
+
+/* Generic modal button - BF3 Angular */
+.modal-content button:not(.modal-close-btn):not([class*="mcp-"]):not([class*="settings-"]):not([class*="pipeline-"]) {
+  border-radius: 0;
+}
+
+/* Primary button in modals */
+.modal-content .btn-primary {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-accent-primary, var(--color-accent-primary));
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    8px 100%,
+    0 calc(100% - 8px)
+  );
+}
+
+.modal-content .btn-primary::before {
+  display: none;
+}
+
+.modal-content .btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover, #00eabb);
+  transform: none;
+  box-shadow: 0 0 15px rgba(0, 212, 170, 0.4);
+}
+
+/* Secondary button in modals */
+.modal-content .btn-secondary {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-subtle, #252528);
+  border: none;
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+}
+
+.modal-content .btn-secondary::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 4px) 0,
+    100% 4px,
+    100% 100%,
+    4px 100%,
+    0 calc(100% - 4px)
+  );
+  z-index: -1;
+}
+
+.modal-content .btn-secondary:hover {
+  background: var(--color-border-default, #333338);
 }
 
 /* ============================================
@@ -3069,16 +3260,46 @@ input[type="checkbox"] {
   align-items: center;
   gap: 10px;
   padding: 12px;
-  background: rgba(9, 9, 11, 0.5);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-subtle, #252528);
+  border: none;
+  border-radius: 0;
   cursor: pointer;
   transition: all var(--transition-fast);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    8px 100%,
+    0 calc(100% - 8px)
+  );
+}
+
+.settings-radio-item::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+  z-index: -1;
+}
+
+.settings-radio-item > * {
+  position: relative;
+  z-index: 1;
 }
 
 .settings-radio-item:hover {
-  background: rgba(24, 24, 27, 0.6);
-  border-color: var(--border-strong);
+  background: var(--color-border-default, #333338);
 }
 
 .settings-radio-item input[type="radio"] {
@@ -3093,8 +3314,11 @@ input[type="checkbox"] {
 }
 
 .settings-radio-item:has(input:checked) {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: var(--accent);
+  background: var(--color-accent-primary, var(--color-accent-primary));
+}
+
+.settings-radio-item:has(input:checked)::after {
+  background: rgba(0, 212, 170, 0.1);
 }
 
 .settings-radio-item:has(input:checked) span {
@@ -3203,20 +3427,29 @@ input[type="checkbox"] {
 .settings-input {
   width: 100%;
   padding: 10px 12px;
-  background: rgba(9, 9, 11, 0.5);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
+  position: relative;
+  background: var(--color-surface-base, #0c0c0e);
+  border: 2px solid var(--color-border-subtle, #252528);
+  border-radius: 0;
   color: var(--text-primary);
   font-size: 13px;
   font-family: var(--font-mono);
   transition: all var(--transition-fast);
   box-sizing: border-box;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
 }
 
 .settings-input:focus {
   outline: none;
-  border-color: var(--accent);
-  background: rgba(9, 9, 11, 0.7);
+  border-color: var(--color-accent-primary, var(--color-accent-primary));
+  background: var(--color-surface-overlay, #1c1c20);
 }
 
 .settings-input::placeholder {
@@ -3226,9 +3459,17 @@ input[type="checkbox"] {
 
 .settings-preview {
   margin-top: 12px;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   overflow: hidden;
-  border: 1px solid var(--glass-border);
+  border: 2px solid var(--color-border-subtle, #252528);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    8px 100%,
+    0 calc(100% - 8px)
+  );
 }
 
 .settings-preview-img {
@@ -3329,53 +3570,171 @@ input[type="checkbox"] {
 }
 
 /* ============================================
-   AGENT TABS (Plugin System)
+   AGENT TABS (Plugin System) - BF3 Triangle Honeycomb
    ============================================ */
 .agent-tabs {
   display: flex;
-  gap: 4px;
+  align-items: center;
   padding: 8px 12px;
   border-bottom: 1px solid var(--glass-border);
   background: rgba(9, 9, 11, 0.3);
 }
 
 .agent-tab {
-  width: 36px;
-  height: 36px;
-  padding: 6px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
+  width: 48px;
+  height: 28px; /* Isósceles achatado - más ancho, menos alto */
+  padding: 0;
+  border: none;
+  background: var(--color-border-default, #333338);
   cursor: pointer;
-  opacity: 0.6;
+  opacity: 0.7;
   transition: all var(--transition-fast);
-}
-
-.agent-tab:hover {
-  opacity: 0.8;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.agent-tab.active {
-  opacity: 1;
-  border-color: var(--plugin-color, var(--accent));
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.agent-tab-icon {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 4px;
-}
-
-.agent-tab-emoji {
-  font-size: 20px;
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 100%;
+}
+
+/* Triángulo hacia abajo (índices pares: 0, 2, 4...) */
+.agent-tab--down {
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  margin-right: -12px;
+}
+
+.agent-tab--down::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-overlay, #1c1c20);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  z-index: -1;
+}
+
+/* Triángulo hacia arriba (índices impares: 1, 3, 5...) */
+.agent-tab--up {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  margin-right: -12px;
+}
+
+.agent-tab--up::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-overlay, #1c1c20);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  z-index: -1;
+}
+
+.agent-tab:last-child {
+  margin-right: 0;
+}
+
+.agent-tab:hover {
+  opacity: 1;
+  background: var(--color-accent-primary, var(--color-accent-primary));
+}
+
+/* Active tab base style */
+.agent-tab.active {
+  opacity: 1;
+  background: var(--plugin-color, var(--color-accent-primary, var(--color-accent-primary)));
+}
+
+/* Placeholder tabs (not installed) */
+.agent-tab--placeholder {
+  cursor: not-allowed;
+  opacity: 0.25;
+  background: var(--color-border-subtle, #252528);
+}
+
+.agent-tab--placeholder::after {
+  background: var(--color-surface-base, #0c0c0e) !important;
+}
+
+/* ============================================
+   WAVE ANIMATION - Sequential triangle illumination
+   ============================================ */
+
+/* Base wave settings - all tabs use same animation */
+.agent-tab--wave {
+  --wave-intensity: 0.5;
+}
+
+.agent-tab.active.agent-tab--wave {
+  --wave-intensity: 0.6;
+}
+
+.agent-tab--placeholder.agent-tab--wave {
+  --wave-intensity: 0.4;
+}
+
+/* Wave overlay on each tab */
+.agent-tab--wave::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--active-plugin-color, var(--color-accent-primary));
+  opacity: 0;
+  z-index: 2;
+  pointer-events: none;
+  animation: tab-wave-unified 4s ease-in-out infinite;
+  animation-delay: var(--wave-delay, 0s);
+}
+
+/* Active tab uses white overlay */
+.agent-tab.active.agent-tab--wave::before {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Clip the overlay to match triangle shape */
+.agent-tab--down.agent-tab--wave::before {
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.agent-tab--up.agent-tab--wave::before {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+/* Single unified keyframe for all tabs */
+@keyframes tab-wave-unified {
+  0%, 3% {
+    opacity: 0;
+  }
+  10%, 14% {
+    opacity: var(--wave-intensity, 0.5);
+  }
+  25%, 100% {
+    opacity: 0;
+  }
+}
+
+.agent-tab-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  position: relative;
+  z-index: 1;
+}
+
+/* Ajustar posición del icono según dirección del triángulo */
+.agent-tab--down .agent-tab-icon,
+.agent-tab--down .agent-tab-emoji {
+  margin-top: -1px;
+}
+
+.agent-tab--up .agent-tab-icon,
+.agent-tab--up .agent-tab-emoji {
+  margin-top: 1px;
+}
+
+.agent-tab-emoji {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
 }
 
 /* Plugin content area */
@@ -3383,6 +3742,407 @@ input[type="checkbox"] {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+}
+
+/* ============================================
+   BF3 SIDEBAR RIGHT COMPONENTS
+   Angular cut corners, border technique
+   ============================================ */
+
+/* --- Panel Section - Angular container --- */
+.plugin-content .panel-section {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-default, #333338);
+  border: none;
+  border-radius: 0;
+  margin: 8px;
+  padding: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 12px) 0,
+    100% 12px,
+    100% 100%,
+    12px 100%,
+    0 calc(100% - 12px)
+  );
+}
+
+.plugin-content .panel-section::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-overlay, #1c1c20);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% 100%,
+    10px 100%,
+    0 calc(100% - 10px)
+  );
+  z-index: -1;
+}
+
+.plugin-content .panel-section > * {
+  position: relative;
+  z-index: 1;
+  padding: 16px;
+}
+
+.plugin-content .panel-section .box-title {
+  padding: 12px 16px 8px;
+  margin: 0;
+}
+
+/* --- Model Selector - BF3 Angular --- */
+.plugin-content .model-selector {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  gap: 4px;
+  backdrop-filter: none;
+}
+
+.plugin-content .model-btn {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-default, #333338);
+  border: none;
+  border-radius: 0;
+  padding: 10px 8px;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    8px 100%,
+    0 calc(100% - 8px)
+  );
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.plugin-content .model-btn::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+  z-index: -1;
+}
+
+.plugin-content .model-btn:hover:not(:disabled) {
+  background: var(--color-accent-primary, var(--color-accent-primary));
+  transform: none;
+}
+
+.plugin-content .model-btn.active {
+  background: var(--color-accent-primary, var(--color-accent-primary));
+  box-shadow: none;
+  border: none;
+}
+
+.plugin-content .model-btn.active::after {
+  background: rgba(0, 212, 170, 0.15);
+}
+
+/* --- Quick Actions Grid - BF3 Angular Cards --- */
+.plugin-content .quick-actions-grid {
+  gap: 8px;
+}
+
+.plugin-content .action-card {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-default, #333338);
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% 100%,
+    10px 100%,
+    0 calc(100% - 10px)
+  );
+  box-shadow: none;
+}
+
+.plugin-content .action-card::before {
+  display: none;
+}
+
+.plugin-content .action-card::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-overlay, #1c1c20);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    8px 100%,
+    0 calc(100% - 8px)
+  );
+  z-index: -1;
+}
+
+.plugin-content .action-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.plugin-content .action-card:hover:not(:disabled) {
+  background: var(--color-accent-primary, var(--color-accent-primary));
+  transform: none;
+  box-shadow: none;
+}
+
+/* --- Primary Button - BF3 Angular --- */
+.plugin-content .btn-primary {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-accent-primary, var(--color-accent-primary));
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 12px) 0,
+    100% 12px,
+    100% 100%,
+    12px 100%,
+    0 calc(100% - 12px)
+  );
+}
+
+.plugin-content .btn-primary::before {
+  display: none;
+}
+
+.plugin-content .btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover, #00eabb);
+  transform: none;
+  box-shadow: 0 0 20px rgba(0, 212, 170, 0.4);
+}
+
+/* --- Session Manager - BF3 Angular --- */
+.session-manager .session-header {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-default, #333338);
+  border: none;
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    0 100%
+  );
+}
+
+.session-manager .session-header::after {
+  content: '';
+  position: absolute;
+  inset: 2px 2px 0 2px;
+  background: var(--color-surface-overlay, #1c1c20);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    0 100%
+  );
+  z-index: -1;
+}
+
+.session-manager .session-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+.session-manager .session-header:hover {
+  background: var(--color-accent-primary, var(--color-accent-primary));
+}
+
+.session-manager .session-item {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-subtle, #252528);
+  border: none;
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+}
+
+.session-manager .session-item::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 5px) 0,
+    100% 5px,
+    100% 100%,
+    5px 100%,
+    0 calc(100% - 5px)
+  );
+  z-index: -1;
+}
+
+.session-manager .session-item > * {
+  position: relative;
+  z-index: 1;
+}
+
+.session-manager .session-item:hover {
+  background: var(--color-border-default, #333338);
+}
+
+.session-manager .session-item.selected {
+  background: var(--color-accent-primary, var(--color-accent-primary));
+}
+
+.session-manager .session-item.selected::after {
+  background: rgba(0, 212, 170, 0.1);
+}
+
+.session-manager .session-new-btn {
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 4px) 0,
+    100% 4px,
+    100% 100%,
+    4px 100%,
+    0 calc(100% - 4px)
+  );
+}
+
+/* --- MCP Manager - BF3 Angular --- */
+.mcp-manager .mcp-header {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-default, #333338);
+  border: none;
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    0 100%
+  );
+}
+
+.mcp-manager .mcp-header::after {
+  content: '';
+  position: absolute;
+  inset: 2px 2px 0 2px;
+  background: var(--color-surface-overlay, #1c1c20);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    0 100%
+  );
+  z-index: -1;
+}
+
+.mcp-manager .mcp-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+.mcp-manager .mcp-header:hover {
+  background: var(--color-accent-primary, var(--color-accent-primary));
+}
+
+.plugin-content .mcp-item {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-subtle, #252528);
+  border: none;
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+  box-shadow: none;
+}
+
+.plugin-content .mcp-item::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 5px) 0,
+    100% 5px,
+    100% 100%,
+    5px 100%,
+    0 calc(100% - 5px)
+  );
+  z-index: -1;
+}
+
+.plugin-content .mcp-item > * {
+  position: relative;
+  z-index: 1;
+}
+
+.plugin-content .mcp-item:hover {
+  background: var(--color-border-default, #333338);
+  transform: none;
+}
+
+.mcp-manager .mcp-refresh-btn {
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 4px) 0,
+    100% 4px,
+    100% 100%,
+    4px 100%,
+    0 calc(100% - 4px)
+  );
+}
+
+/* --- Skip Permissions Checkbox - BF3 Angular --- */
+.plugin-content .skip-permissions-checkbox {
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 3px) 0,
+    100% 3px,
+    100% 100%,
+    3px 100%,
+    0 calc(100% - 3px)
+  );
 }
 
 /* Actions Panel - ensure it doesn't overflow */
@@ -3457,65 +4217,81 @@ input[type="checkbox"] {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: -4px;
+  margin-left: 4px;
 }
 
-.github-btn {
-  width: 28px;
-  height: 28px;
+/* ═══════════════════════════════════════════════════════════════
+   PARALLELOGRAM BUTTONS - BF3 Style Slanted Shape
+   ═══════════════════════════════════════════════════════════════ */
+.github-btn,
+.settings-btn {
+  width: 52px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(39, 39, 42, 0.4);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
+  position: relative;
+  isolation: isolate;
+
+  /* El fondo es el BORDE */
+  background: var(--color-border-default, #333338);
+  border: none;
+  color: var(--color-text-muted, #5c5955);
   cursor: pointer;
-  transition: all var(--transition-fast);
   padding: 0;
-  overflow: hidden;
+
+  /* Paralelogramo muy inclinado */
+  clip-path: polygon(
+    50% 0,
+    100% 0,
+    50% 100%,
+    0 100%
+  );
+
+  transition: background var(--transition-fast, 150ms), color var(--transition-fast, 150ms);
 }
 
-.github-btn:hover {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: var(--accent);
-  transform: scale(1.05);
+.github-btn::after,
+.settings-btn::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-overlay, #1c1c20);
+  clip-path: polygon(
+    50% 0,
+    100% 0,
+    50% 100%,
+    0 100%
+  );
+  z-index: -1;
+}
+
+.github-btn:hover,
+.settings-btn:hover {
+  background: var(--color-accent-primary, var(--color-accent-primary));
+  color: var(--color-text-primary, #e8e6e3);
 }
 
 .github-btn.logged-in {
-  border-color: rgba(16, 185, 129, 0.4);
-  padding: 0;
+  background: var(--color-border-default, #333338);
 }
 
 .github-btn.logged-in:hover {
-  border-color: rgba(16, 185, 129, 0.6);
+  background: var(--color-accent-primary, var(--color-accent-primary));
 }
 
 .github-avatar-btn {
-  width: 100%;
-  height: 100%;
+  width: 18px;
+  height: 18px;
   object-fit: cover;
-  border-radius: calc(var(--radius-md) - 1px);
+  border-radius: 50%;
+  position: relative;
+  z-index: 1;
 }
 
 .settings-btn {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: var(--radius-md);
-  color: var(--accent);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.settings-btn:hover {
-  background: rgba(59, 130, 246, 0.25);
-  transform: scale(1.05);
+  margin-left: -16px;
 }
 
 /* ============================================
@@ -5597,9 +6373,40 @@ input[type="checkbox"] {
   align-items: flex-start;
   gap: 12px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-sm);
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-subtle, #252528);
+  border: none;
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    8px 100%,
+    0 calc(100% - 8px)
+  );
+}
+
+.pipeline-step-item::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+  z-index: -1;
+}
+
+.pipeline-step-item > * {
+  position: relative;
+  z-index: 1;
 }
 
 .pipeline-step-order {
@@ -5608,12 +6415,38 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 212, 170, 0.2);
-  border-radius: 50%;
+  position: relative;
+  isolation: isolate;
+  background: var(--color-accent-primary, var(--color-accent-primary));
+  border-radius: 0;
   font-size: 11px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--text-primary);
   flex-shrink: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 4px) 0,
+    100% 4px,
+    100% 100%,
+    4px 100%,
+    0 calc(100% - 4px)
+  );
+}
+
+.pipeline-step-order::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: rgba(0, 212, 170, 0.3);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 2px) 0,
+    100% 2px,
+    100% 100%,
+    2px 100%,
+    0 calc(100% - 2px)
+  );
+  z-index: -1;
 }
 
 .pipeline-step-content {
@@ -5631,18 +6464,26 @@ input[type="checkbox"] {
 .pipeline-step-gate {
   font-size: 9px;
   padding: 2px 6px;
-  border-radius: 10px;
+  border-radius: 0;
   text-transform: uppercase;
   font-weight: 600;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 3px) 0,
+    100% 3px,
+    100% 100%,
+    3px 100%,
+    0 calc(100% - 3px)
+  );
 }
 
 .pipeline-step-gate.gate-any {
-  background: rgba(168, 85, 247, 0.2);
+  background: rgba(168, 85, 247, 0.4);
   color: var(--accent-secondary);
 }
 
 .pipeline-step-gate.gate-always {
-  background: rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.4);
   color: var(--success);
 }
 
@@ -5709,20 +6550,28 @@ input[type="checkbox"] {
 .settings-textarea {
   width: 100%;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-sm);
+  background: var(--color-surface-base, #0c0c0e);
+  border: 2px solid var(--color-border-subtle, #252528);
+  border-radius: 0;
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 12px;
   resize: vertical;
   min-height: 100px;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    8px 100%,
+    0 calc(100% - 8px)
+  );
 }
 
 .settings-textarea:focus {
   outline: none;
-  border-color: var(--accent);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--color-accent-primary, var(--color-accent-primary));
+  background: var(--color-surface-overlay, #1c1c20);
 }
 
 .settings-textarea::placeholder {
@@ -5746,17 +6595,48 @@ input[type="checkbox"] {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-sm);
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-subtle, #252528);
+  border: none;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.15s ease;
   font-size: 11px;
   color: var(--text-secondary);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 5px) 0,
+    100% 5px,
+    100% 100%,
+    5px 100%,
+    0 calc(100% - 5px)
+  );
+}
+
+.pipeline-checkbox-item::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 4px) 0,
+    100% 4px,
+    100% 100%,
+    4px 100%,
+    0 calc(100% - 4px)
+  );
+  z-index: -1;
+}
+
+.pipeline-checkbox-item > * {
+  position: relative;
+  z-index: 1;
 }
 
 .pipeline-checkbox-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-border-default, #333338);
   border-color: rgba(255, 255, 255, 0.15);
 }
 
@@ -5786,13 +6666,39 @@ input[type="checkbox"] {
 
 .config-badge {
   padding: 4px 8px;
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 4px;
+  position: relative;
+  isolation: isolate;
+  background: var(--color-accent-primary, var(--color-accent-primary));
+  border: none;
+  border-radius: 0;
   font-size: 10px;
   font-weight: 500;
-  color: var(--accent);
+  color: var(--text-primary);
   text-transform: lowercase;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 4px) 0,
+    100% 4px,
+    100% 100%,
+    4px 100%,
+    0 calc(100% - 4px)
+  );
+}
+
+.config-badge::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: rgba(0, 212, 170, 0.2);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 3px) 0,
+    100% 3px,
+    100% 100%,
+    3px 100%,
+    0 calc(100% - 3px)
+  );
+  z-index: -1;
 }
 
 /* Pipeline Header Actions */
@@ -5979,12 +6885,43 @@ select.settings-input {
   align-items: flex-start;
   gap: 10px;
   padding: 12px 14px;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: var(--radius-md);
+  position: relative;
+  isolation: isolate;
+  background: rgba(245, 158, 11, 0.4);
+  border: none;
+  border-radius: 0;
   font-size: 11px;
   color: var(--warning);
   line-height: 1.5;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    8px 100%,
+    0 calc(100% - 8px)
+  );
+}
+
+.mcp-warning-banner::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: rgba(245, 158, 11, 0.1);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+  z-index: -1;
+}
+
+.mcp-warning-banner > * {
+  position: relative;
+  z-index: 1;
 }
 
 .mcp-warning-banner svg {
@@ -5994,10 +6931,10 @@ select.settings-input {
 
 .mcp-tabs {
   display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-md);
+  gap: 2px;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
 }
 
 .mcp-tab {
@@ -6006,26 +6943,61 @@ select.settings-input {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
-  background: transparent;
+  padding: 10px 12px;
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-subtle, #252528);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    8px 100%,
+    0 calc(100% - 8px)
+  );
+}
+
+.mcp-tab::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+  z-index: -1;
+}
+
+.mcp-tab > * {
+  position: relative;
+  z-index: 1;
 }
 
 .mcp-tab:hover {
-  background: var(--bg-secondary);
+  background: var(--color-border-default, #333338);
   color: var(--text-primary);
 }
 
 .mcp-tab.active {
-  background: var(--bg-primary);
-  color: var(--accent);
-  box-shadow: var(--shadow-sm);
+  background: var(--color-accent-primary, var(--color-accent-primary));
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+.mcp-tab.active::after {
+  background: rgba(0, 212, 170, 0.15);
 }
 
 .mcp-modal-message {
@@ -6033,27 +7005,67 @@ select.settings-input {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: var(--radius-md);
+  position: relative;
+  isolation: isolate;
+  border: none;
+  border-radius: 0;
   font-size: 12px;
   animation: slideIn 0.2s ease;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+}
+
+.mcp-modal-message::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 4px) 0,
+    100% 4px,
+    100% 100%,
+    4px 100%,
+    0 calc(100% - 4px)
+  );
+  z-index: -1;
+}
+
+.mcp-modal-message > * {
+  position: relative;
+  z-index: 1;
 }
 
 .mcp-modal-message.success {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.5);
   color: var(--success);
 }
 
+.mcp-modal-message.success::after {
+  background: rgba(16, 185, 129, 0.1);
+}
+
 .mcp-modal-message.error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.5);
   color: var(--error);
 }
 
+.mcp-modal-message.error::after {
+  background: rgba(239, 68, 68, 0.1);
+}
+
 .mcp-modal-message.warning {
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.5);
   color: var(--warning);
+}
+
+.mcp-modal-message.warning::after {
+  background: rgba(245, 158, 11, 0.1);
 }
 
 .mcp-loading {
@@ -6130,15 +7142,45 @@ select.settings-input {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-subtle, #252528);
+  border: none;
+  border-radius: 0;
   transition: all 0.15s ease;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+}
+
+.mcp-manager-modal .mcp-item::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 5px) 0,
+    100% 5px,
+    100% 100%,
+    5px 100%,
+    0 calc(100% - 5px)
+  );
+  z-index: -1;
+}
+
+.mcp-manager-modal .mcp-item > * {
+  position: relative;
+  z-index: 1;
 }
 
 .mcp-manager-modal .mcp-item:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--border-color);
+  background: var(--color-border-default, #333338);
 }
 
 .mcp-manager-modal .mcp-item.disabled {
@@ -6181,16 +7223,47 @@ select.settings-input {
 
 .mcp-item-actions .btn-icon-sm {
   padding: 6px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-subtle, #252528);
+  border: none;
+  border-radius: 0;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 4px) 0,
+    100% 4px,
+    100% 100%,
+    4px 100%,
+    0 calc(100% - 4px)
+  );
+}
+
+.mcp-item-actions .btn-icon-sm::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 3px) 0,
+    100% 3px,
+    100% 100%,
+    3px 100%,
+    0 calc(100% - 3px)
+  );
+  z-index: -1;
+}
+
+.mcp-item-actions .btn-icon-sm svg {
+  position: relative;
+  z-index: 1;
 }
 
 .mcp-item-actions .btn-icon-sm:hover {
-  background: var(--bg-primary);
+  background: var(--color-accent-primary, var(--color-accent-primary));
   color: var(--text-primary);
 }
 
@@ -6209,11 +7282,42 @@ select.settings-input {
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-sm);
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-subtle, #252528);
+  border-radius: 0;
   font-size: 10px;
   color: var(--text-muted);
   font-family: var(--font-mono);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+}
+
+.mcp-config-path::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 5px) 0,
+    100% 5px,
+    100% 100%,
+    5px 100%,
+    0 calc(100% - 5px)
+  );
+  z-index: -1;
+}
+
+.mcp-config-path > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Import Tab */
