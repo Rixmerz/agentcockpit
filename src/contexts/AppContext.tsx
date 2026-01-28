@@ -15,6 +15,7 @@ const initialState: AppState = {
   mcpDefaultEnabled: true,
   // Global settings
   defaultIDE: undefined,
+  theme: 'cyber-teal', // Default theme
   backgroundImage: undefined,
   backgroundOpacity: 30, // Default 30%
   terminalOpacity: 15, // Default 15% (semi-transparent)
@@ -131,6 +132,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
     // Global settings actions
     case 'SET_DEFAULT_IDE':
       return { ...state, defaultIDE: action.payload };
+
+    case 'SET_THEME':
+      return { ...state, theme: action.payload };
 
     case 'SET_BACKGROUND_IMAGE':
       return { ...state, backgroundImage: action.payload };
@@ -250,6 +254,7 @@ export function AppProvider({ children }: AppProviderProps) {
       mcpDefaultEnabled: stateRef.current.mcpDefaultEnabled,
       // Global settings
       defaultIDE: stateRef.current.defaultIDE,
+      theme: stateRef.current.theme,
       backgroundImage: stateRef.current.backgroundImage,
       backgroundOpacity: stateRef.current.backgroundOpacity,
       terminalOpacity: stateRef.current.terminalOpacity,
@@ -466,6 +471,7 @@ export function useAppSettings() {
 
   return {
     defaultIDE: state.defaultIDE,
+    theme: state.theme ?? 'cyber-teal',
     backgroundImage: state.backgroundImage,
     backgroundOpacity: state.backgroundOpacity ?? 30,
     terminalOpacity: state.terminalOpacity ?? 15,
@@ -477,6 +483,11 @@ export function useAppSettings() {
 
     setDefaultIDE: (ide: 'cursor' | 'code' | 'antigravity' | undefined) => {
       dispatch({ type: 'SET_DEFAULT_IDE', payload: ide });
+      scheduleSave();
+    },
+
+    setTheme: (theme: 'cyber-teal' | 'battlefield') => {
+      dispatch({ type: 'SET_THEME', payload: theme });
       scheduleSave();
     },
 

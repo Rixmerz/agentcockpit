@@ -32,6 +32,18 @@
   --theme-accent-primary-dim: #00a080;
   --theme-accent-primary-glow: rgba(0, 212, 170, 0.4);
   --theme-accent-primary-subtle: rgba(0, 212, 170, 0.15);
+  /* Additional opacity variants for UI elements */
+  --theme-accent-5: rgba(0, 212, 170, 0.05);
+  --theme-accent-6: rgba(0, 212, 170, 0.06);
+  --theme-accent-8: rgba(0, 212, 170, 0.08);
+  --theme-accent-10: rgba(0, 212, 170, 0.1);
+  --theme-accent-12: rgba(0, 212, 170, 0.12);
+  --theme-accent-20: rgba(0, 212, 170, 0.2);
+  --theme-accent-30: rgba(0, 212, 170, 0.3);
+  --theme-accent-80: rgba(0, 212, 170, 0.8);
+  --theme-accent-90: rgba(0, 212, 170, 0.9);
+  --theme-accent-3: rgba(0, 212, 170, 0.03);
+  --theme-accent-25: rgba(0, 212, 170, 0.25);
 
   /* ═══════════════════════════════════════════════════════════════
      SECONDARY ACCENT - Purple

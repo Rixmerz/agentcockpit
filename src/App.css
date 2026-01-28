@@ -30,10 +30,10 @@
 .sidebar-left {
   width: var(--sidebar-width-left);
   background: rgba(8, 12, 18, 0.95);
-  border-right: 1px solid rgba(0, 212, 170, 0.15);
+  border-right: 1px solid var(--theme-accent-primary-subtle);
   /* Subtle inner glow */
   box-shadow:
-    inset -1px 0 0 rgba(0, 212, 170, 0.05),
+    inset -1px 0 0 var(--theme-accent-5),
     inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
@@ -80,13 +80,13 @@
   display: flex;
   align-items: center;
   padding: 0 16px;
-  background: linear-gradient(90deg, rgba(0, 212, 170, 0.08) 0%, transparent 70%);
-  border-bottom: 1px solid rgba(0, 212, 170, 0.2);
+  background: linear-gradient(90deg, var(--theme-accent-8) 0%, transparent 70%);
+  border-bottom: 1px solid var(--theme-accent-20);
   font-family: var(--font-display);
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  color: rgba(0, 212, 170, 0.9);
+  color: var(--theme-accent-90);
   letter-spacing: 0.15em;
   position: relative;
   z-index: 2;
@@ -100,7 +100,7 @@
   left: 0;
   width: 60px;
   height: 2px;
-  background: linear-gradient(90deg, rgba(0, 212, 170, 0.8), transparent);
+  background: linear-gradient(90deg, var(--theme-accent-80), transparent);
 }
 
 /* Terminal Header - Prominent with glow accent */
@@ -111,7 +111,7 @@
   align-items: center;
   gap: 16px;
   padding: 0 20px;
-  background: linear-gradient(90deg, rgba(0, 212, 170, 0.05) 0%, rgba(168, 85, 247, 0.03) 100%);
+  background: linear-gradient(90deg, var(--theme-accent-5) 0%, rgba(168, 85, 247, 0.03) 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-subtle);
@@ -198,14 +198,14 @@
 }
 
 .project-header:hover {
-  background: rgba(0, 212, 170, 0.08);
-  border-color: rgba(0, 212, 170, 0.2);
+  background: var(--theme-accent-8);
+  border-color: var(--theme-accent-20);
   color: rgba(255, 255, 255, 0.9);
 }
 
 .project-header.active {
-  background: rgba(0, 212, 170, 0.12);
-  border-color: rgba(0, 212, 170, 0.4);
+  background: var(--theme-accent-12);
+  border-color: var(--theme-accent-primary-glow);
   color: var(--color-accent-primary);
 }
 
@@ -256,7 +256,7 @@
   flex-direction: column;
   padding: 4px 0 4px 12px;
   margin-left: 8px;
-  border-left: 1px solid rgba(0, 212, 170, 0.1);
+  border-left: 1px solid var(--theme-accent-10);
 }
 
 .terminal-item {
@@ -277,14 +277,14 @@
 }
 
 .terminal-item:hover {
-  background: rgba(0, 212, 170, 0.06);
-  border-color: rgba(0, 212, 170, 0.15);
+  background: var(--theme-accent-6);
+  border-color: var(--theme-accent-primary-subtle);
   color: rgba(255, 255, 255, 0.8);
 }
 
 .terminal-item.active {
-  background: rgba(0, 212, 170, 0.1);
-  border-color: rgba(0, 212, 170, 0.3);
+  background: var(--theme-accent-10);
+  border-color: var(--theme-accent-30);
   color: var(--color-accent-primary);
 }
 
@@ -615,7 +615,7 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: linear-gradient(135deg, rgba(0, 212, 170, 0.1) 0%, rgba(168, 85, 247, 0.05) 100%);
+  background: linear-gradient(135deg, var(--theme-accent-10) 0%, rgba(168, 85, 247, 0.05) 100%);
   border: 1px solid var(--accent-glow-subtle);
   border-radius: var(--radius-sm);
   color: var(--accent);
@@ -634,7 +634,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(0, 212, 170, 0.15), transparent);
+  background: linear-gradient(90deg, transparent, var(--theme-accent-primary-subtle), transparent);
   transform: translateX(-100%);
   transition: transform 0.4s ease;
 }
@@ -644,7 +644,7 @@
 }
 
 .btn-ide-open:hover {
-  background: linear-gradient(135deg, rgba(0, 212, 170, 0.2) 0%, rgba(168, 85, 247, 0.1) 100%);
+  background: linear-gradient(135deg, var(--theme-accent-20) 0%, rgba(168, 85, 247, 0.1) 100%);
   border-color: var(--accent);
   box-shadow: 0 0 12px var(--accent-glow-subtle), inset 0 0 8px var(--accent-glow-subtle);
   transform: translateY(-1px);
@@ -1082,7 +1082,7 @@ input::placeholder {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  background: radial-gradient(ellipse at center, rgba(0, 212, 170, 0.03) 0%, rgba(10, 10, 15, 0.95) 70%);
+  background: radial-gradient(ellipse at center, var(--theme-accent-3) 0%, rgba(10, 10, 15, 0.95) 70%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   z-index: 50;
@@ -1274,7 +1274,7 @@ input::placeholder {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: var(--accent-foreground);
-  border: 1px solid rgba(0, 212, 170, 0.4);
+  border: 1px solid var(--theme-accent-primary-glow);
   border-radius: var(--radius-md);
   font-family: var(--font-display);
   font-size: 13px;
@@ -1884,7 +1884,7 @@ input::placeholder {
 
 /* Current version - glowing dot */
 .snapshot-panel-item.current {
-  background: rgba(0, 212, 170, 0.08);
+  background: var(--theme-accent-8);
   color: var(--accent);
 }
 
@@ -1966,7 +1966,7 @@ input::placeholder {
 }
 
 .snapshot-panel-counts .count-snapshots {
-  background: rgba(0, 212, 170, 0.2);
+  background: var(--theme-accent-20);
   color: var(--accent);
 }
 
@@ -3037,7 +3037,7 @@ input[type="checkbox"] {
   background: var(--color-border-default, #333338);
   border: none;
   border-radius: 0;
-  box-shadow: 0 0 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 212, 170, 0.1);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.8), 0 0 30px var(--theme-accent-10);
   animation: slideUp 0.3s ease-out;
   /* BF3: Angular cut corners */
   clip-path: polygon(
@@ -3184,7 +3184,7 @@ input[type="checkbox"] {
 .modal-content .btn-primary:hover:not(:disabled) {
   background: var(--color-accent-hover, #00eabb);
   transform: none;
-  box-shadow: 0 0 15px rgba(0, 212, 170, 0.4);
+  box-shadow: 0 0 15px var(--theme-accent-primary-glow);
 }
 
 /* Secondary button in modals */
@@ -3318,7 +3318,7 @@ input[type="checkbox"] {
 }
 
 .settings-radio-item:has(input:checked)::after {
-  background: rgba(0, 212, 170, 0.1);
+  background: var(--theme-accent-10);
 }
 
 .settings-radio-item:has(input:checked) span {
@@ -3373,6 +3373,106 @@ input[type="checkbox"] {
 .settings-radio-item:has(input:checked) .sound-name {
   color: var(--text-primary);
   font-weight: 500;
+}
+
+/* Theme selector styles */
+.settings-theme-group {
+  display: flex;
+  gap: 12px;
+}
+
+.settings-theme-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  position: relative;
+  isolation: isolate;
+  background: var(--color-border-subtle, #252528);
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% 100%,
+    10px 100%,
+    0 calc(100% - 10px)
+  );
+}
+
+.settings-theme-item::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--color-surface-base, #0c0c0e);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    8px 100%,
+    0 calc(100% - 8px)
+  );
+  z-index: -1;
+}
+
+.settings-theme-item > * {
+  position: relative;
+  z-index: 1;
+}
+
+.settings-theme-item input[type="radio"] {
+  display: none;
+}
+
+.settings-theme-preview {
+  width: 24px;
+  height: 24px;
+  background: var(--theme-preview-color);
+  border-radius: 4px;
+  box-shadow: 0 0 8px var(--theme-preview-color);
+  flex-shrink: 0;
+}
+
+.settings-theme-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-theme-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.settings-theme-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.settings-theme-item:hover {
+  background: var(--color-border-default, #333338);
+}
+
+.settings-theme-item.active {
+  background: var(--theme-preview-color);
+}
+
+.settings-theme-item.active::after {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.settings-theme-item.active .settings-theme-name {
+  color: var(--text-primary);
+}
+
+.settings-theme-item.active .settings-theme-preview {
+  box-shadow: 0 0 12px var(--theme-preview-color);
 }
 
 .settings-radio-item:has(input:checked) .sound-description {
@@ -3851,7 +3951,7 @@ input[type="checkbox"] {
 }
 
 .plugin-content .model-btn.active::after {
-  background: rgba(0, 212, 170, 0.15);
+  background: var(--theme-accent-primary-subtle);
 }
 
 /* --- Quick Actions Grid - BF3 Angular Cards --- */
@@ -3933,7 +4033,7 @@ input[type="checkbox"] {
 .plugin-content .btn-primary:hover:not(:disabled) {
   background: var(--color-accent-hover, #00eabb);
   transform: none;
-  box-shadow: 0 0 20px rgba(0, 212, 170, 0.4);
+  box-shadow: 0 0 20px var(--theme-accent-primary-glow);
 }
 
 /* --- Session Manager - BF3 Angular --- */
@@ -4022,7 +4122,7 @@ input[type="checkbox"] {
 }
 
 .session-manager .session-item.selected::after {
-  background: rgba(0, 212, 170, 0.1);
+  background: var(--theme-accent-10);
 }
 
 .session-manager .session-new-btn {
@@ -5599,8 +5699,8 @@ input[type="checkbox"] {
   align-items: center;
   gap: 10px;
   padding: 10px;
-  background: rgba(0, 212, 170, 0.1);
-  border: 1px solid rgba(0, 212, 170, 0.2);
+  background: var(--theme-accent-10);
+  border: 1px solid var(--theme-accent-20);
   border-radius: var(--radius-sm);
   margin-bottom: 12px;
 }
@@ -5842,7 +5942,7 @@ input[type="checkbox"] {
 
 .pipeline-selector-trigger.open {
   border-color: var(--accent);
-  background: rgba(0, 212, 170, 0.1);
+  background: var(--theme-accent-10);
 }
 
 .pipeline-selector-label {
@@ -5910,7 +6010,7 @@ input[type="checkbox"] {
 }
 
 .pipeline-selector-option.active {
-  background: rgba(0, 212, 170, 0.1);
+  background: var(--theme-accent-10);
 }
 
 .pipeline-selector-option.active svg {
@@ -6026,8 +6126,8 @@ input[type="checkbox"] {
 }
 
 .pipeline-step-status.pipeline-step-current {
-  border-color: rgba(0, 212, 170, 0.4);
-  background: rgba(0, 212, 170, 0.08);
+  border-color: var(--theme-accent-primary-glow);
+  background: var(--theme-accent-8);
 }
 
 .pipeline-step-status.pipeline-step-current .pipeline-step-icon {
@@ -6067,7 +6167,7 @@ input[type="checkbox"] {
   gap: 3px;
   font-size: 10px;
   color: var(--accent);
-  background: rgba(0, 212, 170, 0.1);
+  background: var(--theme-accent-10);
   padding: 2px 6px;
   border-radius: 10px;
   margin-top: 4px;
@@ -6171,7 +6271,7 @@ input[type="checkbox"] {
   font-weight: 400;
   color: var(--text-muted);
   padding: 2px 8px;
-  background: rgba(0, 212, 170, 0.1);
+  background: var(--theme-accent-10);
   border-radius: 10px;
 }
 
@@ -6246,8 +6346,8 @@ input[type="checkbox"] {
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  background: rgba(0, 212, 170, 0.08);
-  border: 1px solid rgba(0, 212, 170, 0.2);
+  background: var(--theme-accent-8);
+  border: 1px solid var(--theme-accent-20);
   border-radius: var(--radius-sm);
   margin-bottom: 16px;
 }
@@ -6335,7 +6435,7 @@ input[type="checkbox"] {
 }
 
 .edge-always {
-  background: rgba(0, 212, 170, 0.15);
+  background: var(--theme-accent-primary-subtle);
   color: var(--accent);
 }
 
@@ -6437,7 +6537,7 @@ input[type="checkbox"] {
   content: '';
   position: absolute;
   inset: 2px;
-  background: rgba(0, 212, 170, 0.3);
+  background: var(--theme-accent-30);
   clip-path: polygon(
     0 0,
     calc(100% - 2px) 0,
@@ -6689,7 +6789,7 @@ input[type="checkbox"] {
   content: '';
   position: absolute;
   inset: 1px;
-  background: rgba(0, 212, 170, 0.2);
+  background: var(--theme-accent-20);
   clip-path: polygon(
     0 0,
     calc(100% - 3px) 0,
@@ -6744,7 +6844,7 @@ input[type="checkbox"] {
 }
 
 .pipeline-toggle input:checked + .toggle-slider {
-  background: rgba(0, 212, 170, 0.3);
+  background: var(--theme-accent-30);
   border-color: var(--accent);
 }
 
@@ -6771,8 +6871,8 @@ input[type="checkbox"] {
   justify-content: center;
   gap: 6px;
   padding: 8px 12px;
-  background: rgba(0, 212, 170, 0.15);
-  border: 1px solid rgba(0, 212, 170, 0.3);
+  background: var(--theme-accent-primary-subtle);
+  border: 1px solid var(--theme-accent-30);
   border-radius: 6px;
   color: var(--accent);
   font-size: 11px;
@@ -6782,7 +6882,7 @@ input[type="checkbox"] {
 }
 
 .pipeline-install-btn:hover:not(:disabled) {
-  background: rgba(0, 212, 170, 0.25);
+  background: var(--theme-accent-25);
   border-color: var(--accent);
 }
 
@@ -6997,7 +7097,7 @@ select.settings-input {
 }
 
 .mcp-tab.active::after {
-  background: rgba(0, 212, 170, 0.15);
+  background: var(--theme-accent-primary-subtle);
 }
 
 .mcp-modal-message {

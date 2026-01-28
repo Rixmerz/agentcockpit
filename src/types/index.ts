@@ -15,6 +15,9 @@ export interface Project {
   createdAt: number;
 }
 
+// Available themes
+export type ThemeId = 'cyber-teal' | 'battlefield';
+
 // App configuration persisted to JSON
 export interface AppConfig {
   projects: Project[];
@@ -25,6 +28,7 @@ export interface AppConfig {
   mcpDefaultEnabled: boolean;
   // Global settings
   defaultIDE?: 'cursor' | 'code' | 'antigravity';
+  theme?: ThemeId; // Color theme
   backgroundImage?: string;  // URL or local path
   backgroundOpacity?: number; // 0-100
   terminalOpacity?: number; // 0-100, opacity of terminal container
@@ -84,6 +88,7 @@ export type AppAction =
   | { type: 'LOAD_CONFIG'; payload: AppConfig }
   // Global settings actions
   | { type: 'SET_DEFAULT_IDE'; payload: 'cursor' | 'code' | 'antigravity' | undefined }
+  | { type: 'SET_THEME'; payload: ThemeId }
   | { type: 'SET_BACKGROUND_IMAGE'; payload: string | undefined }
   | { type: 'SET_BACKGROUND_OPACITY'; payload: number }
   | { type: 'SET_TERMINAL_OPACITY'; payload: number }

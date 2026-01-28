@@ -41,7 +41,12 @@ function LoadingScreen() {
 function MainContent() {
   const { state, activeProject, activeTerminal, addProject, addTerminal, setActiveTerminal, removeTerminal, renameTerminal, removeProject } = useApp();
   const { writeToActiveTerminal, hasActiveTerminal } = useTerminalActions();
-  const { defaultIDE, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout } = useAppSettings();
+  const { defaultIDE, theme, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout } = useAppSettings();
+
+  // Apply theme to document root so CSS variables cascade properly
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
   const { isTerminalFinished, clearTerminalActivity } = useTerminalActivityState();
 
   // Idle mode - fade UI after configured inactivity (0 = disabled)
@@ -197,6 +202,7 @@ function MainContent() {
   return (
     <div
       className={`app ${isIdle ? 'app--idle' : ''}`}
+      data-theme={theme}
       style={{
         backgroundImage: getBackgroundUrl(backgroundImage),
         backgroundSize: 'cover',

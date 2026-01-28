@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { useAppSettings } from '../../contexts/AppContext';
 import { playNotificationSound } from '../../services/soundService';
+import type { ThemeId } from '../../types';
+
+const THEME_OPTIONS: { id: ThemeId; name: string; description: string; color: string }[] = [
+  { id: 'cyber-teal', name: 'Cyber Teal', description: 'Teal/cyan futuristic theme', color: '#00d4aa' },
+  { id: 'battlefield', name: 'Battlefield', description: 'Orange military-tech theme', color: '#ff6b00' },
+];
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -21,6 +27,7 @@ const SOUND_OPTIONS = [
 export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalProps) {
   const {
     defaultIDE,
+    theme,
     backgroundImage,
     backgroundOpacity,
     terminalOpacity,
@@ -29,6 +36,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     terminalFinishedThreshold,
     customSoundPath,
     setDefaultIDE,
+    setTheme,
     setBackgroundImage,
     setBackgroundOpacity,
     setTerminalOpacity,
@@ -38,6 +46,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     setCustomSoundPath,
   } = useAppSettings();
 
+  const [localTheme, setLocalTheme] = useState<ThemeId>(theme);
   const [localImage, setLocalImage] = useState(backgroundImage || '');
   const [localOpacity, setLocalOpacity] = useState(backgroundOpacity);
   const [localTerminalOpacity, setLocalTerminalOpacity] = useState(terminalOpacity);
@@ -49,6 +58,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
   // Sync local state when modal opens
   useEffect(() => {
     if (isOpen) {
+      setLocalTheme(theme);
       setLocalImage(backgroundImage || '');
       setLocalOpacity(backgroundOpacity);
       setLocalTerminalOpacity(terminalOpacity);
@@ -57,9 +67,10 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
       setLocalFinishedThreshold(terminalFinishedThreshold);
       setLocalCustomSoundPath(customSoundPath || null);
     }
-  }, [isOpen, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout, terminalFinishedSound, terminalFinishedThreshold, customSoundPath]);
+  }, [isOpen, theme, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout, terminalFinishedSound, terminalFinishedThreshold, customSoundPath]);
 
   const handleSave = () => {
+    setTheme(localTheme);
     setBackgroundImage(localImage || undefined);
     setBackgroundOpacity(localOpacity);
     setTerminalOpacity(localTerminalOpacity);
@@ -71,6 +82,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
   };
 
   const handleCancel = () => {
+    setLocalTheme(theme);
     setLocalImage(backgroundImage || '');
     setLocalOpacity(backgroundOpacity);
     setLocalTerminalOpacity(terminalOpacity);
@@ -143,6 +155,35 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
               <span>Antigravity</span>
             </label>
           )}
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <h3 className="settings-section-title">Color Theme</h3>
+        <p className="settings-section-desc">
+          Choose the accent color theme for the interface
+        </p>
+
+        <div className="settings-theme-group">
+          {THEME_OPTIONS.map(themeOption => (
+            <label
+              key={themeOption.id}
+              className={`settings-theme-item ${localTheme === themeOption.id ? 'active' : ''}`}
+              style={{ '--theme-preview-color': themeOption.color } as React.CSSProperties}
+            >
+              <input
+                type="radio"
+                name="theme"
+                checked={localTheme === themeOption.id}
+                onChange={() => setLocalTheme(themeOption.id)}
+              />
+              <span className="settings-theme-preview" />
+              <div className="settings-theme-info">
+                <span className="settings-theme-name">{themeOption.name}</span>
+                <span className="settings-theme-desc">{themeOption.description}</span>
+              </div>
+            </label>
+          ))}
         </div>
       </div>
 
