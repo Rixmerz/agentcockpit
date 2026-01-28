@@ -376,6 +376,58 @@ integration-template/
 
 ---
 
+---
+
+## ✅ IMPLEMENTACIÓN STATUS
+
+### Fase 1: ✅ COMPLETADA (2026-01-28)
+- [x] Estructura de directorios (~/.agentcockpit/)
+- [x] Archivo config.json con lista de integraciones
+- [x] marketplaceService.ts con CRUD + hardcoded registry (Agentful)
+- [x] pipelineService.ts actualizado (GraphNode type='integration')
+- [x] MarketplacePanel.tsx con UI funcional
+- [x] TypeScript: 0 errores
+
+**Archivos Nuevos:**
+- `src/services/marketplaceService.ts` (9.8 KB)
+- `src/components/marketplace/MarketplacePanel.tsx` (12 KB)
+
+### Fase 2: ✅ COMPLETADA (2026-01-28)
+- [x] integrationWrapperService.ts - Lifecycle management
+- [x] integrationNodeHandler.ts - Node processing
+- [x] hybrid-denofresh-agentful-graph.yaml - Example pipeline
+- [x] PHASE2-INTEGRATION-WRAPPER.md - Documentación completa
+
+**Archivos Nuevos:**
+- `src/services/integrationWrapperService.ts` (5.2 KB)
+- `src/services/integrationNodeHandler.ts` (6.8 KB)
+- `.claude/pipelines/hybrid-denofresh-agentful-graph.yaml` (3.1 KB)
+- `PHASE2-INTEGRATION-WRAPPER.md` (Documentación)
+
+**Funcionamiento:**
+1. Pipeline llega a nodo type='integration'
+2. integrationNodeHandler valida que Agentful está instalado
+3. Prepara wrapper context con task, plan, stack
+4. Inyecta prompt especial indicando que debe ejecutar /agentful-start
+5. Claude ejecuta skill, Agentful toma control
+6. Monitorea salida esperando "AGENTFUL_COMPLETE"
+7. Detecta señal de salida, transiciona al siguiente nodo
+
+### Fase 3: ⏳ PENDIENTE
+- [ ] Hook pause/resume logic
+- [ ] Skill execution with context passing
+- [ ] Exit signal monitoring with timeout
+- [ ] State preservation during wrapper
+- [ ] Production testing
+
+### Fase 4: ⏳ FUTURO
+- [ ] Registry remoto (API)
+- [ ] Más integraciones (Claude Coder, Devin-like, etc)
+- [ ] Contribución de integraciones
+
+---
+
 *Roadmap creado: 2026-01-28*
-*Versión: 1.0.0*
-*Estado: Planificación inicial*
+*Última actualización: 2026-01-28*
+*Versión: 2.0.0 (Phase 1 + Phase 2 completadas)*
+*Estado: En desarrollo - Phase 2 lista para Phase 3*

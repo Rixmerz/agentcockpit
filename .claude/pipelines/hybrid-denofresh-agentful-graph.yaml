@@ -1,0 +1,193 @@
+metadata:
+  name: "Hybrid Deno Fresh + Agentful"
+  description: "Sequential analysis + parallel development with Agentful integration"
+  version: "1.0.0"
+  type: "graph"
+  integrations_required:
+    - agentful
+  architecture: "hybrid (sequential → parallel → review)"
+
+nodes:
+  # ====== PHASE 1: Analysis (Sequential, AgentCockpit control) ======
+
+  - id: "url-capture"
+    name: "URL & Requirements Capture"
+    is_start: true
+    model: "haiku"
+    mcps_enabled:
+      - "sequential-thinking"
+    prompt_injection: |
+      TASK: Capture URL and requirements from user.
+
+      Use sequential-thinking to understand:
+      1. What webpage to analyze
+      2. Key requirements for the recreation
+      3. Technology stack (Deno Fresh)
+
+      Ask user for URL if not provided.
+
+  - id: "web-analysis"
+    name: "Web Analysis & Lighthouse"
+    model: "sonnet"
+    mcps_enabled:
+      - "*"
+    prompt_injection: |
+      TASK: Analyze the webpage provided.
+
+      Use Explore agent to analyze structure and content.
+      Generate Lighthouse report if possible.
+      Document findings for reconstruction.
+
+  - id: "planning"
+    name: "Implementation Planning"
+    model: "opus"
+    mcps_enabled:
+      - "sequential-thinking"
+    prompt_injection: |
+      TASK: Create detailed implementation plan.
+
+      Based on analysis:
+      1. Define components needed
+      2. Plan data structures
+      3. Outline development phases
+      4. Create Agentful orchestration strategy
+
+      Output structured plan for Agentful.
+
+  # ====== PHASE 2: Parallel Development (Agentful control) ======
+
+  - id: "parallel-development"
+    name: "Parallel Development with Agentful"
+    type: "integration"
+    integration: "agentful"
+    model: "sonnet"
+    prompt_injection: |
+      TASK: Execute parallel development phase.
+
+      REQUIRED: Execute /agentful-start with context:
+      - Plan from previous node
+      - Stack: Deno Fresh 2.2
+      - Target: Build all components in parallel
+
+      Agentful will coordinate:
+      - Backend agent: API routes
+      - Frontend agent: UI components
+      - Tester agent: Unit tests
+      - Reviewer agent: Code review
+
+      DO NOT proceed until AGENTFUL_COMPLETE is emitted.
+
+    wrapper_config:
+      entry_skill: "/agentful-start"
+      entry_context: "{{planning.output}}"
+      exit_signal: "AGENTFUL_COMPLETE"
+      timeout_minutes: 45
+      fallback_edge: "manual-override"
+
+  # ====== PHASE 3: Review (Sequential, AgentCockpit control) ======
+
+  - id: "ui-review"
+    name: "UI/UX Review"
+    model: "sonnet"
+    mcps_enabled:
+      - "*"
+    prompt_injection: |
+      TASK: Review output from Agentful development.
+
+      Check:
+      1. UI/UX quality
+      2. Component structure
+      3. Styling consistency
+      4. Accessibility
+
+  - id: "final-validation"
+    name: "Final Validation & Deployment"
+    is_end: true
+    model: "haiku"
+    mcps_enabled:
+      - "*"
+    prompt_injection: |
+      TASK: Final validation and deployment.
+
+      Verify all tests pass, create deployment instructions.
+
+edges:
+  # PHASE 1 Sequential Flow
+  - id: "capture-to-analysis"
+    from: "url-capture"
+    to: "web-analysis"
+    condition:
+      type: "phrase"
+      phrases:
+        - "url received"
+        - "ready to analyze"
+        - "proceeding to analysis"
+    priority: 1
+
+  - id: "analysis-to-planning"
+    from: "web-analysis"
+    to: "planning"
+    condition:
+      type: "phrase"
+      phrases:
+        - "analysis complete"
+        - "ready for planning"
+        - "structure documented"
+    priority: 1
+
+  # PHASE 2: Enter Agentful integration
+  - id: "planning-to-parallel"
+    from: "planning"
+    to: "parallel-development"
+    condition:
+      type: "phrase"
+      phrases:
+        - "plan ready"
+        - "ready for development"
+        - "agentful ready"
+    priority: 1
+
+  # PHASE 2: Exit Agentful integration
+  - id: "parallel-to-review"
+    from: "parallel-development"
+    to: "ui-review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "AGENTFUL_COMPLETE"
+    priority: 1
+
+  # PHASE 2: Fallback if needs replanning
+  - id: "parallel-to-planning-retry"
+    from: "parallel-development"
+    to: "planning"
+    condition:
+      type: "phrase"
+      phrases:
+        - "needs replanning"
+        - "plan issues detected"
+    priority: 2
+
+  # PHASE 3 Review flow
+  - id: "review-to-validation"
+    from: "ui-review"
+    to: "final-validation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "review complete"
+        - "approved"
+        - "ready for deployment"
+    priority: 1
+
+  # Loop back for fixes
+  - id: "review-to-parallel-fixes"
+    from: "ui-review"
+    to: "parallel-development"
+    condition:
+      type: "phrase"
+      phrases:
+        - "needs fixes"
+        - "issues found"
+        - "back to development"
+    priority: 2
