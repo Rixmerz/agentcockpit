@@ -1,4 +1,4 @@
-import { GraphNode } from './pipelineService';
+import type { GraphNode } from './pipelineService';
 import { integrationWrapperService } from './integrationWrapperService';
 
 export interface NodeHandlerContext {
@@ -169,7 +169,7 @@ CRITICAL INSTRUCTIONS:
 
 3. DELEGATE TO INTEGRATION
    ${manifest.name} will manage:
-   ${manifest.provides.agents?.map(a => `   - ${a}`).join('\n') || '   - (agents)'}
+   ${manifest.provides.agents?.map((a: string) => `   - ${a}`).join('\n') || '   - (agents)'}
 
 4. MONITOR FOR EXIT CONDITION
    When you receive the signal: "${wrapperConfig.exit_signal}"

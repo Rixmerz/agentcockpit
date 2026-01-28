@@ -1,5 +1,5 @@
 import { homeDir } from '@tauri-apps/api/path';
-import { readTextFile, writeTextFile, exists, mkdir, removeDir } from '@tauri-apps/plugin-fs';
+import { readTextFile, writeTextFile, exists, mkdir, remove } from '@tauri-apps/plugin-fs';
 import { executeCommand } from './fileSystemService';
 
 export interface IntegrationSource {
@@ -128,7 +128,7 @@ async function loadConfig(): Promise<MarketplaceConfig> {
     const cfgPath = await getConfigPath();
     const content = await readTextFile(cfgPath);
     cachedConfig = JSON.parse(content);
-    return cachedConfig;
+    return cachedConfig as MarketplaceConfig;
   } catch (error) {
     console.error('[Marketplace] Error loading config:', error);
     throw error;
@@ -250,7 +250,7 @@ export const marketplaceService = {
       const integrationDir = `${intDir}/${integrationId}`;
 
       if (await exists(integrationDir)) {
-        await removeDir(integrationDir, { recursive: true });
+        await remove(integrationDir, { recursive: true });
       }
 
       const config = await loadConfig();

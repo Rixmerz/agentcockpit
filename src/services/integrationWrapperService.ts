@@ -1,4 +1,4 @@
-import { marketplaceService, IntegrationManifest } from './marketplaceService';
+import { marketplaceService, type IntegrationManifest } from './marketplaceService';
 
 export interface WrapperContext {
   integrationId: string;

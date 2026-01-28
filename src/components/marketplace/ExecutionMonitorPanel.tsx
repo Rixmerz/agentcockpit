@@ -9,7 +9,7 @@
  * - Progress percentage and agent status
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Play, AlertCircle, CheckCircle, Clock, Loader } from 'lucide-react';
 import type { WrapperExecutionState } from '../../services/wrapperStateService';
 import { wrapperStateService } from '../../services/wrapperStateService';
@@ -86,7 +86,7 @@ function ExecutionDetail({ execution, projectPath }: ExecutionDetailProps) {
     const refreshProgress = async () => {
       try {
         setRefreshing(true);
-        const progressData = await agentfulIntegrationService.getAgentfulProgress(projectPath);
+        const progressData = await agentfulIntegrationService.getAgentfulProgress();
         setProgress(progressData);
       } catch (err) {
         console.error('[ExecutionMonitor] Failed to get progress:', err);

@@ -51,90 +51,17 @@
       ]
     },
     {
-      "version": 209,
-      "commitHash": "13c7f44f15e31e86ea0297a2cebae9340275c91a",
-      "tag": "snapshot-v209",
-      "timestamp": 1769522152000,
-      "message": "Snapshot V209",
+      "version": 217,
+      "commitHash": "f8dedee1a8384c68b812c92ddc239580ecabbcbc",
+      "tag": "snapshot-v217",
+      "timestamp": 1769579263188,
+      "message": "Snapshot V217",
       "filesChanged": [
         ".pipeline-manager/data/ig-mcp.db-shm",
         ".pipeline-manager/data/ig-mcp.db-wal"
-      ]
-    },
-    {
-      "version": 210,
-      "commitHash": "065a2dfd2bce595a0a51d4b67cd25cc1861eff1e",
-      "tag": "snapshot-v210",
-      "timestamp": 1769522163000,
-      "message": "Snapshot V210",
-      "filesChanged": [
-        ".pipeline-manager/data/ig-mcp.db-shm",
-        ".pipeline-manager/data/ig-mcp.db-wal"
-      ]
-    },
-    {
-      "version": 211,
-      "commitHash": "f9404b0988e89761d0d348dc2f42797678adfccc",
-      "tag": "snapshot-v211",
-      "timestamp": 1769564241000,
-      "message": "Snapshot V211",
-      "filesChanged": [
-        "src/services/pipelineService.ts"
-      ]
-    },
-    {
-      "version": 212,
-      "commitHash": "3d86ed37b3d2ea1a4ca777bcec27316e7186ac58",
-      "tag": "snapshot-v212",
-      "timestamp": 1769564590000,
-      "message": "Snapshot V212",
-      "filesChanged": []
-    },
-    {
-      "version": 213,
-      "commitHash": "f82fb1e14301d9c9c493d2b3fb57fb14389202b7",
-      "tag": "snapshot-v213",
-      "timestamp": 1769573735000,
-      "message": "Snapshot V213",
-      "filesChanged": [
-        "src/components/pipeline/PipelineModal.tsx",
-        "src/components/pipeline/PipelinePanel.tsx"
-      ]
-    },
-    {
-      "version": 214,
-      "commitHash": "4e843cef3e92f96f91b78ea65942d0e032fd6ef5",
-      "tag": "snapshot-v214",
-      "timestamp": 1769573858000,
-      "message": "Snapshot V214",
-      "filesChanged": [
-        "src/services/pipelineService.ts"
-      ]
-    },
-    {
-      "version": 215,
-      "commitHash": "f2d8f7e4273f4c8393718e660f6b98ae0606b88e",
-      "tag": "snapshot-v215",
-      "timestamp": 1769573926000,
-      "message": "Snapshot V215",
-      "filesChanged": [
-        "src/services/pipelineService.ts"
-      ]
-    },
-    {
-      "version": 216,
-      "commitHash": "286939450d6957d480c6ec87459efcc7049222f0",
-      "tag": "snapshot-v216",
-      "timestamp": 1769574594000,
-      "message": "Snapshot V216",
-      "filesChanged": [
-        "src/components/pipeline/PipelineModal.tsx",
-        "src/components/pipeline/PipelinePanel.tsx",
-        "src/services/pipelineService.ts",
-        "src/types/index.ts"
       ]
     }
   ],
-  "nextVersion": 217,
-  "currentVersion": null
+  "nextVersion": 218,
+  "currentVersion": 217
 }

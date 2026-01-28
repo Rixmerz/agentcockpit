@@ -158,7 +158,7 @@ export const agentfulIntegrationService = {
   /**
    * Monitor Agentful progress
    */
-  async getAgentfulProgress(projectPath: string): Promise<{
+  async getAgentfulProgress(): Promise<{
     percentComplete: number;
     agentStatus: Record<string, string>;
     timeElapsed: number;
@@ -196,7 +196,7 @@ export const agentfulIntegrationService = {
   /**
    * Parse Agentful output for files created
    */
-  parseAgentfulOutput(output: string): {
+  parseAgentfulOutput(): {
     endpointsCreated: string[];
     componentsCreated: string[];
     testsWritten: number;

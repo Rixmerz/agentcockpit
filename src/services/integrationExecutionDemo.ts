@@ -11,7 +11,6 @@
  * Use this to test the complete system or as a reference for production implementation.
  */
 
-import { phase3WrapperExecutor } from './phase3WrapperExecutor';
 import { wrapperStateService } from './wrapperStateService';
 import { agentfulIntegrationService } from './agentfulIntegrationService';
 import { marketplaceService } from './marketplaceService';

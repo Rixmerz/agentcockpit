@@ -1,4 +1,3 @@
-import { invoke } from '@tauri-apps/api/core';
 
 export interface McpSkillContext {
   skillName: string;
@@ -61,6 +60,7 @@ export const mcpSkillExecutor = {
       console.log(`[McpSkillExecutor] Executing skill: ${context.skillName}`);
       console.log(`[McpSkillExecutor] Project: ${context.projectPath}`);
       console.log(`[McpSkillExecutor] Task: ${context.currentTask}`);
+      console.log(`[McpSkillExecutor] Context length: ${contextString.length} chars`);
 
       // Phase 4 TODO: Real MCP invocation
       // This is where we would call the actual skill execution system

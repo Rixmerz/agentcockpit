@@ -1,6 +1,6 @@
 {
   "current_nodes": [
-    "lighthouse-audit"
+    "deployment-ready"
   ],
   "node_visits": {
     "url-capture": 1,
@@ -13,7 +13,9 @@
     "seo-implementation": 1,
     "technical-files": 1,
     "accessibility-legal": 1,
-    "lighthouse-audit": 1
+    "lighthouse-audit": 1,
+    "final-review": 1,
+    "deployment-ready": 1
   },
   "execution_path": [
     {
@@ -99,10 +101,24 @@
       "edge_id": "accessibility-to-audit",
       "timestamp": "2026-01-28T02:44:40.147648",
       "reason": "Accesibilidad y legal listos: skip link, labels, ARIA, role navigation, main content"
+    },
+    {
+      "from_node": "lighthouse-audit",
+      "to_node": "final-review",
+      "edge_id": "audit-to-review",
+      "timestamp": "2026-01-28T02:47:40.830583",
+      "reason": "Auditor\u00eda aprobada: Performance 100, Accessibility 96, Best Practices 100, SEO 100"
+    },
+    {
+      "from_node": "final-review",
+      "to_node": "deployment-ready",
+      "edge_id": "review-to-complete",
+      "timestamp": "2026-01-28T02:48:26.118183",
+      "reason": "Review aprobado - todos los criterios cumplidos"
     }
   ],
   "active_graph": "denofresh-analyzer",
   "max_visits_default": 10,
-  "total_transitions": 11,
-  "last_activity": "2026-01-28T02:44:40.147674"
+  "total_transitions": 13,
+  "last_activity": "2026-01-28T02:48:26.118209"
 }

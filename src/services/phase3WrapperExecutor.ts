@@ -1,4 +1,4 @@
-import { integrationWrapperService, WrapperContext } from './integrationWrapperService';
+import { integrationWrapperService, type WrapperContext } from './integrationWrapperService';
 import { hookPauseResumeService } from './hookPauseResumeService';
 import { skillExecutionService } from './skillExecutionService';
 import { wrapperStateService } from './wrapperStateService';

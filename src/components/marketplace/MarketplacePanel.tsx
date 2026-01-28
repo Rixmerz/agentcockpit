@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Download, Trash2, Play, Stop, AlertCircle, Loader } from 'lucide-react';
-import { marketplaceService, AvailableIntegration, IntegrationManifest } from '../../services/marketplaceService';
+import { Download, Trash2, Play, AlertCircle, Loader } from 'lucide-react';
+import { marketplaceService, type AvailableIntegration, type IntegrationManifest } from '../../services/marketplaceService';
 import { DemoExecutionLauncher } from './DemoExecutionLauncher';
 
 interface MarketplacePanelProps {
@@ -9,7 +9,6 @@ interface MarketplacePanelProps {
 
 export function MarketplacePanel({ projectPath }: MarketplacePanelProps) {
   const [available, setAvailable] = useState<AvailableIntegration[]>([]);
-  const [installed, setInstalled] = useState<IntegrationManifest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
@@ -104,33 +103,6 @@ export function MarketplacePanel({ projectPath }: MarketplacePanelProps) {
     }
   }, [projectPath, refreshLists, showMessage]);
 
-  const handleDisable = useCallback(async (integrationId: string) => {
-    if (!projectPath) {
-      showMessage('error', 'No project path provided');
-      return;
-    }
-
-    setActionInProgress(integrationId);
-    try {
-      const result = await marketplaceService.disable(integrationId, projectPath);
-      if (result.success) {
-        showMessage('success', result.message);
-        await refreshLists();
-      } else {
-        showMessage('error', result.message);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Disable failed';
-      showMessage('error', msg);
-    } finally {
-      setActionInProgress(null);
-    }
-  }, [projectPath, refreshLists, showMessage]);
-
-  const getIntegrationStatus = (id: string): 'available' | 'installed' | 'disabled' => {
-    const item = available.find(a => a.id === id);
-    return item?.status || 'available';
-  };
 
   return (
     <div className="marketplace-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflow: 'auto' }}>
@@ -185,7 +157,7 @@ export function MarketplacePanel({ projectPath }: MarketplacePanelProps) {
       )}
 
       {/* Demo Execution Launcher */}
-      <DemoExecutionLauncher projectPath={projectPath} />
+      <DemoExecutionLauncher projectPath={projectPath || null} />
 
       {!loading && available.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
