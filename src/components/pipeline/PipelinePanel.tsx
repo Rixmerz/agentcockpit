@@ -611,7 +611,9 @@ export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanel
                   <div className="pipeline-current-info">
                     <span className="pipeline-current-name">{currentStep.name}</span>
                     <span className="pipeline-current-mcps">
-                      {currentStep.mcps_enabled?.join(', ') || 'none'}
+                      {Array.isArray(currentStep.mcps_enabled)
+                        ? (currentStep.mcps_enabled.join(', ') || 'none')
+                        : 'delegated'}
                     </span>
                     {/* Show visit count for current node */}
                     {graphState && state?.current_node && (
