@@ -11,7 +11,7 @@ interface TabState {
 
 export interface MediaState {
   tabId: string;
-  platform: 'youtube' | 'youtube-music' | 'unknown';
+  platform: 'youtube' | 'youtube-music' | 'html5' | 'unknown';
   title: string;
   isPlaying: boolean;
   duration: number;
@@ -288,6 +288,7 @@ export async function switchTab(fromTabId: string | null, toTabId: string): Prom
 
 // Listener for media state changes
 let mediaStateListener: UnlistenFn | null = null;
+let mediaListenerSetupInProgress = false;
 let onMediaStateCallback: ((state: MediaState) => void) | null = null;
 
 /**
@@ -301,29 +302,39 @@ export function onMediaStateChange(callback: (state: MediaState) => void): void 
  * Setup the media state listener
  */
 export async function setupMediaListener(): Promise<void> {
-  if (mediaStateListener) return;
+  // Prevent multiple simultaneous setups (race condition with React Strict Mode)
+  if (mediaStateListener || mediaListenerSetupInProgress) {
+    return;
+  }
 
-  mediaStateListener = await listen<{
-    tab_id: string;
-    platform: string;
-    title: string;
-    is_playing: boolean;
-    duration: number;
-    current_time: number;
-  }>('media-state-changed', (event) => {
-    const { tab_id, platform, title, is_playing, duration, current_time } = event.payload;
+  mediaListenerSetupInProgress = true;
 
-    if (onMediaStateCallback) {
-      onMediaStateCallback({
-        tabId: tab_id,
-        platform: platform as MediaState['platform'],
-        title,
-        isPlaying: is_playing,
-        duration,
-        currentTime: current_time,
-      });
-    }
-  });
+  try {
+    mediaStateListener = await listen<{
+      tab_id: string;
+      platform: string;
+      title: string;
+      is_playing: boolean;
+      duration: number;
+      current_time: number;
+    }>('media-state-changed', (event) => {
+      const { tab_id, platform, title, is_playing, duration, current_time } = event.payload;
+
+      const callback = onMediaStateCallback;
+      if (callback) {
+        callback({
+          tabId: tab_id,
+          platform: platform as MediaState['platform'],
+          title,
+          isPlaying: is_playing,
+          duration,
+          currentTime: current_time,
+        });
+      }
+    });
+  } finally {
+    mediaListenerSetupInProgress = false;
+  }
 }
 
 /**
@@ -342,5 +353,5 @@ export function cleanupMediaListener(): void {
     mediaStateListener();
     mediaStateListener = null;
   }
-  onMediaStateCallback = null;
+  mediaListenerSetupInProgress = false;
 }

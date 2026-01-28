@@ -4,7 +4,6 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { Workflow } from 'lucide-react';
 import { pipelineService } from '../../services/pipelineService';
 
 interface PipelineNode {
@@ -104,12 +103,6 @@ export function PipelineStepsBar({ projectPath, onNodeClick }: PipelineStepsBarP
 
   return (
     <div className="pipeline-steps-bar">
-      {/* Pipeline name indicator */}
-      <div className="pipeline-steps-bar__info">
-        <Workflow className="pipeline-steps-bar__icon" size={14} />
-        <span className="pipeline-steps-bar__name">{pipelineName}</span>
-      </div>
-
       {/* Steps */}
       {nodes.map((node, index) => {
         const status = getNodeStatus(node);

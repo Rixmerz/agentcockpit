@@ -28,8 +28,6 @@ import {
   PowerOff,
   Info,
   Settings,
-  ToggleLeft,
-  ToggleRight,
   GitBranch,
   Loader2
 } from 'lucide-react';
@@ -37,13 +35,16 @@ import {
   loadMcpConfig,
   loadDesktopMcps,
   loadCodeMcps,
+  loadGeminiMcps,
   addMcp,
   removeMcp,
   toggleMcpDisabled,
   importFromDesktop,
   importFromCode,
+  importFromGemini,
   importAllFromDesktop,
   importAllFromCode,
+  importAllFromGemini,
   openConfigInEditor,
   getConfigFilePath,
   isPipelineManagerInstalled,
@@ -54,26 +55,20 @@ import {
   type ManagedMcp,
   type McpServerConfig
 } from '../../services/mcpConfigService';
-import {
-  getClaudePluginConfig,
-  updateClaudePluginConfig,
-  type ClaudePluginConfig
-} from '../../services/pluginConfigService';
-
 interface McpManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onMcpsChanged?: () => void;
-  onPluginConfigChanged?: (config: ClaudePluginConfig) => void;
 }
 
 type TabType = 'active' | 'import' | 'add' | 'settings';
 
-export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfigChanged }: McpManagerModalProps) {
+export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [activeMcps, setActiveMcps] = useState<ManagedMcp[]>([]);
   const [desktopMcps, setDesktopMcps] = useState<Record<string, McpServerConfig>>({});
   const [codeMcps, setCodeMcps] = useState<Record<string, McpServerConfig>>({});
+  const [geminiMcps, setGeminiMcps] = useState<Record<string, McpServerConfig>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
   const [configPath, setConfigPath] = useState<string>('');
@@ -81,9 +76,6 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
   // Manual add state
   const [manualJson, setManualJson] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
-
-  // Plugin config state
-  const [pluginConfig, setPluginConfig] = useState<ClaudePluginConfig>({ showLegacyMcpPanel: true });
 
   // Pipeline Manager state
   const [pipelineManagerInstalled, setPipelineManagerInstalled] = useState(false);
@@ -101,12 +93,12 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [config, desktop, code, path, claudeConfig, pipelineInstalled, acPath] = await Promise.all([
+      const [config, desktop, code, gemini, path, pipelineInstalled, acPath] = await Promise.all([
         loadMcpConfig(),
         loadDesktopMcps(),
         loadCodeMcps(),
+        loadGeminiMcps(),
         getConfigFilePath(),
-        getClaudePluginConfig(),
         isPipelineManagerInstalled(),
         getAgentcockpitPath()
       ]);
@@ -114,8 +106,8 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
       setActiveMcps(Object.values(config.mcpServers));
       setDesktopMcps(desktop);
       setCodeMcps(code);
+      setGeminiMcps(gemini);
       setConfigPath(path);
-      setPluginConfig(claudeConfig);
       setPipelineManagerInstalled(pipelineInstalled);
       setAgentcockpitPathState(acPath || '');
     } catch (e) {
@@ -125,21 +117,6 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
       setIsLoading(false);
     }
   }, [showMessage]);
-
-  // Handle toggle legacy MCP panel
-  const handleToggleLegacyPanel = useCallback(async () => {
-    const newValue = !pluginConfig.showLegacyMcpPanel;
-    const result = await updateClaudePluginConfig({ showLegacyMcpPanel: newValue });
-
-    if (result.success) {
-      const updatedConfig = { ...pluginConfig, showLegacyMcpPanel: newValue };
-      setPluginConfig(updatedConfig);
-      showMessage('success', `Legacy MCP panel ${newValue ? 'enabled' : 'disabled'}`);
-      onPluginConfigChanged?.(updatedConfig);
-    } else {
-      showMessage('error', result.message);
-    }
-  }, [pluginConfig, showMessage, onPluginConfigChanged]);
 
   // Handle install Pipeline Manager (auto-detects path)
   const handleInstallPipelineManager = useCallback(async (pathOverride?: string) => {
@@ -247,10 +224,15 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
   }, [loadData, showMessage, onMcpsChanged]);
 
   // Handle import single MCP
-  const handleImportSingle = useCallback(async (name: string, source: 'desktop' | 'code') => {
-    const result = source === 'desktop'
-      ? await importFromDesktop(name)
-      : await importFromCode(name);
+  const handleImportSingle = useCallback(async (name: string, source: 'desktop' | 'code' | 'gemini') => {
+    let result;
+    if (source === 'desktop') {
+      result = await importFromDesktop(name);
+    } else if (source === 'code') {
+      result = await importFromCode(name);
+    } else {
+      result = await importFromGemini(name);
+    }
 
     if (result.success) {
       showMessage('success', result.message);
@@ -262,10 +244,15 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
   }, [loadData, showMessage, onMcpsChanged]);
 
   // Handle import all
-  const handleImportAll = useCallback(async (source: 'desktop' | 'code') => {
-    const result = source === 'desktop'
-      ? await importAllFromDesktop()
-      : await importAllFromCode();
+  const handleImportAll = useCallback(async (source: 'desktop' | 'code' | 'gemini') => {
+    let result;
+    if (source === 'desktop') {
+      result = await importAllFromDesktop();
+    } else if (source === 'code') {
+      result = await importAllFromCode();
+    } else {
+      result = await importAllFromGemini();
+    }
 
     if (result.success) {
       showMessage('success', result.message);
@@ -593,10 +580,62 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged, onPluginConfig
                   )}
                 </div>
 
+                {/* Gemini Section */}
+                <div className="mcp-import-section">
+                  <div className="mcp-section-header">
+                    <span>Gemini CLI ({Object.keys(geminiMcps).length})</span>
+                    <button
+                      className="btn-secondary btn-sm"
+                      onClick={() => handleImportAll('gemini')}
+                      disabled={Object.keys(geminiMcps).length === 0}
+                    >
+                      Import All
+                    </button>
+                  </div>
+
+                  {Object.keys(geminiMcps).length === 0 ? (
+                    <div className="mcp-empty-small">No MCPs in Gemini config</div>
+                  ) : (
+                    <div className="mcp-import-list">
+                      {Object.entries(geminiMcps).map(([name, _config]) => {
+                        const imported = isAlreadyImported(name);
+                        return (
+                          <div key={name} className={`mcp-import-item ${imported ? 'imported' : ''}`}>
+                            <div className="mcp-import-item-info">
+                              <Server size={14} />
+                              <span>{name}</span>
+                              {imported && <span className="mcp-badge">imported</span>}
+                            </div>
+                            <div className="mcp-import-item-actions">
+                              {imported ? (
+                                <button
+                                  className="btn-icon-sm danger"
+                                  onClick={() => handleRemove(name)}
+                                  title="Remove from config"
+                                >
+                                  <X size={14} />
+                                </button>
+                              ) : (
+                                <button
+                                  className="btn-icon-sm"
+                                  onClick={() => handleImportSingle(name, 'gemini')}
+                                  title="Import"
+                                >
+                                  <Download size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div className="mcp-import-note">
                   <AlertTriangle size={14} />
                   <span>
-                    Import copies the MCP configuration. The original in Desktop/Code is NOT removed.
+                    Import copies the MCP configuration. The original config is NOT removed.
                     If you want to clean up duplicates, you must manually remove them from the original location.
                   </span>
                 </div>
@@ -680,30 +719,6 @@ Or with mcpServers wrapper:
               <div className="mcp-settings-tab">
                 <div className="mcp-section-header">
                   <span>Plugin Settings</span>
-                </div>
-
-                <div className="mcp-settings-list">
-                  {/* Legacy MCP Panel Toggle */}
-                  <div className="mcp-setting-item">
-                    <div className="mcp-setting-info">
-                      <span className="mcp-setting-label">Show Legacy MCP Panel</span>
-                      <span className="mcp-setting-description">
-                        Display the inline MCP panel in the Claude plugin sidebar.
-                        When disabled, use only this centralized MCP Manager.
-                      </span>
-                    </div>
-                    <button
-                      className="mcp-toggle-btn"
-                      onClick={handleToggleLegacyPanel}
-                      title={pluginConfig.showLegacyMcpPanel ? 'Disable' : 'Enable'}
-                    >
-                      {pluginConfig.showLegacyMcpPanel ? (
-                        <ToggleRight size={28} style={{ color: 'var(--accent)' }} />
-                      ) : (
-                        <ToggleLeft size={28} style={{ color: 'var(--text-muted)' }} />
-                      )}
-                    </button>
-                  </div>
                 </div>
 
                 {/* Pipeline Manager Section */}
