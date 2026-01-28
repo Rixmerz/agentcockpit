@@ -105,13 +105,13 @@ export interface PipelineStep {
   id: string;
   order: number;
   name: string;
-  description: string;
-  prompt_injection: string;
-  mcps_enabled: string[];
-  tools_blocked: string[];
-  gate_type: 'any' | 'tool' | 'phrase' | 'always';
-  gate_tool: string;
-  gate_phrases: string[];
+  description?: string;
+  prompt_injection?: string;
+  mcps_enabled?: string[];
+  tools_blocked?: string[];
+  gate_type?: 'any' | 'tool' | 'phrase' | 'always';
+  gate_tool?: string;
+  gate_phrases?: string[];
 }
 
 // Pipeline settings

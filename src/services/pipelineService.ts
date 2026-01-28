@@ -1072,6 +1072,155 @@ export async function deactivatePipeline(projectPath: string): Promise<boolean> 
 }
 
 // ============================================
+// Copy All Agents and Skills to Project
+// ============================================
+
+export interface CopyAssetsResult {
+  success: boolean;
+  agentsCopied: string[];
+  skillsCopied: string[];
+  errors: string[];
+}
+
+export async function copyAllAgentsToProject(projectPath: string): Promise<CopyAssetsResult> {
+  const result: CopyAssetsResult = {
+    success: true,
+    agentsCopied: [],
+    skillsCopied: [],
+    errors: []
+  };
+
+  try {
+    const globalAgentsDir = await getGlobalAgentsDir();
+    const projectAgentsDir = `${projectPath}/.claude/agents`;
+
+    // Check if global agents directory exists
+    const globalExists = await exists(globalAgentsDir);
+    if (!globalExists) {
+      console.log('[Graph] No global agents directory found');
+      return result;
+    }
+
+    // Ensure project agents directory exists
+    const projectDirExists = await exists(projectAgentsDir);
+    if (!projectDirExists) {
+      await mkdir(projectAgentsDir, { recursive: true });
+    }
+
+    // Read all agent files
+    const entries = await readDir(globalAgentsDir);
+
+    for (const entry of entries) {
+      if (!entry.name?.endsWith('.md')) continue;
+
+      try {
+        const sourcePath = `${globalAgentsDir}/${entry.name}`;
+        const destPath = `${projectAgentsDir}/${entry.name}`;
+
+        const content = await readTextFile(sourcePath);
+        await writeTextFile(destPath, content);
+
+        const agentName = entry.name.replace('.md', '');
+        result.agentsCopied.push(agentName);
+        console.log(`[Graph] Agent copied: ${agentName}`);
+      } catch (e) {
+        const error = `Failed to copy ${entry.name}: ${e}`;
+        result.errors.push(error);
+        console.error(`[Graph] ${error}`);
+      }
+    }
+
+    console.log(`[Graph] Copied ${result.agentsCopied.length} agents to project`);
+  } catch (e) {
+    result.success = false;
+    result.errors.push(`Failed to copy agents: ${e}`);
+    console.error('[Graph] Error copying agents:', e);
+  }
+
+  return result;
+}
+
+export async function copyAllSkillsToProject(projectPath: string): Promise<CopyAssetsResult> {
+  const result: CopyAssetsResult = {
+    success: true,
+    agentsCopied: [],
+    skillsCopied: [],
+    errors: []
+  };
+
+  try {
+    const globalSkillsDir = await getGlobalSkillsDir();
+    const projectSkillsDir = `${projectPath}/.claude/skills`;
+
+    // Check if global skills directory exists
+    const globalExists = await exists(globalSkillsDir);
+    if (!globalExists) {
+      console.log('[Graph] No global skills directory found');
+      return result;
+    }
+
+    // Ensure project skills directory exists
+    const projectDirExists = await exists(projectSkillsDir);
+    if (!projectDirExists) {
+      await mkdir(projectSkillsDir, { recursive: true });
+    }
+
+    // Read all skill directories
+    const entries = await readDir(globalSkillsDir);
+
+    for (const entry of entries) {
+      if (!entry.isDirectory) continue;
+
+      try {
+        const skillName = entry.name;
+        const sourceDir = `${globalSkillsDir}/${skillName}`;
+        const destDir = `${projectSkillsDir}/${skillName}`;
+
+        // Ensure destination skill directory exists
+        const destDirExists = await exists(destDir);
+        if (!destDirExists) {
+          await mkdir(destDir, { recursive: true });
+        }
+
+        // Copy SKILL.md if it exists
+        const skillFilePath = `${sourceDir}/SKILL.md`;
+        const skillFileExists = await exists(skillFilePath);
+        if (skillFileExists) {
+          const content = await readTextFile(skillFilePath);
+          await writeTextFile(`${destDir}/SKILL.md`, content);
+          result.skillsCopied.push(skillName);
+          console.log(`[Graph] Skill copied: ${skillName}`);
+        }
+      } catch (e) {
+        const error = `Failed to copy skill ${entry.name}: ${e}`;
+        result.errors.push(error);
+        console.error(`[Graph] ${error}`);
+      }
+    }
+
+    console.log(`[Graph] Copied ${result.skillsCopied.length} skills to project`);
+  } catch (e) {
+    result.success = false;
+    result.errors.push(`Failed to copy skills: ${e}`);
+    console.error('[Graph] Error copying skills:', e);
+  }
+
+  return result;
+}
+
+export async function copyAllAssetsToProject(projectPath: string): Promise<CopyAssetsResult> {
+  const agentsResult = await copyAllAgentsToProject(projectPath);
+  const skillsResult = await copyAllSkillsToProject(projectPath);
+
+  return {
+    success: agentsResult.success && skillsResult.success,
+    agentsCopied: agentsResult.agentsCopied,
+    skillsCopied: skillsResult.skillsCopied,
+    errors: [...agentsResult.errors, ...skillsResult.errors]
+  };
+}
+
+// ============================================
 // Global Pipelines
 // ============================================
 
