@@ -16,12 +16,25 @@ import {
   X,
   ArrowUp,
   ArrowDown,
+  Camera,
+  RotateCcw,
+  Loader2,
+  Download,
+  Trash2,
+  Settings,
 } from 'lucide-react';
 import { DropdownPanel, DropdownItem, DropdownSection } from './DropdownPanel';
+import { AudioVisualizer } from './AudioVisualizer';
 
 // Import services
-import { pipelineService } from '../../services/pipelineService';
+import { pipelineService, copyAllAssetsToProject } from '../../services/pipelineService';
 import { loadMcpConfig } from '../../services/mcpConfigService';
+import {
+  isPipelineHooksInstalled,
+  installPipelineHooks,
+  uninstallPipelineHooks,
+} from '../../services/hookService';
+import { McpManagerModal } from '../mcp/McpManagerModal';
 import {
   getGitStatus,
   hasLocalGitRepo,
@@ -29,6 +42,27 @@ import {
   gitPush,
   type SyncStatus,
 } from '../../services/gitService';
+import {
+  getHistory,
+  restoreSnapshot,
+  getCurrentVersion,
+  type HistoryItem,
+} from '../../services/snapshotService';
+import { useSnapshotEvent, snapshotEvents } from '../../core/utils/eventBus';
+
+// Helper function for relative time
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (minutes > 0) return `${minutes}m ago`;
+  return 'just now';
+}
 
 interface ControlBarProps {
   projectPath: string | null;
@@ -73,10 +107,13 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
   const [availablePipelines, setAvailablePipelines] = useState<string[]>([]);
   const [activePipeline, setActivePipeline] = useState<PipelineInfo | null>(null);
   const [, setPipelineLoading] = useState(false);
+  const [isPipelineInstalled, setIsPipelineInstalled] = useState(false);
+  const [isInstallingPipeline, setIsInstallingPipeline] = useState(false);
 
   // MCP state
   const [mcpServers, setMcpServers] = useState<McpStatus[]>([]);
   const [mcpLoading, setMcpLoading] = useState(false);
+  const [showMcpManager, setShowMcpManager] = useState(false);
 
   // Port state
   const [activePorts, setActivePorts] = useState<PortInfo[]>([]);
@@ -94,6 +131,12 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
   });
   const [gitLoading, setGitLoading] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
+
+  // Snapshot state
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [currentVersion, setCurrentVersion] = useState<number | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [isRestoring, setIsRestoring] = useState<number | null>(null);
 
   // Load pipelines
   useEffect(() => {
@@ -113,6 +156,10 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
             isActive: true,
           });
         }
+
+        // Check if pipeline hooks are installed
+        const installed = await isPipelineHooksInstalled(projectPath);
+        setIsPipelineInstalled(installed);
       } catch (err) {
         console.warn('[ControlBar] Failed to load pipelines:', err);
       }
@@ -122,25 +169,25 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
   }, [projectPath]);
 
   // Load MCPs
-  useEffect(() => {
-    const loadMcps = async () => {
-      setMcpLoading(true);
-      try {
-        const config = await loadMcpConfig();
-        const servers: McpStatus[] = Object.keys(config.mcpServers || {}).map(name => ({
-          name,
-          connected: false, // Would need to check actual connection status
-        }));
-        setMcpServers(servers);
-      } catch (err) {
-        console.warn('[ControlBar] Failed to load MCPs:', err);
-      } finally {
-        setMcpLoading(false);
-      }
-    };
-
-    loadMcps();
+  const loadMcps = useCallback(async () => {
+    setMcpLoading(true);
+    try {
+      const config = await loadMcpConfig();
+      const servers: McpStatus[] = Object.keys(config.mcpServers || {}).map(name => ({
+        name,
+        connected: false, // Would need to check actual connection status
+      }));
+      setMcpServers(servers);
+    } catch (err) {
+      console.warn('[ControlBar] Failed to load MCPs:', err);
+    } finally {
+      setMcpLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadMcps();
+  }, [loadMcps]);
 
   // Load Ports
   const loadPorts = useCallback(async () => {
@@ -282,6 +329,69 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     }
   }, [projectPath, loadGitInfo]);
 
+  // Load snapshots
+  const loadSnapshots = useCallback(async () => {
+    if (!projectPath) {
+      setHistoryItems([]);
+      setCurrentVersion(null);
+      return;
+    }
+
+    setSnapshotLoading(true);
+    try {
+      const [history, current] = await Promise.all([
+        getHistory(projectPath, 20),
+        getCurrentVersion(projectPath),
+      ]);
+      setHistoryItems(history.filter(i => i.type === 'snapshot'));
+      setCurrentVersion(current);
+    } catch (err) {
+      console.warn('[ControlBar] Failed to load snapshots:', err);
+    } finally {
+      setSnapshotLoading(false);
+    }
+  }, [projectPath]);
+
+  // Handle snapshot restore
+  const handleRestoreSnapshot = useCallback(async (item: HistoryItem) => {
+    if (!projectPath || item.type !== 'snapshot' || !item.version) return;
+    if (item.version === currentVersion) return;
+
+    setIsRestoring(item.version);
+    try {
+      await restoreSnapshot(projectPath, item.version, true);
+      snapshotEvents.emit('restored', {
+        version: item.version,
+        projectPath,
+      });
+      setCurrentVersion(item.version);
+    } catch (err) {
+      console.error('[ControlBar] Failed to restore snapshot:', err);
+    } finally {
+      setIsRestoring(null);
+    }
+  }, [projectPath, currentVersion]);
+
+  // Listen for snapshot events
+  useSnapshotEvent('created', (data) => {
+    if (data.projectPath === projectPath) {
+      setTimeout(() => loadSnapshots(), 500);
+    }
+  }, [projectPath, loadSnapshots]);
+
+  useSnapshotEvent('restored', (data) => {
+    if (data.projectPath === projectPath) {
+      setCurrentVersion(data.version);
+      loadSnapshots();
+    }
+  }, [projectPath, loadSnapshots]);
+
+  useSnapshotEvent('cleanup', (data) => {
+    if (data.projectPath === projectPath) {
+      loadSnapshots();
+    }
+  }, [projectPath, loadSnapshots]);
+
   // Load ports on mount and periodically
   useEffect(() => {
     loadPorts();
@@ -295,6 +405,11 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     const interval = setInterval(loadGitInfo, 5000); // Every 5 seconds
     return () => clearInterval(interval);
   }, [loadGitInfo]);
+
+  // Load snapshots when project changes
+  useEffect(() => {
+    loadSnapshots();
+  }, [loadSnapshots]);
 
   // Handle pipeline selection
   const handleSelectPipeline = useCallback(async (pipelineName: string) => {
@@ -335,13 +450,53 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     }
   }, [projectPath, activePipeline]);
 
+  // Handle pipeline install
+  const handleInstallPipeline = useCallback(async () => {
+    if (!projectPath) return;
+
+    setIsInstallingPipeline(true);
+    try {
+      const result = await installPipelineHooks(projectPath, []);
+      if (result.success) {
+        // Copy all assets to project
+        await copyAllAssetsToProject(projectPath);
+        setIsPipelineInstalled(true);
+      } else {
+        console.error('[ControlBar] Install failed:', result.error);
+      }
+    } catch (err) {
+      console.error('[ControlBar] Failed to install pipeline:', err);
+    } finally {
+      setIsInstallingPipeline(false);
+    }
+  }, [projectPath]);
+
+  // Handle pipeline uninstall
+  const handleUninstallPipeline = useCallback(async () => {
+    if (!projectPath) return;
+
+    setIsInstallingPipeline(true);
+    try {
+      const result = await uninstallPipelineHooks(projectPath);
+      if (result.success) {
+        setIsPipelineInstalled(false);
+      } else {
+        console.error('[ControlBar] Uninstall failed:', result.error);
+      }
+    } catch (err) {
+      console.error('[ControlBar] Failed to uninstall pipeline:', err);
+    } finally {
+      setIsInstallingPipeline(false);
+    }
+  }, [projectPath]);
+
   return (
     <div className="control-bar">
       <div className="control-bar__section control-bar__section--left">
         {/* Pipeline Dropdown */}
         <DropdownPanel
           trigger={activePipeline?.name || 'Pipeline'}
-          triggerIcon={<Workflow size={14} />}
+          triggerIcon={<Workflow size={12} />}
           label="Pipeline"
           statusDot={activePipeline?.isActive ? 'active' : 'none'}
           width="wide"
@@ -372,37 +527,72 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
               />
             </DropdownSection>
           )}
+
+          {projectPath && (
+            <DropdownSection title="Installation">
+              {!isPipelineInstalled ? (
+                <DropdownItem
+                  icon={isInstallingPipeline ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  label={isInstallingPipeline ? "Installing..." : "Install Controller"}
+                  description="Install pipeline hooks to project"
+                  onClick={handleInstallPipeline}
+                  disabled={isInstallingPipeline}
+                />
+              ) : (
+                <DropdownItem
+                  icon={isInstallingPipeline ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  label={isInstallingPipeline ? "Removing..." : "Uninstall Controller"}
+                  description="Remove pipeline hooks from project"
+                  onClick={handleUninstallPipeline}
+                  disabled={isInstallingPipeline}
+                />
+              )}
+            </DropdownSection>
+          )}
         </DropdownPanel>
 
         {/* MCPs Dropdown */}
         <DropdownPanel
           trigger="MCPs"
-          triggerIcon={<Server size={14} />}
+          triggerIcon={<Server size={12} />}
           label="MCP Servers"
-          badge={mcpServers.filter(m => m.connected).length || undefined}
-          statusDot={mcpServers.some(m => m.connected) ? 'active' : 'none'}
+          badge={mcpServers.length || undefined}
+          statusDot={mcpServers.length > 0 ? 'active' : 'none'}
         >
           {mcpLoading ? (
             <div className="dropdown__empty">Loading...</div>
           ) : mcpServers.length === 0 ? (
             <div className="dropdown__empty">No MCP servers configured</div>
           ) : (
-            mcpServers.map(mcp => (
-              <DropdownItem
-                key={mcp.name}
-                icon={mcp.connected ? <Check size={14} /> : <Server size={14} />}
-                label={mcp.name}
-                badge={mcp.connected ? 'ON' : undefined}
-                active={mcp.connected}
-              />
-            ))
+            <DropdownSection title={`Configured (${mcpServers.length})`}>
+              {mcpServers.map(mcp => (
+                <DropdownItem
+                  key={mcp.name}
+                  icon={<Server size={14} />}
+                  label={mcp.name}
+                />
+              ))}
+            </DropdownSection>
           )}
+          <DropdownSection title="Actions">
+            <DropdownItem
+              icon={<Settings size={14} />}
+              label="Manage MCPs"
+              description="Add, remove, or configure servers"
+              onClick={() => setShowMcpManager(true)}
+            />
+            <DropdownItem
+              icon={<RefreshCw size={14} />}
+              label="Refresh"
+              onClick={loadMcps}
+            />
+          </DropdownSection>
         </DropdownPanel>
 
         {/* Ports Dropdown */}
         <DropdownPanel
           trigger="Ports"
-          triggerIcon={<Globe size={14} />}
+          triggerIcon={<Globe size={12} />}
           label="Active Ports"
           badge={activePorts.length || undefined}
           statusDot={activePorts.length > 0 ? 'active' : 'none'}
@@ -456,7 +646,7 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
         {/* Git Dropdown */}
         <DropdownPanel
           trigger={gitInfo.branch || 'Git'}
-          triggerIcon={<GitBranch size={14} />}
+          triggerIcon={<GitBranch size={12} />}
           label="Git Status"
           badge={gitInfo.hasChanges ? (gitInfo.modifiedCount + gitInfo.stagedCount + gitInfo.untrackedCount) : undefined}
           statusDot={gitInfo.hasChanges ? 'warning' : gitInfo.hasRepo ? 'active' : 'none'}
@@ -537,17 +727,63 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
             </>
           )}
         </DropdownPanel>
+
+        {/* Snapshots Dropdown */}
+        <DropdownPanel
+          trigger="Snaps"
+          triggerIcon={<Camera size={12} />}
+          label="Version Snapshots"
+          badge={historyItems.length || undefined}
+          statusDot={currentVersion ? 'active' : 'none'}
+        >
+          {snapshotLoading ? (
+            <div className="dropdown__empty">Loading...</div>
+          ) : historyItems.length === 0 ? (
+            <div className="dropdown__empty">No snapshots</div>
+          ) : (
+            <DropdownSection title={`Snapshots (${historyItems.length})`}>
+              {historyItems.map((item) => {
+                const isCurrent = item.version === currentVersion;
+                return (
+                  <DropdownItem
+                    key={item.commitHash}
+                    icon={isRestoring === item.version ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : isCurrent ? (
+                      <Check size={14} />
+                    ) : (
+                      <RotateCcw size={14} />
+                    )}
+                    label={`V${item.version}`}
+                    description={formatRelativeTime(item.timestamp)}
+                    active={isCurrent}
+                    onClick={() => !isCurrent && handleRestoreSnapshot(item)}
+                  />
+                );
+              })}
+            </DropdownSection>
+          )}
+          <DropdownSection>
+            <DropdownItem
+              icon={<RefreshCw size={14} />}
+              label="Refresh"
+              onClick={loadSnapshots}
+            />
+          </DropdownSection>
+        </DropdownPanel>
+
+        <div className="control-bar__divider" />
+
+        {/* Audio Visualizer - BF3 Style (at the right end) */}
+        <AudioVisualizer barCount={32} />
       </div>
 
-      <div className="control-bar__section control-bar__section--right">
-        {/* Status indicator */}
-        {activePipeline && (
-          <div className="control-bar__status">
-            <span className="control-bar__status-dot control-bar__status-dot--active" />
-            <span>Node: {activePipeline.currentNode || 'start'}</span>
-          </div>
-        )}
-      </div>
+      {/* MCP Manager Modal */}
+      <McpManagerModal
+        isOpen={showMcpManager}
+        onClose={() => setShowMcpManager(false)}
+        onMcpsChanged={loadMcps}
+      />
     </div>
   );
 }

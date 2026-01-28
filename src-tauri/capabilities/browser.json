@@ -1,0 +1,27 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "browser-webview",
+  "description": "Capabilities for browser webviews to enable media tracking",
+  "webviews": [
+    "browser-*"
+  ],
+  "permissions": [
+    "core:default"
+  ],
+  "remote": {
+    "urls": [
+      "https://*.youtube.com/*",
+      "https://youtube.com/*",
+      "https://*.music.youtube.com/*",
+      "https://music.youtube.com/*",
+      "https://*.youtu.be/*",
+      "https://*.vimeo.com/*",
+      "https://vimeo.com/*",
+      "https://*.spotify.com/*",
+      "https://*.soundcloud.com/*",
+      "https://*.twitch.tv/*",
+      "https://*.dailymotion.com/*",
+      "https://*.netflix.com/*"
+    ]
+  }
+}

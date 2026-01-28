@@ -12,7 +12,9 @@
   gap: var(--space-1);
   height: var(--pipeline-bar-height);
   padding: 0 var(--space-3);
-  background: var(--color-surface-sunken);
+  background: rgba(12, 12, 14, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-bottom: var(--border-width-thin) solid var(--color-border-subtle);
   overflow-x: auto;
   overflow-y: hidden;

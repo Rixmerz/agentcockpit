@@ -5,6 +5,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { hideAllBrowserWebviews, showBrowserWebview, getTabState } from '../../services/browserService';
 
 interface DropdownPanelProps {
   trigger: ReactNode;
@@ -56,6 +57,24 @@ export function DropdownPanel({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
+  // Hide browser webviews when dropdown opens (they render above everything)
+  useEffect(() => {
+    if (isOpen) {
+      hideAllBrowserWebviews();
+      document.body.classList.add('dropdown-open');
+    } else {
+      // Check if any other dropdowns are still open
+      setTimeout(() => {
+        const anyDropdownOpen = document.querySelector('.dropdown__content');
+        if (!anyDropdownOpen) {
+          document.body.classList.remove('dropdown-open');
+          // Emit event so BrowserPanel can restore webview
+          window.dispatchEvent(new CustomEvent('dropdowns-closed'));
+        }
+      }, 50);
+    }
   }, [isOpen]);
 
   const toggle = useCallback(() => {
