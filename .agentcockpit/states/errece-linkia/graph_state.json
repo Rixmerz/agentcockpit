@@ -1,6 +1,6 @@
 {
   "current_nodes": [
-    "technical-files"
+    "accessibility-legal"
   ],
   "node_visits": {
     "url-capture": 1,
@@ -11,7 +11,8 @@
     "ui-review": 2,
     "ui-fixes": 1,
     "seo-implementation": 1,
-    "technical-files": 1
+    "technical-files": 1,
+    "accessibility-legal": 1
   },
   "execution_path": [
     {
@@ -83,10 +84,17 @@
       "edge_id": "seo-to-technical",
       "timestamp": "2026-01-28T02:39:45.466440",
       "reason": "SEO configurado: meta tags, OG, Schema.org, sitemap, robots, manifest, p\u00e1ginas legales, 404/500"
+    },
+    {
+      "from_node": "technical-files",
+      "to_node": "accessibility-legal",
+      "edge_id": "technical-to-accessibility",
+      "timestamp": "2026-01-28T02:40:59.991102",
+      "reason": "Archivos t\u00e9cnicos listos: favicons referencias, manifest.json, specs documentadas"
     }
   ],
   "active_graph": "denofresh-analyzer",
   "max_visits_default": 10,
-  "total_transitions": 9,
-  "last_activity": "2026-01-28T02:39:45.466463"
+  "total_transitions": 10,
+  "last_activity": "2026-01-28T02:40:59.991130"
 }

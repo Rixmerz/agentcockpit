@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Download, Trash2, Play, Stop, AlertCircle, Loader } from 'lucide-react';
 import { marketplaceService, AvailableIntegration, IntegrationManifest } from '../../services/marketplaceService';
+import { DemoExecutionLauncher } from './DemoExecutionLauncher';
 
 interface MarketplacePanelProps {
   projectPath?: string;
@@ -182,6 +183,9 @@ export function MarketplacePanel({ projectPath }: MarketplacePanelProps) {
           No integrations available
         </div>
       )}
+
+      {/* Demo Execution Launcher */}
+      <DemoExecutionLauncher projectPath={projectPath} />
 
       {!loading && available.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
