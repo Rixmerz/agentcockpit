@@ -1,0 +1,698 @@
+# DenoFresh Web Analyzer & Rebuild Pipeline v3.2
+# Arquitectura híbrida: 7 Subagents especializados + delegación explícita
+
+metadata:
+  name: "DenoFresh Web Analyzer"
+  description: "Pipeline híbrida con subagents especializados. Analiza páginas web y las recrea con Deno Fresh."
+  version: "3.2.0"
+  type: "graph"
+  author: "AgentCockpit"
+  architecture: "hybrid-multi-agent"
+  agents_required:
+    - "url-capture"
+    - "web-analyzer"
+    - "orchestrator"
+    - "fresh-developer"
+    - "creative-director"
+    - "seo-specialist"
+    - "ui-perfectionist"
+  mcps_required:
+    - "denofreshmcp"
+    - "lighthouse"
+    - "sequential-thinking"
+
+# =============================================================================
+# GLOBAL PROMPT INJECTION
+# =============================================================================
+
+global_prompt: |
+  ══════════════════════════════════════════════════════════════════════════════
+  REGLAS OBLIGATORIAS - DENO FRESH 2.2.0
+  ══════════════════════════════════════════════════════════════════════════════
+
+  ❌ PROHIBIDO: deno task dev (DEPRECADO)
+  ✅ OBLIGATORIO: deno task build && deno task start
+
+  VERIFICACIONES:
+  - Acentuación correcta (á, é, í, ó, ú, ñ, ü)
+  - Contraste WCAG AA (4.5:1 mínimo)
+  - Un solo H1 por página
+  ══════════════════════════════════════════════════════════════════════════════
+
+# =============================================================================
+# NODES - Cada nodo delega explícitamente a un subagente
+# =============================================================================
+
+nodes:
+  # ---------------------------------------------------------------------------
+  # FASE 1: CAPTURA Y ANÁLISIS
+  # ---------------------------------------------------------------------------
+
+  - id: "url-capture"
+    name: "Captura de URL"
+    is_start: true
+    model: haiku
+    max_visits: 5
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Capturar información inicial del usuario para análisis web
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `url-capture`**
+
+      INFORMACIÓN A RECOPILAR:
+      1. URL completa de la página (https://...)
+      2. Ruta donde crear el proyecto Fresh
+      3. Idioma del sitio (es/en)
+      4. ¿Propósito? (copia exacta o versión mejorada)
+      5. ¿Contenido a excluir?
+
+      SEÑAL DE COMPLETADO: "url capturada"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "web-analysis"
+    name: "Análisis Web Completo"
+    model: sonnet
+    max_visits: 5
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Analizar página web original exhaustivamente
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `web-analyzer`**
+
+      EJECUTAR EN ORDEN:
+
+      1. WEBFETCH - Extraer:
+         □ Estructura de secciones
+         □ Contenido textual (títulos, CTAs, párrafos)
+         □ Meta tags y SEO actual
+         □ Paleta de colores inferida
+         □ Keywords para imágenes Pexels
+
+      2. LIGHTHOUSE ORIGINAL - Documentar scores y issues
+
+      SEÑAL DE COMPLETADO: "análisis completado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 2: PLANIFICACIÓN ESTRATÉGICA
+  # ---------------------------------------------------------------------------
+
+  - id: "strategic-planning"
+    name: "Planificación Estratégica"
+    model: opus
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Crear plan de ejecución DEFINITIVO basado en el análisis
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `orchestrator`**
+
+      El subagente debe usar sequential-thinking para:
+      - Sintetizar todo el análisis
+      - Tomar decisiones estratégicas
+      - Crear plan sin ambigüedades
+
+      EL PLAN DEBE INCLUIR (todo específico):
+      1. SECCIONES: Nombre, variante Fresh, contenido exacto
+      2. ISLANDS: Cuáles y configuración
+      3. IMÁGENES: Query Pexels, orientación, tamaño
+      4. SEO: Title exacto, description exacta, schemas
+      5. COLORES: Paleta hex completa
+      6. OBJETIVOS: Scores Lighthouse target
+
+      SEÑAL DE COMPLETADO: "síntesis completada"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 3: CONSTRUCCIÓN
+  # ---------------------------------------------------------------------------
+
+  - id: "project-init"
+    name: "Inicializar Proyecto"
+    model: haiku
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Inicializar proyecto Deno Fresh en la ruta especificada
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `fresh-developer`**
+
+      EJECUTAR:
+      - fresh_init_project(project_path="[ruta del plan]")
+
+      RECORDAR:
+      ❌ NUNCA usar: deno task dev
+      ✅ SIEMPRE usar: deno task build && deno task start
+
+      SEÑAL DE COMPLETADO: "proyecto inicializado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "sections-creation"
+    name: "Crear Secciones"
+    model: haiku
+    max_visits: 20
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Crear todas las secciones del plan con contenido específico
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `fresh-developer`**
+
+      Para CADA sección del plan (en orden):
+      1. fresh_add_section(project_path, section_name, variant)
+      2. Editar con contenido específico del plan
+
+      VERIFICAR acentuación en textos español (á, é, í, ó, ú, ñ).
+
+      SEÑAL DE COMPLETADO: "secciones creadas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "islands-creation"
+    name: "Crear Islands"
+    model: haiku
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Añadir islands interactivos según el plan
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `fresh-developer`**
+
+      Para CADA island del plan:
+      - fresh_add_island(project_path, island_name)
+
+      OBLIGATORIOS: mobile-menu
+      RECOMENDADOS: scroll-to-top, cookie-consent
+
+      SEÑAL DE COMPLETADO: "islands creados"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "images-download"
+    name: "Descargar Imágenes"
+    model: haiku
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Descargar imágenes de Pexels según el plan
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `fresh-developer`**
+
+      1. Verificar API: pexels_api_status()
+
+      2. Para CADA imagen del plan:
+         pexels_search_and_download(
+           project_path, query, orientation, size, filename
+         )
+
+      3. Actualizar referencias: /images/[filename].jpeg
+
+      4. Guardar créditos de fotógrafos
+
+      SEÑAL DE COMPLETADO: "imágenes descargadas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 4: DIRECCIÓN CREATIVA
+  # ---------------------------------------------------------------------------
+
+  - id: "creative-direction"
+    name: "Dirección Creativa"
+    model: opus
+    max_visits: 5
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Transformar diseño genérico en experiencia visual única
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `creative-director`**
+
+      CONTEXTO: El sitio tiene estructura y contenido base. Elevar la
+      experiencia visual para que NO sea genérico.
+
+      PROCESO:
+      1. ANÁLISIS DE MARCA - Emociones target, personalidad visual
+      2. DIRECCIÓN VISUAL - Paleta única, tipografía, espaciado
+      3. APLICAR CREATIVIDAD - Hero memorable, micro-interacciones
+      4. CONSISTENCIA - Todo el sitio respira la misma identidad
+
+      RESTRICCIONES: Mantener contraste WCAG AA (4.5:1)
+
+      SEÑAL DE COMPLETADO: "dirección creativa aplicada"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 5: UI REVIEW (con loop)
+  # ---------------------------------------------------------------------------
+
+  - id: "ui-review"
+    name: "Review UI/UX"
+    model: sonnet
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Revisar calidad visual con ojo crítico experto
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `ui-perfectionist`**
+
+      REVISAR:
+      □ Espaciado y ritmo visual
+      □ Tipografía y jerarquía
+      □ Colores y contraste
+      □ Componentes y CTAs
+      □ Responsive/mobile
+      □ Microinteracciones
+
+      CRITERIO: "¿Impresionaría a un cliente exigente?"
+
+      FORMATO:
+      - 🔴 Crítico: debe corregirse
+      - 🟡 Importante: debería corregirse
+      - 🟢 Menor: nice to have
+
+      SEÑALES:
+      - Si hay críticos → "ui requiere mejoras"
+      - Si todo ok → "ui review aprobado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "ui-fixes"
+    name: "Correcciones UI"
+    model: sonnet
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Aplicar todas las correcciones de UI identificadas
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `ui-perfectionist`**
+
+      ORDEN DE CORRECCIÓN:
+      1. Issues 🔴 Críticos PRIMERO
+      2. Issues 🟡 Importantes
+      3. Issues 🟢 Menores si hay tiempo
+
+      Para cada corrección:
+      - Editar archivo específico
+      - Verificar que el cambio se aplicó
+
+      SEÑAL DE COMPLETADO: "correcciones ui aplicadas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 6: SEO Y TÉCNICOS
+  # ---------------------------------------------------------------------------
+
+  - id: "seo-implementation"
+    name: "Implementar SEO"
+    model: sonnet
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Implementar SEO técnico completo según el plan
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `seo-specialist`**
+
+      CHECKLIST:
+      □ Meta tags (title, description, canonical)
+      □ Open Graph completo
+      □ Twitter Cards
+      □ Schema.org (JSON-LD)
+      □ sitemap.xml
+      □ robots.txt
+      □ H1 único, jerarquía correcta
+      □ Alt text en imágenes
+
+      HERRAMIENTAS MCP:
+      - fresh_generate_sitemap
+      - fresh_generate_robots
+      - fresh_add_schema
+      - og_validator
+
+      SEÑAL DE COMPLETADO: "seo configurado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "technical-files"
+    name: "Archivos Técnicos"
+    model: sonnet
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Crear archivos técnicos (404, 500, favicons, manifest)
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `seo-specialist`**
+
+      CREAR:
+      □ routes/_404.tsx - Página 404 personalizada
+      □ routes/_500.tsx - Página de error
+      □ Favicon múltiples tamaños
+      □ manifest.json (PWA)
+
+      SEÑAL DE COMPLETADO: "archivos técnicos listos"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "accessibility-legal"
+    name: "Accesibilidad y Legal"
+    model: sonnet
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Verificar accesibilidad WCAG y crear páginas legales
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `seo-specialist`**
+
+      ACCESIBILIDAD (WCAG 2.1 AA):
+      □ Contraste verificado (fresh_contrast_check)
+      □ Labels en inputs
+      □ Focus visible
+      □ Skip link
+      □ ARIA donde necesario
+
+      LEGAL:
+      □ /privacy - Política de Privacidad
+      □ /cookies - Política de Cookies
+      □ Cookie consent funcional
+      □ Links en footer
+
+      SEÑAL DE COMPLETADO: "accesibilidad y legal listos"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 7: AUDITORÍA Y CORRECCIONES (con loop)
+  # ---------------------------------------------------------------------------
+
+  - id: "lighthouse-audit"
+    name: "Auditoría Lighthouse"
+    model: sonnet
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Ejecutar auditoría Lighthouse y comparar con original
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `web-analyzer`**
+
+      PREREQUISITO: Servidor corriendo (deno task build && deno task start)
+
+      EJECUTAR auditoría en http://localhost:8000
+
+      COMPARAR:
+      | Métrica        | Original | Nueva | Target | ¿OK? |
+      |----------------|----------|-------|--------|------|
+      | Performance    |    ??    |  ??   |  >90   |      |
+      | Accessibility  |    ??    |  ??   |  >95   |      |
+      | Best Practices |    ??    |  ??   |  >95   |      |
+      | SEO            |    ??    |  ??   |  >95   |      |
+
+      SEÑALES:
+      - Si TODOS ≥ target → "auditoría aprobada"
+      - Si alguno falla → "requiere correcciones"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "lighthouse-fixes"
+    name: "Correcciones Lighthouse"
+    model: opus
+    max_visits: 20
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Resolver issues de Lighthouse para alcanzar targets
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `orchestrator`**
+
+      El subagente debe usar sequential-thinking para analizar y corregir.
+
+      CORREGIR POR CATEGORÍA:
+
+      PERFORMANCE:
+      □ Optimizar imágenes (WebP, lazy loading)
+      □ Preload recursos críticos
+
+      ACCESSIBILITY:
+      □ Corregir contraste
+      □ Añadir labels faltantes
+
+      BEST PRACTICES:
+      □ Sin errores consola
+      □ Images con aspect ratio
+
+      SEO:
+      □ Meta tags faltantes
+      □ Alt text
+
+      DESPUÉS: deno task build && deno task start
+
+      SEÑAL DE COMPLETADO: "correcciones aplicadas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 8: REVIEW FINAL
+  # ---------------------------------------------------------------------------
+
+  - id: "final-review"
+    name: "Review Final"
+    model: opus
+    max_visits: 5
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Validación final completa del proyecto
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `orchestrator`**
+
+      El subagente debe usar sequential-thinking para review final.
+
+      CHECKLIST:
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ LIGHTHOUSE: Performance ≥90, Accessibility ≥95, BP ≥95, SEO ≥95        │
+      │ SEO: sitemap.xml, robots.txt, Schema.org, Open Graph                   │
+      │ UI/UX: Review aprobado, responsive, imágenes de calidad                │
+      │ LEGAL: Privacidad, Cookie consent                                      │
+      │ ERROR PAGES: 404, 500 personalizadas                                   │
+      └─────────────────────────────────────────────────────────────────────────┘
+
+      SEÑALES:
+      - Si TODO ok → "review aprobado"
+      - Si falta algo → "requiere más trabajo"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "deployment-ready"
+    name: "Listo para Deploy"
+    is_end: true
+    model: haiku
+    max_visits: 1
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      PROYECTO COMPLETADO - RESUMEN FINAL
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `fresh-developer`**
+
+      GENERAR RESUMEN:
+      1. URL Original analizada
+      2. Proyecto creado en [ruta]
+      3. Secciones implementadas
+      4. Islands añadidos
+      5. Imágenes Pexels (con créditos)
+
+      COMPARACIÓN LIGHTHOUSE:
+      | Métrica | Original | Final | Mejora |
+
+      COMANDOS PARA EJECUTAR:
+      cd [ruta]
+      deno task build && deno task start
+      → http://localhost:8000
+
+      DEPLOY: Deno Deploy (https://dash.deno.com)
+      ══════════════════════════════════════════════════════════════════════════
+
+# =============================================================================
+# EDGES - Transiciones con loops
+# =============================================================================
+
+edges:
+  # --- Fase 1: Captura y Análisis ---
+  - id: "capture-to-analysis"
+    from: "url-capture"
+    to: "web-analysis"
+    condition:
+      type: "phrase"
+      phrases:
+        - "url capturada"
+    priority: 1
+
+  - id: "analysis-to-planning"
+    from: "web-analysis"
+    to: "strategic-planning"
+    condition:
+      type: "phrase"
+      phrases:
+        - "análisis completado"
+    priority: 1
+
+  # --- Fase 2: Planificación ---
+  - id: "planning-to-init"
+    from: "strategic-planning"
+    to: "project-init"
+    condition:
+      type: "phrase"
+      phrases:
+        - "síntesis completada"
+    priority: 1
+
+  # --- Fase 3: Construcción ---
+  - id: "init-to-sections"
+    from: "project-init"
+    to: "sections-creation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "proyecto inicializado"
+    priority: 1
+
+  - id: "sections-to-islands"
+    from: "sections-creation"
+    to: "islands-creation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "secciones creadas"
+    priority: 1
+
+  - id: "islands-to-images"
+    from: "islands-creation"
+    to: "images-download"
+    condition:
+      type: "phrase"
+      phrases:
+        - "islands creados"
+    priority: 1
+
+  # --- Fase 4: Dirección Creativa ---
+  - id: "images-to-creative"
+    from: "images-download"
+    to: "creative-direction"
+    condition:
+      type: "phrase"
+      phrases:
+        - "imágenes descargadas"
+    priority: 1
+
+  - id: "creative-to-ui-review"
+    from: "creative-direction"
+    to: "ui-review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "dirección creativa aplicada"
+    priority: 1
+
+  # --- Fase 5: UI Review (LOOP) ---
+  - id: "ui-review-to-fixes"
+    from: "ui-review"
+    to: "ui-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "ui requiere mejoras"
+    priority: 1
+
+  - id: "ui-fixes-to-review"
+    from: "ui-fixes"
+    to: "ui-review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "correcciones ui aplicadas"
+    priority: 1
+
+  - id: "ui-review-to-seo"
+    from: "ui-review"
+    to: "seo-implementation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "ui review aprobado"
+    priority: 2
+
+  # --- Fase 6: SEO y Técnicos ---
+  - id: "seo-to-technical"
+    from: "seo-implementation"
+    to: "technical-files"
+    condition:
+      type: "phrase"
+      phrases:
+        - "seo configurado"
+    priority: 1
+
+  - id: "technical-to-accessibility"
+    from: "technical-files"
+    to: "accessibility-legal"
+    condition:
+      type: "phrase"
+      phrases:
+        - "archivos técnicos listos"
+    priority: 1
+
+  # --- Fase 7: Auditoría (LOOP) ---
+  - id: "accessibility-to-audit"
+    from: "accessibility-legal"
+    to: "lighthouse-audit"
+    condition:
+      type: "phrase"
+      phrases:
+        - "accesibilidad y legal listos"
+    priority: 1
+
+  - id: "audit-to-fixes"
+    from: "lighthouse-audit"
+    to: "lighthouse-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "requiere correcciones"
+    priority: 1
+
+  - id: "fixes-to-audit"
+    from: "lighthouse-fixes"
+    to: "lighthouse-audit"
+    condition:
+      type: "phrase"
+      phrases:
+        - "correcciones aplicadas"
+    priority: 1
+
+  - id: "audit-to-review"
+    from: "lighthouse-audit"
+    to: "final-review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "auditoría aprobada"
+    priority: 2
+
+  # --- Fase 8: Final ---
+  - id: "review-to-fixes"
+    from: "final-review"
+    to: "lighthouse-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "requiere más trabajo"
+    priority: 1
+
+  - id: "review-to-complete"
+    from: "final-review"
+    to: "deployment-ready"
+    condition:
+      type: "phrase"
+      phrases:
+        - "review aprobado"
+    priority: 2

@@ -1,0 +1,457 @@
+metadata:
+  name: "Haiku Orchestrator"
+  description: "Pipeline para Haiku como modelo base con delegación forzada a Sonnet/Opus"
+  version: "1.0.0"
+  type: "graph"
+  target_model: "haiku"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CRITERIOS DE CLASIFICACIÓN (basados en capacidades reales de cada modelo)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# TRIVIAL (Haiku ejecuta directamente):
+#   - Fix typos, errores de sintaxis obvios
+#   - Cambios de UNA sola línea
+#   - Renombrar variables/funciones locales (sin propagación)
+#   - Agregar/quitar imports simples
+#   - Modificar strings, constantes, valores hardcodeados
+#   - Responder preguntas factuales sobre código existente
+#   - Formateo, linting fixes
+#
+# DEVELOPMENT (Delegar a Sonnet):
+#   - Implementar features nuevas (cualquier tamaño)
+#   - Debugging que requiere análisis de flujo
+#   - Refactoring de funciones/componentes
+#   - Modificar lógica de negocio
+#   - Escribir o modificar tests
+#   - Integrar APIs/librerías externas
+#   - Cambios que afectan 2+ archivos
+#   - Code review con sugerencias
+#
+# PLANNING (Delegar a Opus):
+#   - Diseño de arquitectura o sistemas
+#   - Decisiones técnicas con trade-offs
+#   - Planificación de features multi-componente
+#   - Análisis de impacto de cambios grandes
+#   - Diseño de APIs/interfaces/contratos
+#   - Estrategia de migración/refactoring grande
+#   - Requisitos ambiguos que necesitan interpretación
+#   - Cualquier cosa que requiera "pensar en el sistema completo"
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+nodes:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PASO 1: THINKING OBLIGATORIO
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: "thinking"
+    name: "Sequential Thinking (Obligatorio)"
+    is_start: true
+    mcps_enabled:
+      - "sequential-thinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+      - "Task"
+    max_visits: 50
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      PASO 1: ANÁLISIS OBLIGATORIO CON SEQUENTIAL THINKING
+      ══════════════════════════════════════════════════════════════════════════
+
+      ANTES de hacer CUALQUIER otra cosa, DEBES usar sequential-thinking.
+
+      NO PUEDES:
+      - Escribir código
+      - Editar archivos
+      - Ejecutar comandos
+      - Delegar tareas
+
+      USA sequential-thinking para:
+      1. Entender qué se está pidiendo exactamente
+      2. Identificar qué información necesitas
+      3. Pensar en el approach inicial
+
+      Ejecuta: mcp__sequential-thinking__sequentialthinking
+
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PASO 2: CLASIFICACIÓN DE COMPLEJIDAD
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: "classification"
+    name: "Clasificación de Tarea"
+    mcps_enabled:
+      - "sequential-thinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+      - "Task"
+    max_visits: 50
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      PASO 2: CLASIFICACIÓN DE COMPLEJIDAD
+      ══════════════════════════════════════════════════════════════════════════
+
+      Basándote en tu análisis, CLASIFICA la tarea en UNA categoría:
+
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ TRIVIAL - Di "tarea trivial" si cumple TODOS estos criterios:          │
+      │   ✓ Cambio de UNA sola línea                                           │
+      │   ✓ No requiere entender contexto amplio                               │
+      │   ✓ Fix de typo, constante, import simple                              │
+      │   ✓ Respuesta factual sobre código existente                           │
+      └─────────────────────────────────────────────────────────────────────────┘
+
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ DEVELOPMENT - Di "requiere desarrollo" si:                             │
+      │   • Implementar feature nueva (cualquier tamaño)                       │
+      │   • Debugging con análisis de flujo                                    │
+      │   • Refactoring de código                                              │
+      │   • Modificar lógica de negocio                                        │
+      │   • Escribir/modificar tests                                           │
+      │   • Integrar APIs o librerías                                          │
+      │   • Cambios en 2+ archivos                                             │
+      └─────────────────────────────────────────────────────────────────────────┘
+
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ PLANNING - Di "requiere planificación" si:                             │
+      │   • Diseño de arquitectura o sistema                                   │
+      │   • Decisiones técnicas con trade-offs                                 │
+      │   • Feature multi-componente                                           │
+      │   • Análisis de impacto grande                                         │
+      │   • Diseño de APIs/interfaces                                          │
+      │   • Migración o refactoring de sistema                                 │
+      │   • Requisitos ambiguos                                                │
+      └─────────────────────────────────────────────────────────────────────────┘
+
+      IMPORTANTE: Ante la DUDA, elige la categoría MÁS ALTA.
+      Es mejor delegar de más que quedarse corto.
+
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # RAMA: TRIVIAL (Haiku ejecuta)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: "trivial-execution"
+    name: "Ejecución Trivial (Haiku)"
+    mcps_enabled:
+      - "*"
+    tools_blocked:
+      - "Task"  # No puede delegar - debe hacerlo él mismo
+    max_visits: 50
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      EJECUCIÓN TRIVIAL - HAIKU
+      ══════════════════════════════════════════════════════════════════════════
+
+      Esta tarea fue clasificada como TRIVIAL. Ejecútala directamente.
+
+      LÍMITES:
+      - Máximo 1-2 archivos modificados
+      - Cambios simples y directos
+      - NO agregues complejidad innecesaria
+
+      Si durante la ejecución descubres que:
+      - Es más complejo de lo esperado → Di "más complejo de lo esperado"
+      - Necesitas entender más contexto → Di "necesito más contexto"
+      - Requiere decisiones de diseño → Di "requiere decisión de diseño"
+
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # RAMA: DEVELOPMENT (Delegar a Sonnet)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: "delegate-sonnet"
+    name: "Delegación a Sonnet"
+    mcps_enabled:
+      - "sequential-thinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+    max_visits: 50
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      DELEGACIÓN A SONNET - DESARROLLO
+      ══════════════════════════════════════════════════════════════════════════
+
+      Esta tarea requiere DESARROLLO. DEBES delegarla a Sonnet.
+
+      USA el Task tool con estos parámetros EXACTOS:
+
+      ```
+      Task(
+        subagent_type: "general-purpose",
+        model: "sonnet",
+        description: "<resumen de 3-5 palabras>",
+        prompt: "<instrucciones detalladas incluyendo:
+          - Qué implementar exactamente
+          - Archivos relevantes identificados
+          - Contexto del proyecto
+          - Criterios de éxito
+        >"
+      )
+      ```
+
+      IMPORTANTE:
+      - Sé ESPECÍFICO en las instrucciones
+      - Incluye TODO el contexto que Sonnet necesita
+      - No asumas que Sonnet conoce la conversación previa
+
+      Después de recibir el resultado, di "delegación completada".
+
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # RAMA: PLANNING (Delegar a Opus)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: "delegate-opus"
+    name: "Delegación a Opus"
+    mcps_enabled:
+      - "sequential-thinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+    max_visits: 50
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      DELEGACIÓN A OPUS - PLANIFICACIÓN
+      ══════════════════════════════════════════════════════════════════════════
+
+      Esta tarea requiere PLANIFICACIÓN ARQUITECTÓNICA. DEBES delegarla a Opus.
+
+      USA el Task tool con estos parámetros EXACTOS:
+
+      ```
+      Task(
+        subagent_type: "Plan",
+        model: "opus",
+        description: "<resumen de 3-5 palabras>",
+        prompt: "<instrucciones detalladas incluyendo:
+          - Qué necesita ser planificado/diseñado
+          - Contexto del sistema actual
+          - Restricciones conocidas
+          - Preguntas específicas que necesitas responder
+        >"
+      )
+      ```
+
+      IMPORTANTE:
+      - Opus debe PLANIFICAR, no implementar
+      - El resultado debe ser un plan accionable
+      - Incluye toda información de contexto relevante
+
+      Después de recibir el plan, di "planificación completada".
+
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PASO FINAL: REVIEW Y EVALUACIÓN
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: "review"
+    name: "Review y Evaluación"
+    mcps_enabled:
+      - "*"
+    max_visits: 50
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      EVALUACIÓN DE OBJETIVO
+      ══════════════════════════════════════════════════════════════════════════
+
+      Evalúa si el OBJETIVO ORIGINAL se logró completamente.
+      Esta es una evaluación BOOLEANA - no hay términos medios.
+
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ ✅ OBJETIVO LOGRADO                                                     │
+      │    El resultado cumple TODOS los requisitos originales                 │
+      │    → Di "objetivo logrado" para finalizar                              │
+      └─────────────────────────────────────────────────────────────────────────┘
+
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ ❌ OBJETIVO NO LOGRADO                                                  │
+      │    Falta trabajo, hay errores, o requisitos sin cumplir                │
+      │    → Di "tarea incompleta" para volver a clasificar e iterar           │
+      └─────────────────────────────────────────────────────────────────────────┘
+
+      IMPORTANTE:
+      - NO esperes confirmación del usuario
+      - Decide AUTÓNOMAMENTE basándote en evidencia concreta
+      - Si hay CUALQUIER duda, asume "tarea incompleta" e itera
+
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # NODO FINAL: TAREA COMPLETADA
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: "complete"
+    name: "Tarea Completada"
+    is_end: true
+    mcps_enabled:
+      - "*"
+    max_visits: 1
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA COMPLETADA EXITOSAMENTE
+      ══════════════════════════════════════════════════════════════════════════
+
+      El objetivo ha sido logrado. Presenta un resumen final que incluya:
+
+      1. QUÉ se pidió originalmente
+      2. QUÉ se hizo para lograrlo
+      3. RESULTADO final (archivos modificados, features implementadas, etc.)
+
+      ══════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EDGES - Transiciones entre nodos
+# ═══════════════════════════════════════════════════════════════════════════════
+
+edges:
+  # ─── Thinking → Classification ───
+  - id: "thinking-to-classification"
+    from: "thinking"
+    to: "classification"
+    condition:
+      type: "tool"
+      tool: "mcp__sequential-thinking__sequentialthinking"
+    priority: 1
+
+  # ─── Classification → Trivial ───
+  - id: "classification-to-trivial"
+    from: "classification"
+    to: "trivial-execution"
+    condition:
+      type: "phrase"
+      phrases:
+        - "tarea trivial"
+        - "trivial task"
+        - "es trivial"
+    priority: 1
+
+  # ─── Classification → Sonnet ───
+  - id: "classification-to-sonnet"
+    from: "classification"
+    to: "delegate-sonnet"
+    condition:
+      type: "phrase"
+      phrases:
+        - "requiere desarrollo"
+        - "needs development"
+        - "delegar a sonnet"
+        - "delegate to sonnet"
+    priority: 1
+
+  # ─── Classification → Opus ───
+  - id: "classification-to-opus"
+    from: "classification"
+    to: "delegate-opus"
+    condition:
+      type: "phrase"
+      phrases:
+        - "requiere planificación"
+        - "needs planning"
+        - "delegar a opus"
+        - "delegate to opus"
+        - "requiere arquitectura"
+    priority: 1
+
+  # ─── Trivial → Review ───
+  - id: "trivial-to-review"
+    from: "trivial-execution"
+    to: "review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "completado"
+        - "done"
+        - "listo"
+        - "finished"
+    priority: 1
+
+  # ─── Sonnet delegation → Review ───
+  - id: "sonnet-to-review"
+    from: "delegate-sonnet"
+    to: "review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "delegación completada"
+        - "delegation completed"
+    priority: 1
+
+  # ─── Opus delegation → Review ───
+  - id: "opus-to-review"
+    from: "delegate-opus"
+    to: "review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "planificación completada"
+        - "planning completed"
+    priority: 1
+
+  # ─── Opus → Sonnet (plan listo, ahora implementar) ───
+  - id: "opus-to-sonnet"
+    from: "delegate-opus"
+    to: "delegate-sonnet"
+    condition:
+      type: "phrase"
+      phrases:
+        - "plan listo implementar"
+        - "ready to implement"
+        - "proceder con desarrollo"
+    priority: 2
+
+  # ─── BACK-EDGES: Escalación desde Trivial ───
+  - id: "trivial-to-classification-complex"
+    from: "trivial-execution"
+    to: "classification"
+    condition:
+      type: "phrase"
+      phrases:
+        - "más complejo de lo esperado"
+        - "more complex than expected"
+        - "necesito más contexto"
+        - "requiere decisión de diseño"
+    priority: 1
+
+  # ─── BACK-EDGES: Desde Review si incompleto ───
+  - id: "review-to-classification"
+    from: "review"
+    to: "classification"
+    condition:
+      type: "phrase"
+      phrases:
+        - "tarea incompleta"
+        - "task incomplete"
+        - "falta trabajo"
+    priority: 1
+
+  # ─── BACK-EDGES: Sonnet necesita plan de Opus ───
+  - id: "sonnet-to-opus"
+    from: "delegate-sonnet"
+    to: "delegate-opus"
+    condition:
+      type: "phrase"
+      phrases:
+        - "necesita planificación primero"
+        - "needs planning first"
+        - "demasiado complejo sin plan"
+    priority: 2
+
+  # ─── Review → Complete (objetivo logrado) ───
+  - id: "review-to-complete"
+    from: "review"
+    to: "complete"
+    condition:
+      type: "phrase"
+      phrases:
+        - "objetivo logrado"
+        - "objective achieved"
+        - "objetivo cumplido"
+        - "task completed successfully"
+    priority: 1

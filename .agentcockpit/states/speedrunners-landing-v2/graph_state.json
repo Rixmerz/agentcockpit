@@ -1,0 +1,21 @@
+{
+  "current_nodes": [
+    "url-capture"
+  ],
+  "node_visits": {
+    "url-capture": 1
+  },
+  "execution_path": [
+    {
+      "from_node": null,
+      "to_node": "url-capture",
+      "edge_id": null,
+      "timestamp": "2026-01-28T13:39:47.420Z",
+      "reason": "Graph reset"
+    }
+  ],
+  "active_graph": null,
+  "max_visits_default": 10,
+  "total_transitions": 0,
+  "last_activity": "2026-01-28T13:39:47.422Z"
+}
