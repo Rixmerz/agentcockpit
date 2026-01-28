@@ -4,7 +4,7 @@ import { marketplaceService, type AvailableIntegration } from '../../services/ma
 import { DemoExecutionLauncher } from './DemoExecutionLauncher';
 
 interface MarketplacePanelProps {
-  projectPath?: string;
+  projectPath?: string | null;
 }
 
 export function MarketplacePanel({ projectPath }: MarketplacePanelProps) {

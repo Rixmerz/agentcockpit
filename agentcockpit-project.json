@@ -44,15 +44,6 @@
       "model": "sonnet",
       "wasPreExisting": true,
       "terminalId": "404de3e1-c1ce-4f7d-9706-686d05491ab1"
-    },
-    {
-      "id": "4f5c7170-0c4b-45d4-ab9d-b157a7ac6979",
-      "name": "Session 6",
-      "createdAt": 1769576067537,
-      "lastUsed": 1769577245090,
-      "model": "sonnet",
-      "wasPreExisting": true,
-      "terminalId": "c18a8e3c-321a-4155-89ac-db9037553c0c"
     }
   ],
   "defaultModel": "sonnet",
