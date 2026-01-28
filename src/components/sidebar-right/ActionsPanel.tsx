@@ -454,7 +454,7 @@ export function ActionsPanel({
       {/* Marketplace Modal */}
       {marketplaceModalOpen && (
         <div className="modal-overlay" onClick={() => setMarketplaceModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh', width: '600px' }}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Marketplace</h2>
               <button
@@ -464,7 +464,9 @@ export function ActionsPanel({
                 ✕
               </button>
             </div>
-            <MarketplacePanel projectPath={projectPath} />
+            <div className="modal-content">
+              <MarketplacePanel projectPath={projectPath} />
+            </div>
           </div>
         </div>
       )}
