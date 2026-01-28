@@ -1,6 +1,10 @@
 /* Import Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap');
 
+/* Import themes first so variables are available */
+@import './styles/themes/cyber-teal.css';
+@import './styles/themes/battlefield.css';
+
 :root {
   /* Surface Colors - Deeper, more atmospheric */
   --bg-app: #0a0a0f;
@@ -15,31 +19,31 @@
   --text-secondary: #8b8b9a;
   --text-muted: #5a5a6a;
   --text-inverse: #0a0a0f;
-  --text-accent: #00d4aa;
+  --text-accent: var(--theme-accent-primary, #00d4aa);
 
-  /* Accent Colors - Cyber Teal */
-  --accent: #00d4aa;
-  --accent-hover: #00b894;
-  --accent-dim: #00a080;
+  /* Accent Colors - Use theme variables */
+  --accent: var(--theme-accent-primary, #00d4aa);
+  --accent-hover: var(--theme-accent-primary-hover, #00b894);
+  --accent-dim: var(--theme-accent-primary-dim, #00a080);
   --accent-foreground: #0a0a0f;
-  --accent-glow: rgba(0, 212, 170, 0.4);
-  --accent-glow-subtle: rgba(0, 212, 170, 0.15);
+  --accent-glow: var(--theme-accent-primary-glow, rgba(0, 212, 170, 0.4));
+  --accent-glow-subtle: var(--theme-accent-primary-subtle, rgba(0, 212, 170, 0.15));
 
   /* Secondary Accent - Purple */
-  --accent-secondary: #a855f7;
-  --accent-secondary-hover: #9333ea;
-  --accent-secondary-glow: rgba(168, 85, 247, 0.3);
+  --accent-secondary: var(--theme-accent-secondary, #a855f7);
+  --accent-secondary-hover: var(--theme-accent-secondary-hover, #9333ea);
+  --accent-secondary-glow: var(--theme-accent-secondary-glow, rgba(168, 85, 247, 0.3));
 
   /* State Colors */
-  --success: #00d4aa;
-  --warning: #fbbf24;
-  --error: #f43f5e;
+  --success: var(--theme-status-success, #00d4aa);
+  --warning: var(--theme-status-warning, #fbbf24);
+  --error: var(--theme-status-error, #f43f5e);
 
   /* Borders */
   --border-subtle: #1e1e2a;
   --border-strong: #2a2a3a;
-  --border-glow: rgba(0, 212, 170, 0.2);
-  --ring: rgba(0, 212, 170, 0.5);
+  --border-glow: var(--theme-accent-20, rgba(0, 212, 170, 0.2));
+  --ring: var(--theme-accent-primary-glow, rgba(0, 212, 170, 0.5));
 
   /* Layout */
   --sidebar-width-left: 260px;
@@ -54,7 +58,7 @@
   /* Glassmorphism Effects - Enhanced */
   --glass-bg: rgba(13, 13, 20, 0.8);
   --glass-bg-light: rgba(26, 26, 36, 0.6);
-  --glass-border: rgba(0, 212, 170, 0.1);
+  --glass-border: var(--theme-accent-10, rgba(0, 212, 170, 0.1));
   --glass-blur: blur(12px);
   --glass-blur-heavy: blur(20px);
 
