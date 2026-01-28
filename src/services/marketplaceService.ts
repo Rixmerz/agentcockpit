@@ -277,7 +277,17 @@ export const marketplaceService = {
       };
 
       await saveManifest(manifest);
-      const config = await loadConfig();
+      let config = await loadConfig();
+
+      // Ensure config.installed is an array
+      if (!config || !Array.isArray(config.installed)) {
+        config = {
+          hub_dir: config?.hub_dir || await getMarketplaceDir(),
+          integrations_dir: config?.integrations_dir || await getIntegrationsDir(),
+          installed: []
+        };
+      }
+
       if (!config.installed.includes(integrationId)) {
         config.installed.push(integrationId);
         await saveConfig(config);
@@ -299,7 +309,17 @@ export const marketplaceService = {
         await remove(integrationDir, { recursive: true });
       }
 
-      const config = await loadConfig();
+      let config = await loadConfig();
+
+      // Ensure config.installed is an array
+      if (!config || !Array.isArray(config.installed)) {
+        config = {
+          hub_dir: config?.hub_dir || await getMarketplaceDir(),
+          integrations_dir: config?.integrations_dir || await getIntegrationsDir(),
+          installed: []
+        };
+      }
+
       config.installed = config.installed.filter(id => id !== integrationId);
       await saveConfig(config);
 

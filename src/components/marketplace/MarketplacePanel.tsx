@@ -101,53 +101,35 @@ export function MarketplacePanel({ projectPath }: MarketplacePanelProps) {
 
 
   return (
-    <div className="marketplace-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflow: 'auto' }}>
-      <div>
-        <h2 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 600 }}>Marketplace</h2>
-        <p style={{ margin: 0, fontSize: '12px', color: '#888' }}>Manage integrations for AgentCockpit</p>
+    <div className="marketplace-panel">
+      <div className="marketplace-header">
+        <h2>Marketplace</h2>
+        <p>Manage integrations for AgentCockpit</p>
       </div>
 
       {message && (
-        <div style={{
-          padding: '12px',
-          borderRadius: '4px',
-          backgroundColor: message.type === 'success' ? '#d4edda' : '#f8d7da',
-          color: message.type === 'success' ? '#155724' : '#721c24',
-          fontSize: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
+        <div className={`marketplace-message marketplace-message-${message.type}`}>
           {message.type === 'error' && <AlertCircle size={16} />}
           {message.text}
         </div>
       )}
 
       {error && (
-        <div style={{
-          padding: '12px',
-          borderRadius: '4px',
-          backgroundColor: '#f8d7da',
-          color: '#721c24',
-          fontSize: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
+        <div className="marketplace-error">
           <AlertCircle size={16} />
           {error}
         </div>
       )}
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: '24px', color: '#666' }}>
-          <Loader size={24} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+        <div className="marketplace-loading">
+          <Loader size={24} />
           <p>Loading integrations...</p>
         </div>
       )}
 
       {!loading && available.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '24px', color: '#666' }}>
+        <div className="marketplace-empty">
           No integrations available
         </div>
       )}
@@ -156,67 +138,31 @@ export function MarketplacePanel({ projectPath }: MarketplacePanelProps) {
       <DemoExecutionLauncher projectPath={projectPath || null} />
 
       {!loading && available.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="marketplace-list">
           {available.map(integration => (
-            <div
-              key={integration.id}
-              style={{
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                padding: '12px',
-                backgroundColor: '#f9f9f9',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                <div>
-                  <h3 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: 600 }}>
-                    {integration.name}
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>
-                    {integration.description}
-                  </p>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#999' }}>
+            <div key={integration.id} className="marketplace-item">
+              <div className="marketplace-item-header">
+                <div className="marketplace-item-info">
+                  <h3>{integration.name}</h3>
+                  <p>{integration.description}</p>
+                  <span className="marketplace-item-meta">
                     v{integration.version} by {integration.author}
-                  </p>
+                  </span>
                 </div>
-                <div style={{
-                  padding: '2px 8px',
-                  borderRadius: '3px',
-                  fontSize: '11px',
-                  fontWeight: 500,
-                  backgroundColor: integration.status === 'installed' ? '#d4edda' : '#e2e3e5',
-                  color: integration.status === 'installed' ? '#155724' : '#383d41',
-                  whiteSpace: 'nowrap'
-                }}>
+                <div className={`marketplace-item-status marketplace-status-${integration.status}`}>
                   {integration.status === 'available' ? 'Available' : 'Installed'}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <div className="marketplace-item-actions">
                 {integration.status === 'available' && (
                   <button
                     onClick={() => handleInstall(integration.id)}
                     disabled={actionInProgress === integration.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      backgroundColor: '#007bff',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '3px',
-                      cursor: actionInProgress === integration.id ? 'not-allowed' : 'pointer',
-                      opacity: actionInProgress === integration.id ? 0.6 : 1,
-                      transition: 'opacity 0.2s'
-                    }}
+                    className="marketplace-btn marketplace-btn-primary"
                   >
                     {actionInProgress === integration.id ? (
-                      <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                      <Loader size={12} />
                     ) : (
                       <Download size={12} />
                     )}
@@ -230,23 +176,10 @@ export function MarketplacePanel({ projectPath }: MarketplacePanelProps) {
                       <button
                         onClick={() => handleEnable(integration.id)}
                         disabled={actionInProgress === integration.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '6px 12px',
-                          fontSize: '12px',
-                          backgroundColor: '#28a745',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '3px',
-                          cursor: actionInProgress === integration.id ? 'not-allowed' : 'pointer',
-                          opacity: actionInProgress === integration.id ? 0.6 : 1,
-                          transition: 'opacity 0.2s'
-                        }}
+                        className="marketplace-btn marketplace-btn-success"
                       >
                         {actionInProgress === integration.id ? (
-                          <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                          <Loader size={12} />
                         ) : (
                           <Play size={12} />
                         )}
@@ -256,23 +189,10 @@ export function MarketplacePanel({ projectPath }: MarketplacePanelProps) {
                     <button
                       onClick={() => handleUninstall(integration.id)}
                       disabled={actionInProgress === integration.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        backgroundColor: '#dc3545',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '3px',
-                        cursor: actionInProgress === integration.id ? 'not-allowed' : 'pointer',
-                        opacity: actionInProgress === integration.id ? 0.6 : 1,
-                        transition: 'opacity 0.2s'
-                      }}
+                      className="marketplace-btn marketplace-btn-danger"
                     >
                       {actionInProgress === integration.id ? (
-                        <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                        <Loader size={12} />
                       ) : (
                         <Trash2 size={12} />
                       )}
