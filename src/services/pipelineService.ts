@@ -1,5 +1,6 @@
 import { homeDir } from '@tauri-apps/api/path';
 import { readTextFile, writeTextFile, exists, mkdir, readDir } from '@tauri-apps/plugin-fs';
+import { generatePipelineSkill } from './hookService';
 
 // ============================================
 // Graph-Based Pipeline Types (v2.0)
@@ -965,6 +966,18 @@ export async function activatePipeline(projectPath: string, graphName: string): 
     };
 
     await saveGraphState(state, projectPath);
+
+    // Create /pipeline skill for Claude Code
+    const skillsDir = `${projectPath}/.claude/skills/pipeline`;
+    const skillsDirExists = await exists(skillsDir);
+    if (!skillsDirExists) {
+      await mkdir(skillsDir, { recursive: true });
+    }
+    const skillPath = `${skillsDir}/SKILL.md`;
+    const skillContent = generatePipelineSkill(projectPath);
+    await writeTextFile(skillPath, skillContent);
+    console.log('[Graph] Pipeline skill created at', skillPath);
+
     return true;
   } catch (e) {
     console.error('[Graph] Error activating pipeline:', e);
