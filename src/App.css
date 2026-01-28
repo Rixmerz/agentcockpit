@@ -3373,8 +3373,7 @@ input[type="checkbox"] {
 .plugin-content {
   display: flex;
   flex-direction: column;
-  flex-shrink: 1;
-  min-height: 0;
+  flex-shrink: 0;
 }
 
 /* Actions Panel - ensure it doesn't overflow */
@@ -3383,16 +3382,6 @@ input[type="checkbox"] {
   flex-direction: column;
   min-height: 0;
   flex: 1;
-}
-
-/* Scrollable content area for panels */
-.actions-panel-scrollable {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 /* Sidebar scrollbar styling */
@@ -3499,6 +3488,25 @@ input[type="checkbox"] {
   height: 100%;
   object-fit: cover;
   border-radius: calc(var(--radius-md) - 1px);
+}
+
+.marketplace-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: var(--radius-md);
+  color: #22c55e;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.marketplace-btn:hover {
+  background: rgba(34, 197, 94, 0.25);
+  transform: scale(1.05);
 }
 
 .settings-btn {

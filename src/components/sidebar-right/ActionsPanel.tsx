@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { Settings, Github } from 'lucide-react';
+import { Settings, Github, Package } from 'lucide-react';
 import { usePlugins } from '../../plugins/context/PluginContext';
 import { AgentTabs } from '../../core/components/AgentTabs';
 import { SessionManager } from './SessionManager';
@@ -60,12 +60,13 @@ export function ActionsPanel({
   // Track child component modal states
   const [pipelineModalOpen, setPipelineModalOpen] = useState(false);
   const [mcpModalOpen, setMcpModalOpen] = useState(false);
+  const [marketplaceModalOpen, setMarketplaceModalOpen] = useState(false);
 
   // Notify parent when any modal is open (for browser panel z-index)
   useEffect(() => {
-    const anyModalOpen = showSettings || showGitHubLogin || pipelineModalOpen || mcpModalOpen;
+    const anyModalOpen = showSettings || showGitHubLogin || pipelineModalOpen || mcpModalOpen || marketplaceModalOpen;
     onModalStateChange?.(anyModalOpen);
-  }, [showSettings, showGitHubLogin, pipelineModalOpen, mcpModalOpen, onModalStateChange]);
+  }, [showSettings, showGitHubLogin, pipelineModalOpen, mcpModalOpen, marketplaceModalOpen, onModalStateChange]);
 
   // Clear session when project changes (fixes ghost session bug)
   useEffect(() => {
@@ -303,6 +304,14 @@ export function ActionsPanel({
               <Github size={16} />
             )}
           </button>
+          {/* Marketplace Button */}
+          <button
+            className="marketplace-btn"
+            onClick={() => setMarketplaceModalOpen(true)}
+            title="Marketplace"
+          >
+            <Package size={16} />
+          </button>
           {/* Settings Button */}
           <button
             className="settings-btn"
@@ -356,9 +365,6 @@ export function ActionsPanel({
         activePluginId={activePlugin?.manifest.id ?? null}
         onSelect={setActivePlugin}
       />
-
-      {/* Scrollable Content Area */}
-      <div className="actions-panel-scrollable">
 
       {/* Active Plugin Content */}
       {activePlugin && (
@@ -443,10 +449,25 @@ export function ActionsPanel({
 
       <PortMonitor />
 
-      <MarketplacePanel projectPath={projectPath} />
-
       <GitSettings projectPath={projectPath} />
-      </div>
+
+      {/* Marketplace Modal */}
+      {marketplaceModalOpen && (
+        <div className="modal-overlay" onClick={() => setMarketplaceModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh', width: '600px' }}>
+            <div className="modal-header">
+              <h2>Marketplace</h2>
+              <button
+                className="modal-close-btn"
+                onClick={() => setMarketplaceModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <MarketplacePanel projectPath={projectPath} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
