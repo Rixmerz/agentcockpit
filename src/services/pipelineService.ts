@@ -30,6 +30,15 @@ export interface GraphNode {
   is_end?: boolean;
   max_visits?: number;
   model?: string;
+  type?: 'standard' | 'integration';
+  integration?: string;
+  wrapper_config?: {
+    entry_skill: string;
+    entry_context?: string;
+    exit_signal: string;
+    timeout_minutes?: number;
+    fallback_edge?: string;
+  };
 }
 
 export interface GraphMetadata {
