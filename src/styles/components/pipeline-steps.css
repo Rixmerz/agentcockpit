@@ -1,0 +1,264 @@
+/**
+ * Pipeline Steps Bar Component Styles
+ * Horizontal bar showing pipeline nodes - BF3 inspired
+ */
+
+/* ═══════════════════════════════════════════════════════════════
+   PIPELINE STEPS BAR CONTAINER
+   ═══════════════════════════════════════════════════════════════ */
+.pipeline-steps-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--pipeline-bar-height);
+  padding: 0 var(--space-3);
+  background: var(--color-surface-sunken);
+  border-bottom: var(--border-width-thin) solid var(--color-border-subtle);
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  /* Hide scrollbar but allow scroll */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.pipeline-steps-bar::-webkit-scrollbar {
+  display: none;
+}
+
+/* When no pipeline is active */
+.pipeline-steps-bar--empty {
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PIPELINE STEP NODE
+   ═══════════════════════════════════════════════════════════════ */
+.pipeline-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  flex-shrink: 0;
+  position: relative;
+  isolation: isolate;
+
+  font-family: var(--font-condensed);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-muted);
+
+  /* El fondo es el BORDE - usar default para más contraste */
+  background: var(--color-border-default);
+  border: none;
+  cursor: pointer;
+
+  /* Angular cut corners - BF3 style */
+  clip-path: polygon(
+    var(--cut-sm) 0,
+    100% 0,
+    100% calc(100% - var(--cut-sm)),
+    calc(100% - var(--cut-sm)) 100%,
+    0 100%,
+    0 var(--cut-sm)
+  );
+
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+/* Pseudo-elemento como fondo del contenido (cubre el borde excepto 2px) */
+.pipeline-step::after {
+  content: '';
+  position: absolute;
+  inset: 2px; /* 2px para borde visible */
+  background: var(--color-surface-base);
+  clip-path: polygon(
+    var(--cut-sm) 0,
+    100% 0,
+    100% calc(100% - var(--cut-sm)),
+    calc(100% - var(--cut-sm)) 100%,
+    0 100%,
+    0 var(--cut-sm)
+  );
+  z-index: -1;
+}
+
+.pipeline-step:hover {
+  color: var(--color-text-primary);
+  background: var(--color-accent-primary);
+}
+
+/* Current/Active step */
+.pipeline-step--current {
+  color: var(--color-text-accent);
+  background: var(--color-accent-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STEP STATES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Current/Active step - solo el borde es accent, no el fondo */
+.pipeline-step--current {
+  color: var(--color-text-accent);
+  /* Fondo igual que el base, solo el borde cambia */
+}
+
+.pipeline-step--current::before {
+  background: var(--color-accent-primary);
+  box-shadow: 0 0 var(--glow-spread-sm) var(--color-accent-primary-glow);
+}
+
+.pipeline-step--current:hover {
+  color: var(--color-text-accent);
+}
+
+.pipeline-step--current:hover::before {
+  background: var(--color-accent-primary);
+  box-shadow: 0 0 var(--glow-spread-md) var(--color-accent-primary-glow);
+}
+
+/* Completed step */
+.pipeline-step--completed {
+  color: var(--color-text-secondary);
+}
+
+.pipeline-step--completed .pipeline-step__indicator {
+  background: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
+}
+
+/* Pending/future step */
+.pipeline-step--pending {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STEP INDICATOR DOT
+   ═══════════════════════════════════════════════════════════════ */
+.pipeline-step__indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: var(--border-width-thin) solid var(--color-text-muted);
+  flex-shrink: 0;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.pipeline-step--current .pipeline-step__indicator {
+  background: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 var(--glow-spread-sm) var(--color-accent-primary-glow);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STEP LABEL
+   ═══════════════════════════════════════════════════════════════ */
+.pipeline-step__label {
+  white-space: nowrap;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STEP CONNECTOR (Arrow between steps)
+   ═══════════════════════════════════════════════════════════════ */
+.pipeline-step-connector {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-1);
+  color: var(--color-border-default);
+  flex-shrink: 0;
+}
+
+.pipeline-step-connector__arrow {
+  width: 16px;
+  height: 8px;
+  position: relative;
+}
+
+.pipeline-step-connector__arrow::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 4px;
+  height: 1px;
+  background: currentColor;
+  transform: translateY(-50%);
+}
+
+.pipeline-step-connector__arrow::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid currentColor;
+  transform: translateY(-50%);
+}
+
+/* Active connector (between completed steps) */
+.pipeline-step-connector--active {
+  color: var(--color-accent-primary-dim);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STEP VISIT COUNT BADGE
+   ═══════════════════════════════════════════════════════════════ */
+.pipeline-step__visits {
+  padding: 1px 4px;
+  font-size: 9px;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-inverse);
+  background: var(--color-accent-secondary);
+  border-radius: var(--radius-sm);
+  margin-left: var(--space-1);
+}
+
+.pipeline-step__visits--warning {
+  background: var(--color-status-warning);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PIPELINE INFO (left side label)
+   ═══════════════════════════════════════════════════════════════ */
+.pipeline-steps-bar__info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-3);
+  margin-right: var(--space-2);
+  border-right: var(--border-width-thin) solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.pipeline-steps-bar__name {
+  font-family: var(--font-condensed);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-secondary);
+}
+
+.pipeline-steps-bar__icon {
+  width: 14px;
+  height: 14px;
+  color: var(--color-accent-primary);
+}

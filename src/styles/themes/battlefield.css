@@ -1,0 +1,64 @@
+/**
+ * Battlefield Theme
+ * Inspired by Battlefield 3 UI - Orange primary, blue secondary
+ * Military-tech aesthetic with high contrast
+ */
+
+[data-theme="battlefield"] {
+  /* ═══════════════════════════════════════════════════════════════
+     SURFACE COLORS - Darker, more muted
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-surface-base: #0c0c0e;
+  --theme-surface-raised: #141416;
+  --theme-surface-overlay: #1c1c20;
+  --theme-surface-sunken: #080809;
+  --theme-surface-hover: #222228;
+  --theme-surface-active: #2a2a32;
+
+  /* ═══════════════════════════════════════════════════════════════
+     TEXT COLORS - Slightly warm tint
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-text-primary: #e8e6e3;
+  --theme-text-secondary: #9a9590;
+  --theme-text-muted: #5c5955;
+  --theme-text-inverse: #0c0c0e;
+  --theme-text-accent: #ff6b00;
+
+  /* ═══════════════════════════════════════════════════════════════
+     PRIMARY ACCENT - BF3 Orange
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-accent-primary: #ff6b00;
+  --theme-accent-primary-hover: #ff8533;
+  --theme-accent-primary-dim: #cc5500;
+  --theme-accent-primary-glow: rgba(255, 107, 0, 0.4);
+  --theme-accent-primary-subtle: rgba(255, 107, 0, 0.15);
+
+  /* ═══════════════════════════════════════════════════════════════
+     SECONDARY ACCENT - BF3 Blue
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-accent-secondary: #00a8ff;
+  --theme-accent-secondary-hover: #33bbff;
+  --theme-accent-secondary-glow: rgba(0, 168, 255, 0.3);
+
+  /* ═══════════════════════════════════════════════════════════════
+     STATUS COLORS
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-status-success: #4ade80;
+  --theme-status-warning: #ff6b00;
+  --theme-status-error: #ef4444;
+  --theme-status-info: #00a8ff;
+
+  /* ═══════════════════════════════════════════════════════════════
+     BORDER COLORS - More prominent accent borders
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-border-subtle: #222228;
+  --theme-border-default: #333338;
+  --theme-border-strong: #444448;
+  --theme-border-accent: rgba(255, 107, 0, 0.4);
+
+  /* ═══════════════════════════════════════════════════════════════
+     GLASS EFFECTS - Slightly warmer
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-glass-bg: rgba(14, 14, 16, 0.9);
+  --theme-glass-border: rgba(255, 107, 0, 0.15);
+}

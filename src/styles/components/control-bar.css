@@ -1,0 +1,193 @@
+/**
+ * Control Bar Component Styles
+ * Main top bar with dropdowns - BF3 inspired angular design
+ */
+
+.control-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-bar-height);
+  padding: 0 var(--space-3);
+  background: linear-gradient(
+    180deg,
+    var(--color-surface-raised) 0%,
+    var(--color-surface-base) 100%
+  );
+  border-bottom: var(--border-width-default) solid var(--color-border-accent);
+  position: relative;
+  z-index: 100;
+  /* Note: clip-path removed to allow dropdowns to overflow */
+}
+
+/* Accent line at bottom */
+.control-bar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: var(--cut-lg);
+  height: var(--border-width-default);
+  background: linear-gradient(
+    90deg,
+    var(--color-accent-primary) 0%,
+    var(--color-accent-primary-dim) 50%,
+    transparent 100%
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTROL BAR SECTIONS
+   ═══════════════════════════════════════════════════════════════ */
+.control-bar__section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.control-bar__section--left {
+  flex: 1;
+}
+
+.control-bar__section--center {
+  flex: 0 0 auto;
+}
+
+.control-bar__section--right {
+  flex: 1;
+  justify-content: flex-end;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTROL BAR TRIGGER BUTTON
+   ═══════════════════════════════════════════════════════════════ */
+.control-bar__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  height: 28px;
+  position: relative;
+  isolation: isolate;
+
+  font-family: var(--font-condensed);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--color-text-secondary);
+
+  /* El fondo es el BORDE - usar default para más contraste */
+  background: var(--color-border-default);
+  border: none;
+  cursor: pointer;
+
+  /* Angular cut corners - BF3 style */
+  clip-path: polygon(
+    var(--cut-sm) 0,
+    100% 0,
+    100% calc(100% - var(--cut-sm)),
+    calc(100% - var(--cut-sm)) 100%,
+    0 100%,
+    0 var(--cut-sm)
+  );
+
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+/* Pseudo-elemento como fondo del contenido */
+.control-bar__trigger::after {
+  content: '';
+  position: absolute;
+  inset: 2px; /* 2px para borde visible */
+  background: var(--color-surface-overlay);
+  clip-path: polygon(
+    var(--cut-sm) 0,
+    100% 0,
+    100% calc(100% - var(--cut-sm)),
+    calc(100% - var(--cut-sm)) 100%,
+    0 100%,
+    0 var(--cut-sm)
+  );
+  z-index: -1;
+}
+
+.control-bar__trigger:hover {
+  color: var(--color-text-primary);
+  background: var(--color-accent-primary);
+}
+
+.control-bar__trigger:active,
+.control-bar__trigger[data-state="open"] {
+  color: var(--color-text-accent);
+  background: var(--color-accent-primary);
+}
+
+.control-bar__trigger-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+}
+
+.control-bar__trigger:hover .control-bar__trigger-icon {
+  opacity: 1;
+}
+
+.control-bar__trigger-chevron {
+  width: 12px;
+  height: 12px;
+  margin-left: var(--space-1);
+  transition: transform var(--transition-fast);
+}
+
+.control-bar__trigger[data-state="open"] .control-bar__trigger-chevron {
+  transform: rotate(180deg);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STATUS INDICATORS
+   ═══════════════════════════════════════════════════════════════ */
+.control-bar__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.control-bar__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+}
+
+.control-bar__status-dot--active {
+  background: var(--color-status-success);
+  box-shadow: 0 0 var(--glow-spread-sm) var(--color-status-success);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.control-bar__status-dot--warning {
+  background: var(--color-status-warning);
+}
+
+.control-bar__status-dot--error {
+  background: var(--color-status-error);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DIVIDER
+   ═══════════════════════════════════════════════════════════════ */
+.control-bar__divider {
+  width: 1px;
+  height: 20px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    var(--color-border-default) 50%,
+    transparent 100%
+  );
+  margin: 0 var(--space-2);
+}
