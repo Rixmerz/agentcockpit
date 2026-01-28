@@ -1,6 +1,6 @@
 {
   "current_nodes": [
-    "accessibility-legal"
+    "lighthouse-audit"
   ],
   "node_visits": {
     "url-capture": 1,
@@ -12,7 +12,8 @@
     "ui-fixes": 1,
     "seo-implementation": 1,
     "technical-files": 1,
-    "accessibility-legal": 1
+    "accessibility-legal": 1,
+    "lighthouse-audit": 1
   },
   "execution_path": [
     {
@@ -91,10 +92,17 @@
       "edge_id": "technical-to-accessibility",
       "timestamp": "2026-01-28T02:40:59.991102",
       "reason": "Archivos t\u00e9cnicos listos: favicons referencias, manifest.json, specs documentadas"
+    },
+    {
+      "from_node": "accessibility-legal",
+      "to_node": "lighthouse-audit",
+      "edge_id": "accessibility-to-audit",
+      "timestamp": "2026-01-28T02:44:40.147648",
+      "reason": "Accesibilidad y legal listos: skip link, labels, ARIA, role navigation, main content"
     }
   ],
   "active_graph": "denofresh-analyzer",
   "max_visits_default": 10,
-  "total_transitions": 10,
-  "last_activity": "2026-01-28T02:40:59.991130"
+  "total_transitions": 11,
+  "last_activity": "2026-01-28T02:44:40.147674"
 }

@@ -116,7 +116,7 @@ export const agentfulIntegrationService = {
 
       // Phase 5 TODO: Real Agentful invocation
       // For now, mock execution with realistic output
-      const mockResult = this.simulateAgentfulExecution(context);
+      const mockResult = this.simulateAgentfulOutput(context);
 
       return {
         success: true,
@@ -229,8 +229,9 @@ export const agentfulIntegrationService = {
 
   /**
    * MOCK: Simulate Agentful execution (Phase 5: Replace with real)
+   * Note: Utility method for testing. In production, use real Agentful package.
    */
-  private simulateAgentfulExecution(context: AgentfulExecutionContext): string {
+  simulateAgentfulOutput(context: AgentfulExecutionContext): string {
     return `
 [Agentful Orchestrator] Starting parallel agent execution
 [Orchestrator] Analyzing task: ${context.task}
