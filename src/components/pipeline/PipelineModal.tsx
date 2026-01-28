@@ -310,7 +310,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
               <div className="pipeline-step-info">
                 <span className="pipeline-step-name">{step.name}</span>
                 <span className="pipeline-step-desc">
-                  {step.description || step.mcps_enabled?.join(', ') || 'No description'}
+                  {step.description || (Array.isArray(step.mcps_enabled) ? step.mcps_enabled.join(', ') : '') || 'No description'}
                 </span>
                 {/* Show visit count for graph nodes */}
                 {visits > 0 && (
@@ -597,7 +597,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
               <div className="pipeline-step-details">
                 <span className="detail-label">MCPs:</span>
                 <span className="detail-value">
-                  {step.mcps_enabled.length > 0 ? step.mcps_enabled.join(', ') : 'none'}
+                  {Array.isArray(step.mcps_enabled) && step.mcps_enabled.length > 0 ? step.mcps_enabled.join(', ') : 'none'}
                 </span>
               </div>
               <div className="pipeline-step-details">
