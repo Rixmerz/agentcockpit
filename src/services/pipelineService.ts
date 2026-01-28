@@ -23,12 +23,13 @@ export interface GraphEdge {
 export interface GraphNode {
   id: string;
   name: string;
-  mcps_enabled: string[];
-  tools_blocked: string[];
+  mcps_enabled?: string[];
+  tools_blocked?: string[];
   prompt_injection?: string;
-  is_start: boolean;
-  is_end: boolean;
-  max_visits: number;
+  is_start?: boolean;
+  is_end?: boolean;
+  max_visits?: number;
+  model?: string;
 }
 
 export interface GraphMetadata {
@@ -36,6 +37,10 @@ export interface GraphMetadata {
   description?: string;
   version: string;
   type: 'graph';
+  subagents_required?: string[];
+  agents_required?: string[];  // Alias for backwards compatibility
+  mcps_required?: string[];
+  architecture?: string;
 }
 
 export interface PipelineGraph {
@@ -83,17 +88,18 @@ export interface PipelineStep {
   id: string;
   order: number;
   name: string;
-  description: string;
-  prompt_injection: string;
-  mcps_enabled: string[];
-  tools_blocked: string[];
-  gate_type: 'any' | 'tool' | 'phrase' | 'always';
-  gate_tool: string;
-  gate_phrases: string[];
+  description?: string;
+  prompt_injection?: string;
+  mcps_enabled?: string[];
+  tools_blocked?: string[];
+  gate_type?: 'any' | 'tool' | 'phrase' | 'always';
+  gate_tool?: string;
+  gate_phrases?: string[];
   // Graph-specific
   is_start?: boolean;
   is_end?: boolean;
   max_visits?: number;
+  model?: string;
 }
 
 // ============================================
@@ -116,6 +122,8 @@ interface HubConfig {
   hub_dir: string;
   pipelines_dir: string;
   states_dir: string;
+  agents_dir?: string;
+  skills_dir?: string;
 }
 
 async function getHubConfig(): Promise<HubConfig | null> {
@@ -227,6 +235,42 @@ async function getGlobalPipelinesDir(): Promise<string> {
   }
 
   return `${cachedHomeDir}/my_projects/agentcockpit/.claude/pipelines`;
+}
+
+async function getGlobalAgentsDir(): Promise<string> {
+  const hubConfig = await getHubConfig();
+
+  if (hubConfig) {
+    const agentsDir = hubConfig.agents_dir || '.claude/agents';
+    return `${hubConfig.hub_dir}/${agentsDir}`;
+  }
+
+  // Fallback
+  if (!cachedHomeDir) {
+    const home = await homeDir();
+    if (!home) throw new Error('Could not determine home directory');
+    cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
+  }
+
+  return `${cachedHomeDir}/my_projects/agentcockpit/.claude/agents`;
+}
+
+async function getGlobalSkillsDir(): Promise<string> {
+  const hubConfig = await getHubConfig();
+
+  if (hubConfig) {
+    const skillsDir = hubConfig.skills_dir || '.claude/skills';
+    return `${hubConfig.hub_dir}/${skillsDir}`;
+  }
+
+  // Fallback
+  if (!cachedHomeDir) {
+    const home = await homeDir();
+    if (!home) throw new Error('Could not determine home directory');
+    cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
+  }
+
+  return `${cachedHomeDir}/my_projects/agentcockpit/.claude/skills`;
 }
 
 export async function getPipelinePath(projectPath?: string | null): Promise<string> {
@@ -966,6 +1010,39 @@ export async function activatePipeline(projectPath: string, graphName: string): 
     };
 
     await saveGraphState(state, projectPath);
+
+    // Copy required agents to project
+    const requiredAgents = graph.metadata.subagents_required || graph.metadata.agents_required || [];
+    if (requiredAgents.length > 0) {
+      const globalAgentsDir = await getGlobalAgentsDir();
+      const projectAgentsDir = `${projectPath}/.claude/agents`;
+
+      // Ensure project agents directory exists
+      const agentsDirExists = await exists(projectAgentsDir);
+      if (!agentsDirExists) {
+        await mkdir(projectAgentsDir, { recursive: true });
+      }
+
+      // Copy each required agent
+      for (const agentName of requiredAgents) {
+        try {
+          const agentSourcePath = `${globalAgentsDir}/${agentName}.md`;
+          const agentDestPath = `${projectAgentsDir}/${agentName}.md`;
+
+          const agentExists = await exists(agentSourcePath);
+          if (agentExists) {
+            const agentContent = await readTextFile(agentSourcePath);
+            await writeTextFile(agentDestPath, agentContent);
+            console.log(`[Graph] Agent copied: ${agentName}`);
+          } else {
+            console.warn(`[Graph] Agent not found: ${agentName}`);
+          }
+        } catch (agentError) {
+          console.error(`[Graph] Error copying agent ${agentName}:`, agentError);
+        }
+      }
+      console.log(`[Graph] Copied ${requiredAgents.length} agents to project`);
+    }
 
     // Create /pipeline skill for Claude Code
     const skillsDir = `${projectPath}/.claude/skills/pipeline`;
