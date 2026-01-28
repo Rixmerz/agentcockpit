@@ -200,7 +200,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
 
   const toggleMcp = (mcpName: string) => {
     if (!editingStep) return;
-    const enabled = editingStep.mcps_enabled;
+    const enabled = editingStep.mcps_enabled || [];
 
     // Special handling for "*" (All) - select/deselect all MCPs
     if (mcpName === '*') {
@@ -244,7 +244,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
 
   const toggleTool = (toolName: string) => {
     if (!editingStep) return;
-    const blocked = editingStep.tools_blocked;
+    const blocked = editingStep.tools_blocked || [];
     if (blocked.includes(toolName)) {
       setEditingStep({
         ...editingStep,
@@ -603,7 +603,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
               <div className="pipeline-step-details">
                 <span className="detail-label">Blocked:</span>
                 <span className="detail-value">
-                  {step.tools_blocked.length > 0 ? step.tools_blocked.join(', ') : 'none'}
+                  {Array.isArray(step.tools_blocked) && step.tools_blocked.length > 0 ? step.tools_blocked.join(', ') : 'none'}
                 </span>
               </div>
             </div>
@@ -702,7 +702,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
               <label key={mcp.name} className="pipeline-checkbox-item">
                 <input
                   type="checkbox"
-                  checked={editingStep.mcps_enabled.includes(mcp.name)}
+                  checked={(editingStep.mcps_enabled || []).includes(mcp.name)}
                   onChange={() => toggleMcp(mcp.name)}
                 />
                 <span className={mcp.name === '*' ? 'mcp-wildcard' : ''}>
@@ -720,7 +720,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
               <label key={tool} className="pipeline-checkbox-item">
                 <input
                   type="checkbox"
-                  checked={editingStep.tools_blocked.includes(tool)}
+                  checked={(editingStep.tools_blocked || []).includes(tool)}
                   onChange={() => toggleTool(tool)}
                 />
                 <span>{tool}</span>
@@ -793,7 +793,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
             >
               <option value="">Select a tool...</option>
               {availableMcps
-                .filter(m => m.name !== '*' && editingStep.mcps_enabled.includes(m.name))
+                .filter(m => m.name !== '*' && (editingStep.mcps_enabled || []).includes(m.name))
                 .map(mcp => (
                   <option key={mcp.name} value={`mcp__${mcp.name}__`}>
                     mcp__{mcp.name}__
@@ -812,7 +812,7 @@ export function PipelineModal({ isOpen, onClose, projectPath }: PipelineModalPro
             <input
               type="text"
               className="settings-input"
-              value={editingStep.gate_phrases.join(', ')}
+              value={(editingStep.gate_phrases || []).join(', ')}
               onChange={(e) => setEditingStep({
                 ...editingStep,
                 gate_phrases: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
