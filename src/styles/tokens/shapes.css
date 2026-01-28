@@ -1,0 +1,135 @@
+/**
+ * Shape Tokens - Border radius, clip-paths, angles
+ * Key for the BF3 angular aesthetic
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════════
+     BORDER RADIUS
+     ═══════════════════════════════════════════════════════════════ */
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* ═══════════════════════════════════════════════════════════════
+     ANGULAR CUTS - BF3 Style
+     Corner cut sizes for different components
+     ═══════════════════════════════════════════════════════════════ */
+  --cut-xs: 4px;
+  --cut-sm: 6px;
+  --cut-md: 10px;
+  --cut-lg: 14px;
+  --cut-xl: 20px;
+
+  /* ═══════════════════════════════════════════════════════════════
+     CLIP-PATH DEFINITIONS
+     These create the angular BF3 aesthetic
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* Bar with top-right and bottom-left cuts */
+  --clip-bar: polygon(
+    0 0,
+    calc(100% - var(--cut-md)) 0,
+    100% var(--cut-md),
+    100% 100%,
+    var(--cut-md) 100%,
+    0 calc(100% - var(--cut-md))
+  );
+
+  /* Button with diagonal corners (top-left, bottom-right) */
+  --clip-button: polygon(
+    var(--cut-sm) 0,
+    100% 0,
+    100% calc(100% - var(--cut-sm)),
+    calc(100% - var(--cut-sm)) 100%,
+    0 100%,
+    0 var(--cut-sm)
+  );
+
+  /* Panel with single top-right cut */
+  --clip-panel-tr: polygon(
+    0 0,
+    calc(100% - var(--cut-lg)) 0,
+    100% var(--cut-lg),
+    100% 100%,
+    0 100%
+  );
+
+  /* Panel with single bottom-left cut */
+  --clip-panel-bl: polygon(
+    0 0,
+    100% 0,
+    100% 100%,
+    var(--cut-lg) 100%,
+    0 calc(100% - var(--cut-lg))
+  );
+
+  /* Dropdown panel - top-right cut only */
+  --clip-dropdown: polygon(
+    0 0,
+    calc(100% - var(--cut-sm)) 0,
+    100% var(--cut-sm),
+    100% 100%,
+    0 100%
+  );
+
+  /* Tag/chip with small angled corners */
+  --clip-tag: polygon(
+    var(--cut-xs) 0,
+    calc(100% - var(--cut-xs)) 0,
+    100% var(--cut-xs),
+    100% calc(100% - var(--cut-xs)),
+    calc(100% - var(--cut-xs)) 100%,
+    var(--cut-xs) 100%,
+    0 calc(100% - var(--cut-xs)),
+    0 var(--cut-xs)
+  );
+
+  /* Step indicator - hexagonal-ish */
+  --clip-step: polygon(
+    var(--cut-xs) 0,
+    calc(100% - var(--cut-xs)) 0,
+    100% 50%,
+    calc(100% - var(--cut-xs)) 100%,
+    var(--cut-xs) 100%,
+    0 50%
+  );
+
+  /* ═══════════════════════════════════════════════════════════════
+     BORDER STYLES
+     ═══════════════════════════════════════════════════════════════ */
+  --border-width-thin: 1px;
+  --border-width-default: 2px;
+  --border-width-thick: 3px;
+
+  /* ═══════════════════════════════════════════════════════════════
+     SHADOWS & GLOWS
+     ═══════════════════════════════════════════════════════════════ */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+  --glow-spread-sm: 4px;
+  --glow-spread-md: 8px;
+  --glow-spread-lg: 16px;
+
+  /* ═══════════════════════════════════════════════════════════════
+     TRANSITIONS
+     ═══════════════════════════════════════════════════════════════ */
+  --transition-fast: 0.1s ease-out;
+  --transition-base: 0.15s ease-out;
+  --transition-slow: 0.25s ease-out;
+  --transition-spring: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ═══════════════════════════════════════════════════════════════
+     BLUR EFFECTS
+     ═══════════════════════════════════════════════════════════════ */
+  --blur-sm: blur(4px);
+  --blur-md: blur(8px);
+  --blur-lg: blur(12px);
+  --blur-xl: blur(20px);
+}

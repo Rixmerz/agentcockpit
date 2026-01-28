@@ -1380,3 +1380,110 @@ export async function getAvailableMcps(): Promise<AvailableMcp[]> {
 
   return mcps;
 }
+
+// ============================================
+// ControlBar/PipelineStepsBar API
+// ============================================
+
+export interface PipelineStatus {
+  graphName: string | null;
+  currentNode: string | null;
+  nodes: {
+    id: string;
+    name: string;
+    visits: number;
+    maxVisits: number;
+  }[];
+  isActive: boolean;
+}
+
+export async function getStatus(projectPath: string | null): Promise<PipelineStatus | null> {
+  if (!projectPath) return null;
+
+  try {
+    const graph = await getGraph(projectPath);
+    const graphState = await getGraphState(projectPath);
+
+    if (!graph || !graphState.active_graph) {
+      return null;
+    }
+
+    const nodes = graph.nodes.map(node => ({
+      id: node.id,
+      name: node.name,
+      visits: graphState.node_visits[node.id] || 0,
+      maxVisits: node.max_visits || graphState.max_visits_default
+    }));
+
+    return {
+      graphName: graphState.active_graph,
+      currentNode: graphState.current_nodes[0] || null,
+      nodes,
+      isActive: true
+    };
+  } catch (e) {
+    console.error('[Graph] Error getting status:', e);
+    return null;
+  }
+}
+
+export async function listAvailablePipelines(projectPath: string | null): Promise<string[]> {
+  if (!projectPath) return [];
+
+  try {
+    const pipelines = await listGlobalPipelines();
+    return pipelines.map(p => p.name);
+  } catch (e) {
+    console.error('[Graph] Error listing pipelines:', e);
+    return [];
+  }
+}
+
+// ============================================
+// Service Object (for component imports)
+// ============================================
+
+export const pipelineService = {
+  // Status API
+  getStatus,
+  listAvailablePipelines,
+  activatePipeline,
+  resetPipeline,
+  deactivatePipeline,
+
+  // Graph operations
+  getGraph,
+  getGlobalGraph,
+  getGraphState,
+  saveGraphState,
+  getAvailableEdges,
+  traverseEdge,
+  setCurrentNode,
+  getGraphVisualization,
+
+  // Legacy compatibility
+  getPipelineState,
+  savePipelineState,
+  getPipelineSteps,
+  getGlobalPipelineSteps,
+
+  // Installation & configuration
+  isPipelineInstalled,
+  ensurePipelineDir,
+  getPipelinePath,
+  getEnforcerEnabled,
+  getActivePipelineName,
+  listGlobalPipelines,
+
+  // Assets management
+  copyAllAgentsToProject,
+  copyAllSkillsToProject,
+  copyAllAssetsToProject,
+
+  // Settings
+  getPipelineSettings,
+  savePipelineSettings,
+  savePipelineSteps,
+  getAvailableMcps,
+  STANDARD_TOOLS
+};

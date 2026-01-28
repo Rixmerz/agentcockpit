@@ -14,6 +14,7 @@ import { ProjectOpener } from './components/sidebar-left/ProjectOpener';
 import { GitHubLoginModal } from './components/sidebar-left/GitHubLoginModal';
 import { SnapshotPanel } from './components/sidebar-left/SnapshotPanel';
 import { ActionsPanel } from './components/sidebar-right/ActionsPanel';
+import { ControlBar, PipelineStepsBar } from './components/control-bar';
 import {
   ChevronRight,
   ChevronDown,
@@ -364,6 +365,18 @@ function MainContent() {
 
       {/* Main Content - Terminal View */}
       <main className="main-content">
+        {/* Control Bars - Above Terminal */}
+        <div className="app-top-bars">
+          <ControlBar
+            projectPath={activeProject?.path || null}
+            onPipelineChange={(name) => console.log('[App] Pipeline changed:', name)}
+          />
+          <PipelineStepsBar
+            projectPath={activeProject?.path || null}
+            onNodeClick={(nodeId) => console.log('[App] Node clicked:', nodeId)}
+          />
+        </div>
+
         <div
           className="terminal-container"
           style={{

@@ -1,0 +1,64 @@
+/**
+ * Cyber Teal Theme - Default
+ * Dark theme with teal/cyan accent and purple secondary
+ */
+
+:root,
+[data-theme="cyber-teal"] {
+  /* ═══════════════════════════════════════════════════════════════
+     SURFACE COLORS
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-surface-base: #0a0a0f;
+  --theme-surface-raised: #12121a;
+  --theme-surface-overlay: #1a1a24;
+  --theme-surface-sunken: #070709;
+  --theme-surface-hover: #1e1e2a;
+  --theme-surface-active: #252532;
+
+  /* ═══════════════════════════════════════════════════════════════
+     TEXT COLORS
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-text-primary: #e4e4e7;
+  --theme-text-secondary: #8b8b9a;
+  --theme-text-muted: #5a5a6a;
+  --theme-text-inverse: #0a0a0f;
+  --theme-text-accent: #00d4aa;
+
+  /* ═══════════════════════════════════════════════════════════════
+     PRIMARY ACCENT - Cyber Teal
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-accent-primary: #00d4aa;
+  --theme-accent-primary-hover: #00eabb;
+  --theme-accent-primary-dim: #00a080;
+  --theme-accent-primary-glow: rgba(0, 212, 170, 0.4);
+  --theme-accent-primary-subtle: rgba(0, 212, 170, 0.15);
+
+  /* ═══════════════════════════════════════════════════════════════
+     SECONDARY ACCENT - Purple
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-accent-secondary: #a855f7;
+  --theme-accent-secondary-hover: #c084fc;
+  --theme-accent-secondary-glow: rgba(168, 85, 247, 0.3);
+
+  /* ═══════════════════════════════════════════════════════════════
+     STATUS COLORS
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-status-success: #00d4aa;
+  --theme-status-warning: #fbbf24;
+  --theme-status-error: #f43f5e;
+  --theme-status-info: #3b82f6;
+
+  /* ═══════════════════════════════════════════════════════════════
+     BORDER COLORS
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-border-subtle: #1e1e2a;
+  --theme-border-default: #2a2a3a;
+  --theme-border-strong: #3a3a4a;
+  --theme-border-accent: rgba(0, 212, 170, 0.3);
+
+  /* ═══════════════════════════════════════════════════════════════
+     GLASS EFFECTS
+     ═══════════════════════════════════════════════════════════════ */
+  --theme-glass-bg: rgba(13, 13, 20, 0.85);
+  --theme-glass-border: rgba(0, 212, 170, 0.1);
+}

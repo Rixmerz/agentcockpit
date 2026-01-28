@@ -1,0 +1,62 @@
+/**
+ * Color Tokens - Semantic color variables
+ * These define the COLOR ROLES, not the actual values.
+ * Themes override these with specific color values.
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════════
+     SURFACE COLORS - Backgrounds and containers
+     ═══════════════════════════════════════════════════════════════ */
+  --color-surface-base: var(--theme-surface-base);
+  --color-surface-raised: var(--theme-surface-raised);
+  --color-surface-overlay: var(--theme-surface-overlay);
+  --color-surface-sunken: var(--theme-surface-sunken);
+  --color-surface-hover: var(--theme-surface-hover);
+  --color-surface-active: var(--theme-surface-active);
+
+  /* ═══════════════════════════════════════════════════════════════
+     TEXT COLORS - Typography hierarchy
+     ═══════════════════════════════════════════════════════════════ */
+  --color-text-primary: var(--theme-text-primary);
+  --color-text-secondary: var(--theme-text-secondary);
+  --color-text-muted: var(--theme-text-muted);
+  --color-text-inverse: var(--theme-text-inverse);
+  --color-text-accent: var(--theme-text-accent);
+
+  /* ═══════════════════════════════════════════════════════════════
+     ACCENT COLORS - Primary brand/action color
+     ═══════════════════════════════════════════════════════════════ */
+  --color-accent-primary: var(--theme-accent-primary);
+  --color-accent-primary-hover: var(--theme-accent-primary-hover);
+  --color-accent-primary-dim: var(--theme-accent-primary-dim);
+  --color-accent-primary-glow: var(--theme-accent-primary-glow);
+  --color-accent-primary-subtle: var(--theme-accent-primary-subtle);
+
+  /* Secondary accent */
+  --color-accent-secondary: var(--theme-accent-secondary);
+  --color-accent-secondary-hover: var(--theme-accent-secondary-hover);
+  --color-accent-secondary-glow: var(--theme-accent-secondary-glow);
+
+  /* ═══════════════════════════════════════════════════════════════
+     STATUS COLORS - Semantic feedback
+     ═══════════════════════════════════════════════════════════════ */
+  --color-status-success: var(--theme-status-success);
+  --color-status-warning: var(--theme-status-warning);
+  --color-status-error: var(--theme-status-error);
+  --color-status-info: var(--theme-status-info);
+
+  /* ═══════════════════════════════════════════════════════════════
+     BORDER COLORS - Lines and separators
+     ═══════════════════════════════════════════════════════════════ */
+  --color-border-subtle: var(--theme-border-subtle);
+  --color-border-default: var(--theme-border-default);
+  --color-border-strong: var(--theme-border-strong);
+  --color-border-accent: var(--theme-border-accent);
+
+  /* ═══════════════════════════════════════════════════════════════
+     GLASS/OVERLAY EFFECTS
+     ═══════════════════════════════════════════════════════════════ */
+  --color-glass-bg: var(--theme-glass-bg);
+  --color-glass-border: var(--theme-glass-border);
+}
