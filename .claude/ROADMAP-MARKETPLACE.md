@@ -413,12 +413,36 @@ integration-template/
 6. Monitorea salida esperando "AGENTFUL_COMPLETE"
 7. Detecta señal de salida, transiciona al siguiente nodo
 
-### Fase 3: ⏳ PENDIENTE
-- [ ] Hook pause/resume logic
-- [ ] Skill execution with context passing
-- [ ] Exit signal monitoring with timeout
-- [ ] State preservation during wrapper
-- [ ] Production testing
+### Fase 3: ✅ COMPLETADA (2026-01-28)
+- [x] Hook pause/resume logic (hookPauseResumeService.ts)
+- [x] Skill execution with context passing (skillExecutionService.ts)
+- [x] Exit signal monitoring with timeout
+- [x] State preservation (in-memory + emergency recovery)
+- [x] Complete orchestration (phase3WrapperExecutor.ts)
+- [x] Documentation with execution flow
+
+**Archivos Nuevos:**
+- `src/services/hookPauseResumeService.ts` (4.2 KB)
+- `src/services/skillExecutionService.ts` (3.8 KB)
+- `src/services/phase3WrapperExecutor.ts` (5.6 KB)
+- `PHASE3-WRAPPER-EXECUTION.md` (Documentación completa)
+
+**Stages de Ejecución:**
+1. Validar integración instalada
+2. Obtener manifest con metadata
+3. PAUSAR hooks de AgentCockpit (guardar, limpiar)
+4. Ejecutar entry skill (/agentful-start)
+5. Monitorear exit signal (AGENTFUL_COMPLETE) con timeout
+6. REANUDAR hooks de AgentCockpit (restaurar)
+7. Retornar control al pipeline
+
+**Características:**
+- ✅ In-memory hook state tracking
+- ✅ Emergency force-resume si integración crashea
+- ✅ Timeout configurable por nodo
+- ✅ Context injection para skills
+- ✅ Logging de ejecución completa
+- ✅ Error handling robusto
 
 ### Fase 4: ⏳ FUTURO
 - [ ] Registry remoto (API)
