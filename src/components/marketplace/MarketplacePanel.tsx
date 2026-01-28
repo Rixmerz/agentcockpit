@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Download, Trash2, Play, AlertCircle, Loader } from 'lucide-react';
-import { marketplaceService, type AvailableIntegration, type IntegrationManifest } from '../../services/marketplaceService';
+import { marketplaceService, type AvailableIntegration } from '../../services/marketplaceService';
 import { DemoExecutionLauncher } from './DemoExecutionLauncher';
 
 interface MarketplacePanelProps {
@@ -23,12 +23,8 @@ export function MarketplacePanel({ projectPath }: MarketplacePanelProps) {
     try {
       setLoading(true);
       setError(null);
-      const [availableList, installedList] = await Promise.all([
-        marketplaceService.listAvailable(),
-        marketplaceService.listInstalled()
-      ]);
+      const availableList = await marketplaceService.listAvailable();
       setAvailable(availableList);
-      setInstalled(installedList);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load integrations';
       setError(message);

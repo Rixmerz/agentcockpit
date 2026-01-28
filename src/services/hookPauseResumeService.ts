@@ -1,4 +1,4 @@
-import { readClaudeSettings, writeClaudeSettings, ClaudeSettings } from './hookService';
+import { readClaudeSettings, writeClaudeSettings, type ClaudeSettings } from './hookService';
 
 export interface HookState {
   hooked: boolean;
