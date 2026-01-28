@@ -37,8 +37,7 @@ export interface GraphMetadata {
   description?: string;
   version: string;
   type: 'graph';
-  subagents_required?: string[];
-  agents_required?: string[];  // Alias for backwards compatibility
+  agents_required?: string[];
   mcps_required?: string[];
   architecture?: string;
 }
@@ -1012,7 +1011,7 @@ export async function activatePipeline(projectPath: string, graphName: string): 
     await saveGraphState(state, projectPath);
 
     // Copy required agents to project
-    const requiredAgents = graph.metadata.subagents_required || graph.metadata.agents_required || [];
+    const requiredAgents = graph.metadata.agents_required || [];
     if (requiredAgents.length > 0) {
       const globalAgentsDir = await getGlobalAgentsDir();
       const projectAgentsDir = `${projectPath}/.claude/agents`;
