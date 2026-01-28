@@ -20,7 +20,7 @@ interface UsePtyReturn {
 }
 
 // Commands that should NOT trigger snapshots (MCP management, internal commands)
-const SNAPSHOT_SKIP_COMMANDS = ['claude mcp', '/mcp', 'claude --session'];
+const SNAPSHOT_SKIP_COMMANDS = ['claude mcp', '/mcp', 'claude --session', '/model'];
 
 export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
   const ptyIdRef = useRef<number | null>(null);
