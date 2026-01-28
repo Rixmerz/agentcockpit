@@ -16,6 +16,7 @@ import { SettingsModal } from '../settings/SettingsModal';
 import { GitHubLoginModal } from '../sidebar-left/GitHubLoginModal';
 import { PipelinePanel } from '../pipeline';
 import { McpIndicator } from '../mcp/McpIndicator';
+import { ExecutionMonitorPanel } from '../marketplace/ExecutionMonitorPanel';
 import { createSession, updateSessionLastUsed, getSessions, markSessionAsPreExisting, type ProjectSession } from '../../services/projectSessionService';
 import { buildClaudeCommand } from '../../services/claudeService';
 import { executeAction } from '../../core/utils/terminalCommands';
@@ -426,6 +427,8 @@ export function ActionsPanel({
             terminalId={terminalId}
             onModalStateChange={setPipelineModalOpen}
           />
+
+          <ExecutionMonitorPanel projectPath={projectPath} />
 
           <McpIndicator
             onPluginConfigChanged={handlePluginConfigChanged}
