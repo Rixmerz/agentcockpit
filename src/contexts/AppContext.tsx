@@ -16,7 +16,7 @@ const initialState: AppState = {
   // Global settings
   defaultIDE: undefined,
   theme: 'cyber-teal', // Default theme
-  backgroundImage: undefined,
+  backgroundImage: 'https://backiee.com/static/wallpapers/1000x563/167970.jpg', // Default wallpaper
   backgroundOpacity: 30, // Default 30%
   terminalOpacity: 15, // Default 15% (semi-transparent)
   idleTimeout: 5, // Default 5 seconds
@@ -472,7 +472,7 @@ export function useAppSettings() {
   return {
     defaultIDE: state.defaultIDE,
     theme: state.theme ?? 'cyber-teal',
-    backgroundImage: state.backgroundImage,
+    backgroundImage: state.backgroundImage || 'https://backiee.com/static/wallpapers/1000x563/167970.jpg',
     backgroundOpacity: state.backgroundOpacity ?? 30,
     terminalOpacity: state.terminalOpacity ?? 15,
     idleTimeout: state.idleTimeout ?? 5, // Default 5 seconds
