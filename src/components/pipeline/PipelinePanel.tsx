@@ -14,6 +14,7 @@ import {
   getAvailableEdges,
   traverseEdge,
   getGraphState,
+  copyAllAssetsToProject,
 } from '../../services/pipelineService';
 
 // Polling interval in milliseconds (2 seconds)
@@ -321,6 +322,12 @@ export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanel
       const result = await installPipelineHooks(projectPath, steps);
 
       if (result.success) {
+        // Copy all agents and skills to project
+        const assetsResult = await copyAllAssetsToProject(projectPath);
+        if (!assetsResult.success) {
+          console.warn('[PipelinePanel] Some assets failed to copy:', assetsResult.errors);
+        }
+
         setIsInstalled(true);
         // Enable pipeline after installation (hooks write to config.json)
         setEnabled(true);
