@@ -1,13 +1,22 @@
-# DenoFresh Web Analyzer & Rebuild Pipeline v3.2
-# Arquitectura híbrida: 7 Subagents especializados + delegación explícita
+# DenoFresh Web Analyzer & Rebuild Pipeline v4.0
+# Arquitectura híbrida optimizada: 12 nodos (reducido de 17)
 
 metadata:
   name: "DenoFresh Web Analyzer"
   description: "Pipeline híbrida con subagents especializados. Analiza páginas web y las recrea con Deno Fresh."
-  version: "3.2.0"
+  version: "4.0.0"
   type: "graph"
   author: "AgentCockpit"
   architecture: "hybrid-multi-agent"
+  changelog: |
+    v4.0.0 - Optimizaciones post-ejecución:
+    - Fusionados: project-init + sections-creation + islands-creation → project-build
+    - Fusionados: seo-implementation + technical-files + accessibility-legal → seo-technical
+    - Agregado: Instrucción para NO borrar .claude/pipeline/
+    - Agregado: Instrucción para usar search_tools del pipeline-manager
+    - Agregado: Validación de contenido del negocio (precios, moneda, nombres)
+    - Agregado: Modo "sin preguntas" cuando usuario indica continuar
+    - Reducido: 17 nodos → 12 nodos
   agents_required:
     - "url-capture"
     - "web-analyzer"
@@ -33,14 +42,26 @@ global_prompt: |
   ❌ PROHIBIDO: deno task dev (DEPRECADO)
   ✅ OBLIGATORIO: deno task build && deno task start
 
+  ❌ PROHIBIDO: Borrar o modificar .claude/pipeline/
+  ✅ OBLIGATORIO: Preservar archivos de configuración del pipeline
+
   VERIFICACIONES:
   - Acentuación correcta (á, é, í, ó, ú, ñ, ü)
   - Contraste WCAG AA (4.5:1 mínimo)
   - Un solo H1 por página
+
+  BUSCAR MCPS:
+  - Usar `search_tools(query)` del pipeline-manager para encontrar herramientas
+  - Usar `refresh_tool_index()` si no encuentra resultados
+  - NUNCA asumir que un MCP no existe sin buscarlo primero
+
+  MODO SIN PREGUNTAS:
+  - Si el usuario indica "continúa", "no te detengas", "procede" → NO hacer preguntas FFD
+  - Tomar decisiones razonables y avanzar
   ══════════════════════════════════════════════════════════════════════════════
 
 # =============================================================================
-# NODES - Cada nodo delega explícitamente a un subagente
+# NODES - 12 nodos optimizados (antes 17)
 # =============================================================================
 
 nodes:
@@ -64,8 +85,9 @@ nodes:
       1. URL completa de la página (https://...)
       2. Ruta donde crear el proyecto Fresh
       3. Idioma del sitio (es/en)
-      4. ¿Propósito? (copia exacta o versión mejorada)
-      5. ¿Contenido a excluir?
+      4. País/región (para moneda y legal)
+      5. ¿Propósito? (copia exacta o versión mejorada)
+      6. ¿Contenido a excluir?
 
       SEÑAL DE COMPLETADO: "url capturada"
       ══════════════════════════════════════════════════════════════════════════
@@ -81,6 +103,11 @@ nodes:
 
       **OBLIGATORIO: Delega esta tarea al subagente `web-analyzer`**
 
+      BUSCAR MCP LIGHTHOUSE:
+      - Ejecutar: search_tools("lighthouse audit")
+      - Si no encuentra: refresh_tool_index() y reintentar
+      - Usar: execute_mcp_tool("lighthouse", "run_audit", {url: "..."})
+
       EJECUTAR EN ORDEN:
 
       1. WEBFETCH - Extraer:
@@ -90,7 +117,14 @@ nodes:
          □ Paleta de colores inferida
          □ Keywords para imágenes Pexels
 
-      2. LIGHTHOUSE ORIGINAL - Documentar scores y issues
+      2. DATOS DEL NEGOCIO - Extraer EXACTAMENTE:
+         □ Precios con moneda original (ej: $32.000 CLP, no convertir)
+         □ Nombres de productos exactos
+         □ Descripciones de productos
+         □ Testimonios reales
+         □ Datos de contacto
+
+      3. LIGHTHOUSE ORIGINAL - Documentar scores baseline
 
       SEÑAL DE COMPLETADO: "análisis completado"
       ══════════════════════════════════════════════════════════════════════════
@@ -123,97 +157,59 @@ nodes:
       5. COLORES: Paleta hex completa
       6. OBJETIVOS: Scores Lighthouse target
 
+      ⚠️ CRÍTICO - PRESERVAR DATOS DEL NEGOCIO:
+      - Precios en moneda ORIGINAL (no convertir)
+      - Nombres de productos EXACTOS del sitio original
+      - Testimonios REALES (no inventar)
+
       SEÑAL DE COMPLETADO: "síntesis completada"
       ══════════════════════════════════════════════════════════════════════════
 
   # ---------------------------------------------------------------------------
-  # FASE 3: CONSTRUCCIÓN
+  # FASE 3: CONSTRUCCIÓN COMPLETA (FUSIONADO)
   # ---------------------------------------------------------------------------
 
-  - id: "project-init"
-    name: "Inicializar Proyecto"
-    model: haiku
-    max_visits: 3
+  - id: "project-build"
+    name: "Construir Proyecto Completo"
+    model: sonnet
+    max_visits: 25
     prompt_injection: |
       ══════════════════════════════════════════════════════════════════════════
-      TAREA: Inicializar proyecto Deno Fresh en la ruta especificada
+      TAREA: Construir proyecto Fresh completo (init + secciones + islands + imágenes)
       ══════════════════════════════════════════════════════════════════════════
 
       **OBLIGATORIO: Delega esta tarea al subagente `fresh-developer`**
 
-      EJECUTAR:
-      - fresh_init_project(project_path="[ruta del plan]")
+      ⚠️ CRÍTICO: NO borrar ni modificar .claude/pipeline/
+
+      EJECUTAR EN ORDEN:
+
+      1. INICIALIZAR PROYECTO:
+         - fresh_init_project(project_path="[ruta del plan]")
+         - Verificar que .claude/pipeline/ sigue intacto
+
+      2. CREAR SECCIONES (según plan):
+         - Header, Hero, SocialProof, ProductGrid, Ingredients, Testimonials, Footer
+         - Usar contenido EXACTO del plan (precios originales, nombres exactos)
+         - Verificar acentuación (á, é, í, ó, ú, ñ)
+
+      3. CREAR ISLANDS:
+         - Islands del plan + obligatorios: MobileMenu, ScrollToTop, CookieConsent
+         - fresh_add_island() para cada uno
+
+      4. DESCARGAR IMÁGENES:
+         - Verificar API: pexels_api_status()
+         - pexels_search_and_download() para cada imagen del plan
+         - Guardar créditos en CREDITS.md
+
+      5. VERIFICAR BUILD:
+         - deno task build (debe compilar sin errores)
 
       RECORDAR:
       ❌ NUNCA usar: deno task dev
       ✅ SIEMPRE usar: deno task build && deno task start
 
-      SEÑAL DE COMPLETADO: "proyecto inicializado"
-      ══════════════════════════════════════════════════════════════════════════
-
-  - id: "sections-creation"
-    name: "Crear Secciones"
-    model: haiku
-    max_visits: 20
-    prompt_injection: |
-      ══════════════════════════════════════════════════════════════════════════
-      TAREA: Crear todas las secciones del plan con contenido específico
-      ══════════════════════════════════════════════════════════════════════════
-
-      **OBLIGATORIO: Delega esta tarea al subagente `fresh-developer`**
-
-      Para CADA sección del plan (en orden):
-      1. fresh_add_section(project_path, section_name, variant)
-      2. Editar con contenido específico del plan
-
-      VERIFICAR acentuación en textos español (á, é, í, ó, ú, ñ).
-
-      SEÑAL DE COMPLETADO: "secciones creadas"
-      ══════════════════════════════════════════════════════════════════════════
-
-  - id: "islands-creation"
-    name: "Crear Islands"
-    model: haiku
-    max_visits: 15
-    prompt_injection: |
-      ══════════════════════════════════════════════════════════════════════════
-      TAREA: Añadir islands interactivos según el plan
-      ══════════════════════════════════════════════════════════════════════════
-
-      **OBLIGATORIO: Delega esta tarea al subagente `fresh-developer`**
-
-      Para CADA island del plan:
-      - fresh_add_island(project_path, island_name)
-
-      OBLIGATORIOS: mobile-menu
-      RECOMENDADOS: scroll-to-top, cookie-consent
-
-      SEÑAL DE COMPLETADO: "islands creados"
-      ══════════════════════════════════════════════════════════════════════════
-
-  - id: "images-download"
-    name: "Descargar Imágenes"
-    model: haiku
-    max_visits: 15
-    prompt_injection: |
-      ══════════════════════════════════════════════════════════════════════════
-      TAREA: Descargar imágenes de Pexels según el plan
-      ══════════════════════════════════════════════════════════════════════════
-
-      **OBLIGATORIO: Delega esta tarea al subagente `fresh-developer`**
-
-      1. Verificar API: pexels_api_status()
-
-      2. Para CADA imagen del plan:
-         pexels_search_and_download(
-           project_path, query, orientation, size, filename
-         )
-
-      3. Actualizar referencias: /images/[filename].jpeg
-
-      4. Guardar créditos de fotógrafos
-
-      SEÑAL DE COMPLETADO: "imágenes descargadas"
+      SEÑAL DE COMPLETADO: "proyecto construido"
       ══════════════════════════════════════════════════════════════════════════
 
   # ---------------------------------------------------------------------------
@@ -239,6 +235,11 @@ nodes:
       2. DIRECCIÓN VISUAL - Paleta única, tipografía, espaciado
       3. APLICAR CREATIVIDAD - Hero memorable, micro-interacciones
       4. CONSISTENCIA - Todo el sitio respira la misma identidad
+
+      ⚠️ NO MODIFICAR:
+      - Precios (mantener moneda original)
+      - Nombres de productos
+      - Datos del negocio
 
       RESTRICCIONES: Mantener contraste WCAG AA (4.5:1)
 
@@ -267,6 +268,7 @@ nodes:
       □ Componentes y CTAs
       □ Responsive/mobile
       □ Microinteracciones
+      □ Acentuación correcta en textos
 
       CRITERIO: "¿Impresionaría a un cliente exigente?"
 
@@ -304,88 +306,58 @@ nodes:
       ══════════════════════════════════════════════════════════════════════════
 
   # ---------------------------------------------------------------------------
-  # FASE 6: SEO Y TÉCNICOS
+  # FASE 6: SEO Y TÉCNICOS (FUSIONADO)
   # ---------------------------------------------------------------------------
 
-  - id: "seo-implementation"
-    name: "Implementar SEO"
+  - id: "seo-technical"
+    name: "SEO, Técnicos y Legal"
     model: sonnet
-    max_visits: 15
+    max_visits: 20
     prompt_injection: |
       ══════════════════════════════════════════════════════════════════════════
-      TAREA: Implementar SEO técnico completo según el plan
+      TAREA: Implementar SEO, archivos técnicos, accesibilidad y legal
       ══════════════════════════════════════════════════════════════════════════
 
       **OBLIGATORIO: Delega esta tarea al subagente `seo-specialist`**
 
-      CHECKLIST:
-      □ Meta tags (title, description, canonical)
-      □ Open Graph completo
-      □ Twitter Cards
-      □ Schema.org (JSON-LD)
-      □ sitemap.xml
-      □ robots.txt
-      □ H1 único, jerarquía correcta
-      □ Alt text en imágenes
+      BUSCAR HERRAMIENTAS MCP:
+      - Usar search_tools() del pipeline-manager
+      - fresh_generate_sitemap, fresh_generate_robots, fresh_add_schema
 
-      HERRAMIENTAS MCP:
-      - fresh_generate_sitemap
-      - fresh_generate_robots
-      - fresh_add_schema
-      - og_validator
+      1. SEO TÉCNICO:
+         □ Meta tags (title, description, canonical)
+         □ Open Graph completo
+         □ Twitter Cards
+         □ Schema.org (JSON-LD): Organization, Product, FAQPage
+         □ sitemap.xml
+         □ robots.txt
+         □ H1 único, jerarquía correcta
+         □ Alt text en imágenes
 
-      SEÑAL DE COMPLETADO: "seo configurado"
-      ══════════════════════════════════════════════════════════════════════════
+      2. ARCHIVOS TÉCNICOS:
+         □ routes/_404.tsx - Página 404 personalizada
+         □ routes/_500.tsx - Página de error
+         □ Favicon múltiples tamaños
+         □ manifest.json (PWA)
 
-  - id: "technical-files"
-    name: "Archivos Técnicos"
-    model: sonnet
-    max_visits: 10
-    prompt_injection: |
-      ══════════════════════════════════════════════════════════════════════════
-      TAREA: Crear archivos técnicos (404, 500, favicons, manifest)
-      ══════════════════════════════════════════════════════════════════════════
+      3. ACCESIBILIDAD (WCAG 2.1 AA):
+         □ Contraste verificado
+         □ Labels en inputs
+         □ Focus visible
+         □ Skip link
+         □ ARIA donde necesario
 
-      **OBLIGATORIO: Delega esta tarea al subagente `seo-specialist`**
+      4. LEGAL:
+         □ /privacy - Política de Privacidad (según país)
+         □ /cookies - Política de Cookies
+         □ Cookie consent funcional
+         □ Links en footer
 
-      CREAR:
-      □ routes/_404.tsx - Página 404 personalizada
-      □ routes/_500.tsx - Página de error
-      □ Favicon múltiples tamaños
-      □ manifest.json (PWA)
-
-      SEÑAL DE COMPLETADO: "archivos técnicos listos"
-      ══════════════════════════════════════════════════════════════════════════
-
-  - id: "accessibility-legal"
-    name: "Accesibilidad y Legal"
-    model: sonnet
-    max_visits: 10
-    prompt_injection: |
-      ══════════════════════════════════════════════════════════════════════════
-      TAREA: Verificar accesibilidad WCAG y crear páginas legales
-      ══════════════════════════════════════════════════════════════════════════
-
-      **OBLIGATORIO: Delega esta tarea al subagente `seo-specialist`**
-
-      ACCESIBILIDAD (WCAG 2.1 AA):
-      □ Contraste verificado (fresh_contrast_check)
-      □ Labels en inputs
-      □ Focus visible
-      □ Skip link
-      □ ARIA donde necesario
-
-      LEGAL:
-      □ /privacy - Política de Privacidad
-      □ /cookies - Política de Cookies
-      □ Cookie consent funcional
-      □ Links en footer
-
-      SEÑAL DE COMPLETADO: "accesibilidad y legal listos"
+      SEÑAL DE COMPLETADO: "seo y técnicos listos"
       ══════════════════════════════════════════════════════════════════════════
 
   # ---------------------------------------------------------------------------
-  # FASE 7: AUDITORÍA Y CORRECCIONES (con loop)
+  # FASE 7: AUDITORÍA (con loop)
   # ---------------------------------------------------------------------------
 
   - id: "lighthouse-audit"
@@ -399,9 +371,11 @@ nodes:
 
       **OBLIGATORIO: Delega esta tarea al subagente `web-analyzer`**
 
-      PREREQUISITO: Servidor corriendo (deno task build && deno task start)
+      BUSCAR MCP LIGHTHOUSE:
+      - Ejecutar: search_tools("lighthouse")
+      - Usar: execute_mcp_tool("lighthouse", "run_audit", {url: "http://localhost:8000"})
 
-      EJECUTAR auditoría en http://localhost:8000
+      PREREQUISITO: Servidor corriendo (deno task build && deno task start)
 
       COMPARAR:
       | Métrica        | Original | Nueva | Target | ¿OK? |
@@ -418,7 +392,7 @@ nodes:
 
   - id: "lighthouse-fixes"
     name: "Correcciones Lighthouse"
-    model: opus
+    model: sonnet
     max_visits: 20
     prompt_injection: |
       ══════════════════════════════════════════════════════════════════════════
@@ -476,6 +450,7 @@ nodes:
       │ UI/UX: Review aprobado, responsive, imágenes de calidad                │
       │ LEGAL: Privacidad, Cookie consent                                      │
       │ ERROR PAGES: 404, 500 personalizadas                                   │
+      │ CONTENIDO: Precios correctos, nombres exactos, acentuación             │
       └─────────────────────────────────────────────────────────────────────────┘
 
       SEÑALES:
@@ -505,6 +480,11 @@ nodes:
       COMPARACIÓN LIGHTHOUSE:
       | Métrica | Original | Final | Mejora |
 
+      VERIFICACIÓN DE CONTENIDO:
+      □ Precios en moneda correcta
+      □ Nombres de productos exactos
+      □ Acentuación correcta
+
       COMANDOS PARA EJECUTAR:
       cd [ruta]
       deno task build && deno task start
@@ -514,7 +494,7 @@ nodes:
       ══════════════════════════════════════════════════════════════════════════
 
 # =============================================================================
-# EDGES - Transiciones con loops
+# EDGES - Transiciones optimizadas
 # =============================================================================
 
 edges:
@@ -538,53 +518,26 @@ edges:
     priority: 1
 
   # --- Fase 2: Planificación ---
-  - id: "planning-to-init"
+  - id: "planning-to-build"
     from: "strategic-planning"
-    to: "project-init"
+    to: "project-build"
     condition:
       type: "phrase"
       phrases:
         - "síntesis completada"
     priority: 1
 
-  # --- Fase 3: Construcción ---
-  - id: "init-to-sections"
-    from: "project-init"
-    to: "sections-creation"
-    condition:
-      type: "phrase"
-      phrases:
-        - "proyecto inicializado"
-    priority: 1
-
-  - id: "sections-to-islands"
-    from: "sections-creation"
-    to: "islands-creation"
-    condition:
-      type: "phrase"
-      phrases:
-        - "secciones creadas"
-    priority: 1
-
-  - id: "islands-to-images"
-    from: "islands-creation"
-    to: "images-download"
-    condition:
-      type: "phrase"
-      phrases:
-        - "islands creados"
-    priority: 1
-
-  # --- Fase 4: Dirección Creativa ---
-  - id: "images-to-creative"
-    from: "images-download"
+  # --- Fase 3: Construcción (FUSIONADO) ---
+  - id: "build-to-creative"
+    from: "project-build"
     to: "creative-direction"
     condition:
       type: "phrase"
       phrases:
-        - "imágenes descargadas"
+        - "proyecto construido"
     priority: 1
 
+  # --- Fase 4: Dirección Creativa ---
   - id: "creative-to-ui-review"
     from: "creative-direction"
     to: "ui-review"
@@ -615,42 +568,24 @@ edges:
 
   - id: "ui-review-to-seo"
     from: "ui-review"
-    to: "seo-implementation"
+    to: "seo-technical"
     condition:
       type: "phrase"
       phrases:
         - "ui review aprobado"
     priority: 2
 
-  # --- Fase 6: SEO y Técnicos ---
-  - id: "seo-to-technical"
-    from: "seo-implementation"
-    to: "technical-files"
-    condition:
-      type: "phrase"
-      phrases:
-        - "seo configurado"
-    priority: 1
-
-  - id: "technical-to-accessibility"
-    from: "technical-files"
-    to: "accessibility-legal"
-    condition:
-      type: "phrase"
-      phrases:
-        - "archivos técnicos listos"
-    priority: 1
-
-  # --- Fase 7: Auditoría (LOOP) ---
-  - id: "accessibility-to-audit"
-    from: "accessibility-legal"
+  # --- Fase 6: SEO y Técnicos (FUSIONADO) ---
+  - id: "seo-to-audit"
+    from: "seo-technical"
     to: "lighthouse-audit"
     condition:
       type: "phrase"
       phrases:
-        - "accesibilidad y legal listos"
+        - "seo y técnicos listos"
     priority: 1
 
+  # --- Fase 7: Auditoría (LOOP) ---
   - id: "audit-to-fixes"
     from: "lighthouse-audit"
     to: "lighthouse-fixes"

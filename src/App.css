@@ -3373,7 +3373,8 @@ input[type="checkbox"] {
 .plugin-content {
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-height: 0;
 }
 
 /* Actions Panel - ensure it doesn't overflow */
@@ -3382,6 +3383,16 @@ input[type="checkbox"] {
   flex-direction: column;
   min-height: 0;
   flex: 1;
+}
+
+/* Scrollable content area for panels */
+.actions-panel-scrollable {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Sidebar scrollbar styling */

@@ -357,6 +357,9 @@ export function ActionsPanel({
         onSelect={setActivePlugin}
       />
 
+      {/* Scrollable Content Area */}
+      <div className="actions-panel-scrollable">
+
       {/* Active Plugin Content */}
       {activePlugin && (
         <div className="plugin-content">
@@ -443,6 +446,7 @@ export function ActionsPanel({
       <MarketplacePanel projectPath={projectPath} />
 
       <GitSettings projectPath={projectPath} />
+      </div>
     </div>
   );
 }
