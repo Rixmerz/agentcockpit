@@ -1,14 +1,11 @@
+import { mcpSkillExecutor } from './mcpSkillExecutor';
+
 /**
  * Service for executing skills with context passing
  *
- * Skills in AgentCockpit are special prompts that guide Claude
- * Wrapper skills like /agentful-start receive context about:
- * - Current task
- * - Implementation plan
- * - Technology stack
- * - Project variables
- *
- * In Phase 3+, this will integrate with the actual skill execution system.
+ * Phase 4 Implementation:
+ * Uses mcpSkillExecutor to invoke real skills via MCP system.
+ * Skills are defined in .claude/skills/{skillName}/SKILL.md
  */
 
 export interface SkillContext {
@@ -27,18 +24,12 @@ export interface SkillExecutionResult {
   endTime: number;
   duration: number;
   error?: string;
+  exitSignal?: string;
 }
 
 export const skillExecutionService = {
   /**
-   * Execute a skill with context
-   *
-   * Phase 3 Implementation:
-   * 1. Load skill definition from .claude/skills/{skillName}.md
-   * 2. Inject context variables
-   * 3. Invoke Claude Code via MCP / skill execution system
-   * 4. Capture output
-   * 5. Monitor for exit signals
+   * Execute a skill with context (Phase 4: Real MCP execution)
    */
   async executeSkill(context: SkillContext): Promise<SkillExecutionResult> {
     const startTime = Date.now();
@@ -57,25 +48,24 @@ export const skillExecutionService = {
         };
       }
 
-      // Build context string for injection
-      const contextString = this.buildContextString(context);
-
-      // Phase 3 TODO: Actual skill execution
-      // For now, return placeholder
-      console.log('[SkillExecution] Would execute:', {
-        skill: context.skillName,
-        project: context.projectPath,
-        task: context.currentTask,
-        context: contextString
+      // Phase 4: Use real MCP skill executor
+      const mcpResult = await mcpSkillExecutor.executeSkill({
+        skillName: context.skillName,
+        projectPath: context.projectPath,
+        currentTask: context.currentTask,
+        variables: context.variables,
+        timeout: context.timeout
       });
 
       return {
-        success: true,
+        success: mcpResult.success,
         skillName: context.skillName,
-        output: `[Phase 3] Skill ${context.skillName} ready for execution`,
+        output: mcpResult.output,
         startTime,
         endTime: Date.now(),
-        duration: Date.now() - startTime
+        duration: mcpResult.duration,
+        error: mcpResult.error,
+        exitSignal: mcpResult.metadata?.exitSignal
       };
     } catch (error) {
       return {
@@ -120,17 +110,41 @@ ${JSON.stringify(context.variables, null, 2)}
     plan: string;
     stack: string;
     task: string;
+    variables?: Record<string, unknown>;
   }): Promise<SkillExecutionResult> {
-    return this.executeSkill({
-      skillName: '/agentful-start',
-      projectPath: wrapperContext.projectPath,
-      currentTask: wrapperContext.task,
-      variables: {
+    const startTime = Date.now();
+
+    try {
+      // Phase 4: Use real MCP executor
+      const mcpResult = await mcpSkillExecutor.executeAgentfulStart({
+        projectPath: wrapperContext.projectPath,
         plan: wrapperContext.plan,
         stack: wrapperContext.stack,
-        timestamp: new Date().toISOString()
-      }
-    });
+        task: wrapperContext.task,
+        variables: wrapperContext.variables || {}
+      });
+
+      return {
+        success: mcpResult.success,
+        skillName: '/agentful-start',
+        output: mcpResult.output,
+        startTime,
+        endTime: Date.now(),
+        duration: mcpResult.duration,
+        error: mcpResult.error,
+        exitSignal: mcpResult.metadata?.exitSignal
+      };
+    } catch (error) {
+      return {
+        success: false,
+        skillName: '/agentful-start',
+        output: '',
+        startTime,
+        endTime: Date.now(),
+        duration: Date.now() - startTime,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   },
 
   /**
@@ -155,7 +169,7 @@ ${JSON.stringify(context.variables, null, 2)}
         resolve({ detected: false, time: Date.now() - startTime });
       }, timeoutMs);
 
-      // Simulate checking (in real implementation, would monitor output stream)
+      // In real implementation, would monitor output stream
       const checkInterval = setInterval(() => {
         if (output.includes(exitSignal)) {
           clearInterval(checkInterval);
