@@ -15,6 +15,7 @@ import {
   traverseEdge,
   getGraphState,
   copyAllAssetsToProject,
+  invalidateHubConfigCache,
 } from '../../services/pipelineService';
 
 // Polling interval in milliseconds (2 seconds)
@@ -447,6 +448,9 @@ export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanel
     setRefreshingDropdown(true);
 
     try {
+      // Invalidate cache to pick up config changes (new pipelines, etc.)
+      invalidateHubConfigCache();
+
       // Refresh global pipelines list
       const globalList = await listGlobalPipelines();
       setGlobalPipelines(globalList);
