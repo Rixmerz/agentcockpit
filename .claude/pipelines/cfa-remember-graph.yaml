@@ -1,0 +1,64 @@
+metadata:
+  name: "CFA Remember"
+  description: "Mini-pipeline para almacenar conocimiento en memoria CFA"
+  version: "1.0.0"
+  type: "graph"
+
+nodes:
+  - id: "capture"
+    name: "Capturar Conocimiento"
+    is_start: true
+    mcps_enabled:
+      - "cfa4"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+      - "Task"
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      GUARDAR EN MEMORIA CFA
+      ══════════════════════════════════════════════════════════════════════════
+
+      Usa cfa.remember para persistir el conocimiento.
+
+      PARÁMETROS:
+      - key: Identificador único descriptivo (ej: "auth-flow-gotcha")
+      - value: El conocimiento a guardar (texto)
+      - tags: Categorías opcionales:
+        • "pattern" - Patrones de código descubiertos
+        • "gotcha" - Comportamientos no obvios
+        • "decision" - Decisiones arquitectónicas
+        • "context" - Contexto del proyecto
+
+      EJECUTA: cfa.remember con el contenido a guardar
+
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "complete"
+    name: "Memoria Guardada"
+    is_end: true
+    mcps_enabled:
+      - "*"
+    max_visits: 1
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      MEMORIA GUARDADA EXITOSAMENTE
+      ══════════════════════════════════════════════════════════════════════════
+
+      Confirma al usuario:
+      - Key utilizada
+      - Resumen del valor guardado
+      - Tags aplicados
+
+      ══════════════════════════════════════════════════════════════════════════
+
+edges:
+  - id: "capture-to-complete"
+    from: "capture"
+    to: "complete"
+    condition:
+      type: "tool"
+      tool: "mcp__cfa4__cfa.remember"
+    priority: 1

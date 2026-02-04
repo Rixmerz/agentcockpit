@@ -113,6 +113,15 @@ const AGENTCOCKPIT_CONFIG = '.agentcockpit/config.json';
 let cachedHomeDir: string | null = null;
 let cachedHubConfig: { hub_dir: string; pipelines_dir: string; states_dir: string } | null = null;
 
+/**
+ * Invalidate the hub config cache.
+ * Call this before refreshing pipeline lists to pick up config changes.
+ */
+export function invalidateHubConfigCache(): void {
+  cachedHubConfig = null;
+  console.log('[Graph] Hub config cache invalidated');
+}
+
 // ============================================
 // Hub Configuration (Centralized Architecture)
 // ============================================
@@ -1474,6 +1483,7 @@ export const pipelineService = {
   getEnforcerEnabled,
   getActivePipelineName,
   listGlobalPipelines,
+  invalidateHubConfigCache,
 
   // Assets management
   copyAllAgentsToProject,

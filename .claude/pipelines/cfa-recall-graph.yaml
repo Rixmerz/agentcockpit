@@ -1,0 +1,65 @@
+metadata:
+  name: "CFA Recall"
+  description: "Mini-pipeline para recuperar la última memoria guardada en CFA"
+  version: "1.0.0"
+  type: "graph"
+
+nodes:
+  - id: "retrieve"
+    name: "Recuperar Memoria"
+    is_start: true
+    mcps_enabled:
+      - "cfa4"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+      - "Task"
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      RECUPERAR MEMORIA CFA
+      ══════════════════════════════════════════════════════════════════════════
+
+      Usa cfa.recall para recuperar memorias guardadas.
+
+      MODOS DE BÚSQUEDA:
+      1. Por key exacta: key="auth-flow-gotcha"
+      2. Por query de texto: query="authentication" (busca en contenido)
+      3. Por tags: tags=["pattern", "gotcha"]
+      4. Últimas N: limit=5 (devuelve las más recientes)
+
+      PARA ÚLTIMA MEMORIA:
+      Usa limit=1 sin otros filtros para obtener la más reciente.
+
+      EJECUTA: cfa.recall con los parámetros apropiados
+
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "complete"
+    name: "Memoria Recuperada"
+    is_end: true
+    mcps_enabled:
+      - "*"
+    max_visits: 1
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      MEMORIA RECUPERADA
+      ══════════════════════════════════════════════════════════════════════════
+
+      Presenta al usuario:
+      - Key de la memoria encontrada
+      - Contenido completo
+      - Tags asociados
+      - Fecha de creación (si disponible)
+
+      ══════════════════════════════════════════════════════════════════════════
+
+edges:
+  - id: "retrieve-to-complete"
+    from: "retrieve"
+    to: "complete"
+    condition:
+      type: "tool"
+      tool: "mcp__cfa4__cfa.recall"
+    priority: 1

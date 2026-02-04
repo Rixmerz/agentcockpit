@@ -1,0 +1,36 @@
+metadata:
+  name: "CFA Remember Test"
+  description: "Pipeline de prueba para guardar memoria CFA"
+  version: "1.0.0"
+  type: "graph"
+
+nodes:
+  - id: "capture"
+    name: "Capturar Conocimiento"
+    is_start: true
+    mcps_enabled:
+      - "cfa4"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+    max_visits: 10
+    prompt_injection: |
+      Usa cfa.remember para guardar el conocimiento en memoria.
+
+  - id: "complete"
+    name: "Memoria Guardada"
+    is_end: true
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      Confirma al usuario que la memoria fue guardada exitosamente.
+
+edges:
+  - id: "capture-to-complete"
+    from: "capture"
+    to: "complete"
+    condition:
+      type: "tool"
+      tool: "mcp__cfa4__cfa.remember"
