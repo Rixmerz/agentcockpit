@@ -61,6 +61,9 @@ export interface ClaudeSession {
   workingDir?: string;
 }
 
+// Claude session status for streaming UI
+export type ClaudeSessionStatus = 'idle' | 'connecting' | 'streaming' | 'waiting' | 'completed' | 'error';
+
 // App context state
 export interface AppState extends AppConfig {
   ptyInstances: Map<string, PtyInstance>;

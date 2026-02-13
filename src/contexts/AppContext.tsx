@@ -1,11 +1,31 @@
-import React, { createContext, useContext, useReducer, useCallback, useRef, useEffect } from 'react';
+/**
+ * App Context - Orchestrator
+ *
+ * Composes domain-specific reducers (Project, Settings, Terminal),
+ * coordinates persistence, and provides backward-compatible hooks.
+ */
+
+import { createContext, useContext, useReducer, useCallback, useRef, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { AppState, AppAction, Project, Terminal } from '../types';
+import type { AppContextType, TerminalWriter } from './types';
 import { usePersistence } from '../hooks/usePersistence';
 import { ptyClose } from '../services/tauriService';
 import { cleanStaleSessionsOnStartup } from '../services/projectSessionService';
+import { hasLocalGitRepo, initRepository } from '../services/gitService';
 
-// Initial state
+// Domain reducers
+import { projectReducer } from './ProjectContext';
+import { settingsReducer } from './SettingsContext';
+import { terminalReducer } from './TerminalContext';
+
+// Domain context references (shared context, one provider)
+import { ProjectInternalContext } from './ProjectContext';
+import { SettingsInternalContext } from './SettingsContext';
+import { TerminalInternalContext } from './TerminalContext';
+
+// ==================== Initial State ====================
+
 const initialState: AppState = {
   projects: [],
   activeProjectId: null,
@@ -13,209 +33,47 @@ const initialState: AppState = {
   selectedModel: 'sonnet',
   mcpDesktopEnabled: false,
   mcpDefaultEnabled: true,
-  // Global settings
   defaultIDE: undefined,
-  theme: 'cyber-teal', // Default theme
-  backgroundImage: 'https://backiee.com/static/wallpapers/1000x563/167970.jpg', // Default wallpaper
-  backgroundOpacity: 30, // Default 30%
-  terminalOpacity: 15, // Default 15% (semi-transparent)
-  idleTimeout: 5, // Default 5 seconds
-  // Terminal notification settings
-  terminalFinishedSound: true, // Default enabled
-  terminalFinishedThreshold: 3, // Default 3 seconds
+  theme: 'cyber-teal',
+  backgroundImage: 'https://backiee.com/static/wallpapers/1000x563/167970.jpg',
+  backgroundOpacity: 30,
+  terminalOpacity: 15,
+  idleTimeout: 5,
+  terminalFinishedSound: true,
+  terminalFinishedThreshold: 3,
   customSoundPath: null,
   ptyInstances: new Map(),
   isLoading: true,
-  // Terminal activity tracking (runtime state, not persisted)
   terminalActivity: new Map(),
 };
 
-// Reducer
+// ==================== Combined Reducer ====================
+
 function appReducer(state: AppState, action: AppAction): AppState {
-  switch (action.type) {
-    case 'SET_PROJECTS':
-      return { ...state, projects: action.payload };
-
-    case 'ADD_PROJECT':
-      return { ...state, projects: [...state.projects, action.payload] };
-
-    case 'REMOVE_PROJECT':
-      return {
-        ...state,
-        projects: state.projects.filter(p => p.id !== action.payload),
-        activeProjectId: state.activeProjectId === action.payload ? null : state.activeProjectId,
-      };
-
-    case 'SET_ACTIVE_PROJECT':
-      return { ...state, activeProjectId: action.payload };
-
-    case 'ADD_TERMINAL': {
-      const { projectId, terminal } = action.payload;
-      return {
-        ...state,
-        projects: state.projects.map(p =>
-          p.id === projectId
-            ? { ...p, terminals: [...p.terminals, terminal] }
-            : p
-        ),
-      };
-    }
-
-    case 'REMOVE_TERMINAL': {
-      const { projectId, terminalId } = action.payload;
-      const newPtyInstances = new Map(state.ptyInstances);
-      newPtyInstances.delete(terminalId);
-      return {
-        ...state,
-        projects: state.projects.map(p =>
-          p.id === projectId
-            ? { ...p, terminals: p.terminals.filter(t => t.id !== terminalId) }
-            : p
-        ),
-        activeTerminalId: state.activeTerminalId === terminalId ? null : state.activeTerminalId,
-        ptyInstances: newPtyInstances,
-      };
-    }
-
-    case 'RENAME_TERMINAL': {
-      const { projectId, terminalId, name } = action.payload;
-      return {
-        ...state,
-        projects: state.projects.map(p =>
-          p.id === projectId
-            ? {
-                ...p,
-                terminals: p.terminals.map(t =>
-                  t.id === terminalId ? { ...t, name } : t
-                ),
-              }
-            : p
-        ),
-      };
-    }
-
-    case 'SET_ACTIVE_TERMINAL':
-      return { ...state, activeTerminalId: action.payload };
-
-    case 'SET_MODEL':
-      return { ...state, selectedModel: action.payload };
-
-    case 'TOGGLE_MCP_DESKTOP':
-      return { ...state, mcpDesktopEnabled: !state.mcpDesktopEnabled };
-
-    case 'TOGGLE_MCP_DEFAULT':
-      return { ...state, mcpDefaultEnabled: !state.mcpDefaultEnabled };
-
-    case 'SET_PTY_INSTANCE': {
-      const newPtyInstances = new Map(state.ptyInstances);
-      newPtyInstances.set(action.payload.terminalId, action.payload);
-      return { ...state, ptyInstances: newPtyInstances };
-    }
-
-    case 'REMOVE_PTY_INSTANCE': {
-      const newPtyInstances = new Map(state.ptyInstances);
-      newPtyInstances.delete(action.payload);
-      return { ...state, ptyInstances: newPtyInstances };
-    }
-
-    case 'SET_LOADING':
-      return { ...state, isLoading: action.payload };
-
-    case 'LOAD_CONFIG':
-      return {
-        ...state,
-        ...action.payload,
-        ptyInstances: new Map(),
-        isLoading: false,
-      };
-
-    // Global settings actions
-    case 'SET_DEFAULT_IDE':
-      return { ...state, defaultIDE: action.payload };
-
-    case 'SET_THEME':
-      return { ...state, theme: action.payload };
-
-    case 'SET_BACKGROUND_IMAGE':
-      return { ...state, backgroundImage: action.payload };
-
-    case 'SET_BACKGROUND_OPACITY':
-      return { ...state, backgroundOpacity: action.payload };
-
-    case 'SET_TERMINAL_OPACITY':
-      return { ...state, terminalOpacity: action.payload };
-
-    case 'SET_IDLE_TIMEOUT':
-      return { ...state, idleTimeout: action.payload };
-
-    // Terminal notification settings
-    case 'SET_TERMINAL_FINISHED_SOUND':
-      return { ...state, terminalFinishedSound: action.payload };
-
-    case 'SET_TERMINAL_FINISHED_THRESHOLD':
-      return { ...state, terminalFinishedThreshold: action.payload };
-
-    case 'SET_CUSTOM_SOUND_PATH':
-      return { ...state, customSoundPath: action.payload };
-
-    // Terminal activity tracking
-    case 'SET_TERMINAL_ACTIVITY': {
-      const newActivity = new Map(state.terminalActivity);
-      newActivity.set(action.payload.terminalId, {
-        terminalId: action.payload.terminalId,
-        isFinished: action.payload.isFinished,
-        lastOutputAt: action.payload.lastOutputAt,
-      });
-      console.log('[AppContext] 📝 Terminal activity updated:', {
-        terminalId: action.payload.terminalId,
-        isFinished: action.payload.isFinished,
-        mapSize: newActivity.size,
-      });
-      return { ...state, terminalActivity: newActivity };
-    }
-
-    case 'CLEAR_TERMINAL_ACTIVITY': {
-      const newActivity = new Map(state.terminalActivity);
-      newActivity.delete(action.payload);
-      return { ...state, terminalActivity: newActivity };
-    }
-
-    default:
-      return state;
+  // LOAD_CONFIG is cross-cutting - handled here
+  if (action.type === 'LOAD_CONFIG') {
+    return {
+      ...state,
+      ...action.payload,
+      ptyInstances: new Map(),
+      isLoading: false,
+    };
   }
+
+  // Chain domain reducers
+  let newState = state;
+  newState = projectReducer(newState, action);
+  newState = settingsReducer(newState, action);
+  newState = terminalReducer(newState, action);
+  return newState;
 }
 
-// Terminal writer type
-type TerminalWriter = (data: string) => Promise<void>;
-
-// Context types
-interface AppContextType {
-  state: AppState;
-  dispatch: React.Dispatch<AppAction>;
-  // Convenience getters
-  activeProject: Project | null;
-  activeTerminal: Terminal | null;
-  // Actions
-  addProject: (name: string, path: string) => void;
-  removeProject: (id: string) => void;
-  addTerminal: (projectId: string, name: string) => void;
-  removeTerminal: (projectId: string, terminalId: string) => Promise<void>;
-  renameTerminal: (projectId: string, terminalId: string, name: string) => void;
-  setActiveTerminal: (projectId: string, terminalId: string) => void;
-  // Terminal writer registry
-  registerTerminalWriter: (terminalId: string, writer: TerminalWriter) => void;
-  unregisterTerminalWriter: (terminalId: string) => void;
-  writeToActiveTerminal: (data: string) => Promise<void>;
-  // PTY registry
-  registerPtyId: (terminalId: string, ptyId: number) => void;
-  unregisterPtyId: (terminalId: string) => void;
-  // Persistence
-  scheduleSave: () => void;
-}
+// ==================== Unified Context ====================
 
 const AppContext = createContext<AppContextType | null>(null);
 
-// Provider component
+// ==================== Provider ====================
+
 interface AppProviderProps {
   children: ReactNode;
 }
@@ -229,7 +87,7 @@ export function AppProvider({ children }: AppProviderProps) {
   // PTY ID registry (terminalId -> ptyId)
   const ptyIdMapRef = useRef<Map<string, number>>(new Map());
 
-  // State ref for persistence (to avoid stale closures)
+  // State ref for persistence
   const stateRef = useRef(state);
   useEffect(() => {
     stateRef.current = state;
@@ -241,7 +99,6 @@ export function AppProvider({ children }: AppProviderProps) {
       if (config) {
         dispatch({ type: 'LOAD_CONFIG', payload: config });
       } else {
-        // No config found, just mark as loaded
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     }, []),
@@ -252,62 +109,51 @@ export function AppProvider({ children }: AppProviderProps) {
       selectedModel: stateRef.current.selectedModel,
       mcpDesktopEnabled: stateRef.current.mcpDesktopEnabled,
       mcpDefaultEnabled: stateRef.current.mcpDefaultEnabled,
-      // Global settings
       defaultIDE: stateRef.current.defaultIDE,
       theme: stateRef.current.theme,
       backgroundImage: stateRef.current.backgroundImage,
       backgroundOpacity: stateRef.current.backgroundOpacity,
       terminalOpacity: stateRef.current.terminalOpacity,
       idleTimeout: stateRef.current.idleTimeout,
-      // Terminal notification settings
       terminalFinishedSound: stateRef.current.terminalFinishedSound,
       terminalFinishedThreshold: stateRef.current.terminalFinishedThreshold,
       customSoundPath: stateRef.current.customSoundPath,
     }), []),
   });
 
-  // Clean up stale sessions on startup for all loaded projects
+  // Clean up stale sessions on startup
   useEffect(() => {
     if (!state.isLoading && state.projects.length > 0) {
-      // Clean stale sessions for each project
       state.projects.forEach(project => {
         cleanStaleSessionsOnStartup(project.path)
           .catch(err => console.error(`[SessionCleanup] Failed for ${project.name}:`, err));
       });
     }
-  }, [state.isLoading]); // Only run once when loading completes
+  }, [state.isLoading]);
 
   // Convenience getters
   const activeProject = state.projects.find(p => p.id === state.activeProjectId) || null;
   const activeTerminal = activeProject?.terminals.find(t => t.id === state.activeTerminalId) || null;
 
-  // Generate UUID
   const generateId = () => crypto.randomUUID();
 
-  // Actions
+  // ==================== Actions ====================
+
   const addProject = useCallback((name: string, path: string) => {
     const projectId = generateId();
     const terminalId = generateId();
-
-    // Create project with first terminal included
-    const terminal: Terminal = {
-      id: terminalId,
-      name: 'Terminal 1',
-      createdAt: Date.now(),
-    };
-
-    const project: Project = {
-      id: projectId,
-      name,
-      path,
-      terminals: [terminal],
-      createdAt: Date.now(),
-    };
+    const terminal: Terminal = { id: terminalId, name: 'Terminal 1', createdAt: Date.now() };
+    const project: Project = { id: projectId, name, path, terminals: [terminal], createdAt: Date.now() };
 
     dispatch({ type: 'ADD_PROJECT', payload: project });
     dispatch({ type: 'SET_ACTIVE_PROJECT', payload: projectId });
     dispatch({ type: 'SET_ACTIVE_TERMINAL', payload: terminalId });
     scheduleSave();
+
+    // Auto git init if project has no .git
+    hasLocalGitRepo(path).then(hasRepo => {
+      if (!hasRepo) initRepository(path).catch(console.warn);
+    });
   }, [scheduleSave]);
 
   const removeProject = useCallback((id: string) => {
@@ -316,23 +162,17 @@ export function AppProvider({ children }: AppProviderProps) {
   }, [scheduleSave]);
 
   const addTerminal = useCallback((projectId: string, name: string) => {
-    const terminal: Terminal = {
-      id: generateId(),
-      name,
-      createdAt: Date.now(),
-    };
+    const terminal: Terminal = { id: generateId(), name, createdAt: Date.now() };
     dispatch({ type: 'ADD_TERMINAL', payload: { projectId, terminal } });
     dispatch({ type: 'SET_ACTIVE_PROJECT', payload: projectId });
     dispatch({ type: 'SET_ACTIVE_TERMINAL', payload: terminal.id });
   }, []);
 
   const removeTerminal = useCallback(async (projectId: string, terminalId: string) => {
-    // Close PTY before removing terminal
     const ptyId = ptyIdMapRef.current.get(terminalId);
     if (ptyId !== undefined) {
       try {
         await ptyClose(ptyId);
-        console.log(`PTY ${ptyId} closed for terminal ${terminalId}`);
       } catch (err) {
         console.error(`Failed to close PTY ${ptyId}:`, err);
       }
@@ -359,7 +199,6 @@ export function AppProvider({ children }: AppProviderProps) {
     terminalWritersRef.current.delete(terminalId);
   }, []);
 
-  // PTY registry functions
   const registerPtyId = useCallback((terminalId: string, ptyId: number) => {
     ptyIdMapRef.current.set(terminalId, ptyId);
   }, []);
@@ -400,10 +239,21 @@ export function AppProvider({ children }: AppProviderProps) {
     scheduleSave,
   };
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      <ProjectInternalContext.Provider value={value}>
+        <SettingsInternalContext.Provider value={value}>
+          <TerminalInternalContext.Provider value={value}>
+            {children}
+          </TerminalInternalContext.Provider>
+        </SettingsInternalContext.Provider>
+      </ProjectInternalContext.Provider>
+    </AppContext.Provider>
+  );
 }
 
-// Hook for accessing context
+// ==================== Backward-Compatible Hooks ====================
+
 export function useApp() {
   const context = useContext(AppContext);
   if (!context) {
@@ -412,147 +262,7 @@ export function useApp() {
   return context;
 }
 
-// Specialized hooks
-export function useProjects() {
-  const { state, addProject, removeProject } = useApp();
-  return {
-    projects: state.projects,
-    activeProjectId: state.activeProjectId,
-    addProject,
-    removeProject,
-  };
-}
-
-export function useTerminals() {
-  const { state, activeProject, activeTerminal, addTerminal, removeTerminal, setActiveTerminal } = useApp();
-  return {
-    terminals: activeProject?.terminals || [],
-    activeTerminal,
-    addTerminal,
-    removeTerminal,
-    setActiveTerminal,
-    ptyInstances: state.ptyInstances,
-  };
-}
-
-export function useSettings() {
-  const { state, dispatch, scheduleSave } = useApp();
-  return {
-    selectedModel: state.selectedModel,
-    mcpDesktopEnabled: state.mcpDesktopEnabled,
-    mcpDefaultEnabled: state.mcpDefaultEnabled,
-    setModel: (model: 'haiku' | 'sonnet' | 'opus') => {
-      dispatch({ type: 'SET_MODEL', payload: model });
-      scheduleSave();
-    },
-    toggleMcpDesktop: () => {
-      dispatch({ type: 'TOGGLE_MCP_DESKTOP' });
-      scheduleSave();
-    },
-    toggleMcpDefault: () => {
-      dispatch({ type: 'TOGGLE_MCP_DEFAULT' });
-      scheduleSave();
-    },
-  };
-}
-
-// Hook for terminal actions
-export function useTerminalActions() {
-  const { writeToActiveTerminal, activeTerminal } = useApp();
-  return {
-    writeToActiveTerminal,
-    hasActiveTerminal: !!activeTerminal,
-  };
-}
-
-// Hook for global app settings (IDE, background, etc.)
-export function useAppSettings() {
-  const { state, dispatch, scheduleSave } = useApp();
-
-  return {
-    defaultIDE: state.defaultIDE,
-    theme: state.theme ?? 'cyber-teal',
-    backgroundImage: state.backgroundImage || 'https://backiee.com/static/wallpapers/1000x563/167970.jpg',
-    backgroundOpacity: state.backgroundOpacity ?? 30,
-    terminalOpacity: state.terminalOpacity ?? 15,
-    idleTimeout: state.idleTimeout ?? 5, // Default 5 seconds
-    // Terminal notification settings
-    terminalFinishedSound: state.terminalFinishedSound ?? true,
-    terminalFinishedThreshold: state.terminalFinishedThreshold ?? 3,
-    customSoundPath: state.customSoundPath ?? null,
-
-    setDefaultIDE: (ide: 'cursor' | 'code' | 'antigravity' | undefined) => {
-      dispatch({ type: 'SET_DEFAULT_IDE', payload: ide });
-      scheduleSave();
-    },
-
-    setTheme: (theme: 'cyber-teal' | 'battlefield') => {
-      dispatch({ type: 'SET_THEME', payload: theme });
-      scheduleSave();
-    },
-
-    setBackgroundImage: (image: string | undefined) => {
-      dispatch({ type: 'SET_BACKGROUND_IMAGE', payload: image });
-      scheduleSave();
-    },
-
-    setBackgroundOpacity: (opacity: number) => {
-      dispatch({ type: 'SET_BACKGROUND_OPACITY', payload: opacity });
-      scheduleSave();
-    },
-
-    setTerminalOpacity: (opacity: number) => {
-      dispatch({ type: 'SET_TERMINAL_OPACITY', payload: opacity });
-      scheduleSave();
-    },
-
-    setIdleTimeout: (seconds: number) => {
-      dispatch({ type: 'SET_IDLE_TIMEOUT', payload: seconds });
-      scheduleSave();
-    },
-
-    setTerminalFinishedSound: (enabled: boolean) => {
-      dispatch({ type: 'SET_TERMINAL_FINISHED_SOUND', payload: enabled });
-      scheduleSave();
-    },
-
-    setTerminalFinishedThreshold: (seconds: number) => {
-      dispatch({ type: 'SET_TERMINAL_FINISHED_THRESHOLD', payload: seconds });
-      scheduleSave();
-    },
-
-    setCustomSoundPath: (path: string | null) => {
-      dispatch({ type: 'SET_CUSTOM_SOUND_PATH', payload: path });
-      scheduleSave();
-    },
-  };
-}
-
-// Hook for terminal activity tracking
-export function useTerminalActivityState() {
-  const { state, dispatch } = useApp();
-
-  const setTerminalActivity = useCallback((terminalId: string, isFinished: boolean, lastOutputAt: number) => {
-    dispatch({ type: 'SET_TERMINAL_ACTIVITY', payload: { terminalId, isFinished, lastOutputAt } });
-  }, [dispatch]);
-
-  const clearTerminalActivity = useCallback((terminalId: string) => {
-    dispatch({ type: 'CLEAR_TERMINAL_ACTIVITY', payload: terminalId });
-  }, [dispatch]);
-
-  const isTerminalFinished = useCallback((terminalId: string) => {
-    const result = state.terminalActivity.get(terminalId)?.isFinished ?? false;
-    // Only log when finished (avoid spam)
-    if (result) {
-      console.log('[AppContext] ✅ Terminal is finished:', terminalId);
-    }
-    return result;
-  }, [state.terminalActivity]);
-
-  return {
-    terminalActivity: state.terminalActivity,
-    setTerminalActivity,
-    clearTerminalActivity,
-    isTerminalFinished,
-  };
-}
+// Re-export domain hooks for backward compatibility
+export { useProjects, useTerminals, useSettings } from './ProjectContext';
+export { useAppSettings } from './SettingsContext';
+export { useTerminalActions, useTerminalActivityState } from './TerminalContext';

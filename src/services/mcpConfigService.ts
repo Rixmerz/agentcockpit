@@ -11,6 +11,7 @@ import { homeDir } from '@tauri-apps/api/path';
 import { readTextFile, writeTextFile, exists, mkdir } from '@tauri-apps/plugin-fs';
 import { invoke } from '@tauri-apps/api/core';
 import { withTimeout } from '../core/utils/promiseTimeout';
+import { addCodeMcp, removeCodeMcp } from './mcpService';
 
 const INVOKE_TIMEOUT_MS = 5000;
 const CONFIG_DIR = '.agentcockpit';
@@ -772,8 +773,14 @@ export async function installPipelineManagerMcp(agentcockpitPath?: string): Prom
       config.mcpServers[PIPELINE_MANAGER_NAME].config = mcpConfig;
       config.mcpServers[PIPELINE_MANAGER_NAME].config.disabled = false;
       await saveMcpConfig(config);
-      // Also update Claude Code config
-      await addMcpToClaudeCode(PIPELINE_MANAGER_NAME, mcpConfig);
+      // Register in Claude Code via CLI (with file fallback)
+      const cliResult = await addCodeMcp(PIPELINE_MANAGER_NAME, mcpConfig);
+      if (!cliResult.success) {
+        const fileOk = await addMcpToClaudeCode(PIPELINE_MANAGER_NAME, mcpConfig);
+        if (!fileOk) {
+          return { success: false, message: 'Failed to register MCP in Claude Code' };
+        }
+      }
       return { success: true, message: 'Pipeline Manager MCP updated and enabled' };
     }
 
@@ -787,8 +794,14 @@ export async function installPipelineManagerMcp(agentcockpitPath?: string): Prom
 
     const saved = await saveMcpConfig(config);
     if (saved) {
-      // Also add to Claude Code config so it's available immediately
-      await addMcpToClaudeCode(PIPELINE_MANAGER_NAME, mcpConfig);
+      // Register in Claude Code via CLI (with file fallback)
+      const cliResult = await addCodeMcp(PIPELINE_MANAGER_NAME, mcpConfig);
+      if (!cliResult.success) {
+        const fileOk = await addMcpToClaudeCode(PIPELINE_MANAGER_NAME, mcpConfig);
+        if (!fileOk) {
+          return { success: false, message: 'Failed to register MCP in Claude Code' };
+        }
+      }
       return { success: true, message: 'Pipeline Manager MCP installed successfully' };
     }
     return { success: false, message: 'Failed to save configuration' };
@@ -804,7 +817,10 @@ export async function installPipelineManagerMcp(agentcockpitPath?: string): Prom
 export async function uninstallPipelineManagerMcp(): Promise<{ success: boolean; message: string }> {
   // Remove from AgentCockpit config
   const result = await removeMcp(PIPELINE_MANAGER_NAME);
-  // Also remove from Claude Code config
-  await removeMcpFromClaudeCode(PIPELINE_MANAGER_NAME);
+  // Remove from Claude Code via CLI (with file fallback)
+  const cliResult = await removeCodeMcp(PIPELINE_MANAGER_NAME);
+  if (!cliResult.success) {
+    await removeMcpFromClaudeCode(PIPELINE_MANAGER_NAME);
+  }
   return result;
 }
