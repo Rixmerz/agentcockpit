@@ -1,0 +1,876 @@
+metadata:
+  name: "Landing Page desde Material del Cliente"
+  description: "Pipeline completa para crear landing pages Deno Fresh desde cero, partiendo del análisis de material variado del cliente (fotos, PDFs, links de referencia, apuntes, audios transcritos). Incluye Fase 0 de intake y análisis, estrategia creativa, construcción con MCP denofresh, SEO, legal y verificaciones."
+  version: "1.0.0"
+  type: "graph"
+
+nodes:
+  - id: "material-intake"
+    name: "Intake de Material del Cliente"
+    is_start: true
+    mcps_enabled:
+      - "*"
+    max_visits: 5
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 0 - INTAKE DE MATERIAL DEL CLIENTE
+      ══════════════════════════════════════════════════════════════════════════
+      
+      TAREA: Recibir, catalogar y organizar TODO el material que el cliente proporciona.
+      
+      EL CLIENTE PUEDE ENVIAR CUALQUIER COMBINACIÓN DE:
+      □ Fotos del negocio, productos, equipo, local
+      □ Logo (archivo o foto)
+      □ PDFs (brochures, catálogos, menús)
+      □ Links de referencia ("me gusta esta página")
+      □ Apuntes y notas escritas
+      □ Audios transcritos / mensajes de voz
+      □ Capturas de pantalla de redes sociales
+      □ Tarjetas de presentación (foto)
+      □ Material publicitario previo
+      
+      PROCESO DE INTAKE:
+      1. RECIBIR - Aceptar todo sin juzgar
+      2. CATALOGAR - Crear inventario organizado:
+         - material_visual: [lista de fotos/imágenes recibidas]
+         - material_texto: [textos, apuntes, notas]
+         - material_referencia: [links, ejemplos, inspiración]
+         - material_marca: [logo, colores, tipografía existente]
+         - material_contacto: [datos de contacto detectados]
+      3. IDENTIFICAR GAPS - ¿Qué información falta?
+      
+      PREGUNTAS OBLIGATORIAS AL CLIENTE:
+      1. ¿Este es todo el material o hay más por enviar?
+      2. ¿Hay algo que NO quieres que aparezca en la página?
+      3. ¿Cuál es la acción principal que quieres que haga el visitante?
+         (llamar, WhatsApp, formulario, comprar, reservar)
+      
+      SEÑAL DE COMPLETADO: "material catalogado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "material-analysis"
+    name: "Análisis Profundo del Material"
+    mcps_enabled:
+      - "*"
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 0 - ANÁLISIS PROFUNDO DEL MATERIAL DEL CLIENTE
+      ══════════════════════════════════════════════════════════════════════════
+      
+      **OBLIGATORIO: Usar sequential-thinking para análisis exhaustivo**
+      
+      TAREA: Extraer TODA la información útil del material catalogado.
+      
+      ANÁLISIS POR TIPO DE MATERIAL:
+      
+      1. FOTOS/IMÁGENES:
+         - ¿Qué transmiten? (profesional, casual, premium, artesanal)
+         - ¿Qué colores dominan?
+         - ¿Se pueden usar en la landing? ¿Cuáles sí, cuáles no?
+         - ¿Calidad suficiente para web? (resolución, iluminación)
+         - Clasificar: hero-worthy, galería, testimonial, decorativa
+      
+      2. TEXTOS/APUNTES:
+         - Extraer propuesta de valor (aunque esté mal redactada)
+         - Identificar servicios/productos mencionados
+         - Detectar tono del cliente (formal, cercano, técnico)
+         - Encontrar datos concretos: precios, horarios, ubicación
+         - Rescatar frases clave del cliente (autenticidad)
+      
+      3. LINKS DE REFERENCIA:
+         - ¿Qué le gusta de cada referencia? (preguntar si no es claro)
+         - Extraer patrones: colores, layouts, estilo
+         - Usar WebFetch para analizar estructura
+      
+      4. MATERIAL DE MARCA:
+         - Logo: colores exactos, variantes, calidad
+         - Colores corporativos existentes
+         - Tipografía en uso (si se puede identificar)
+      
+      GENERAR DOCUMENTO DE SÍNTESIS:
+      - brief-del-cliente.md con TODO lo extraído
+      - Incluir sección "Lo que el cliente NO dijo pero se infiere"
+      - Incluir sección "Información faltante que necesitamos"
+      
+      SEÑAL DE COMPLETADO: "análisis de material completado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "gap-filling"
+    name: "Completar Información Faltante"
+    mcps_enabled:
+      - "*"
+    max_visits: 5
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 1 - COMPLETAR GAPS DE INFORMACIÓN
+      ══════════════════════════════════════════════════════════════════════════
+      
+      TAREA: Llenar los vacíos identificados en el análisis de material.
+      
+      BASÁNDOSE en el brief-del-cliente.md, solicitar SOLO lo que falta:
+      
+      DATOS OBLIGATORIOS (si no están en el material):
+      □ Nombre exacto del negocio/empresa
+      □ Rubro/industria
+      □ Ubicación completa (ciudad, país)
+      □ Teléfono/WhatsApp (con código de país)
+      □ Email de contacto
+      □ Redes sociales (URLs exactas)
+      
+      DATOS DE CONTENIDO (si no están en el material):
+      □ Servicios/productos principales (lista)
+      □ Precios o rango de precios (si aplica)
+      □ Horarios de atención
+      □ ¿Qué problema resuelve para sus clientes?
+      □ ¿Por qué elegirlos a ellos?
+      
+      DATOS TÉCNICOS:
+      □ ¿Tiene dominio propio? ¿Cuál?
+      □ ¿Tiene Google Analytics? (ID)
+      □ ¿Tiene Google My Business?
+      □ Ruta donde crear el proyecto Fresh
+      
+      NO PREGUNTAR lo que ya se extrajo del material.
+      Confirmar datos ambiguos extraídos ("¿Tu teléfono es +56...?")
+      
+      SEÑAL DE COMPLETADO: "información completa"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "creative-strategy"
+    name: "Estrategia Creativa"
+    mcps_enabled:
+      - "*"
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 2 - ESTRATEGIA CREATIVA
+      ══════════════════════════════════════════════════════════════════════════
+      
+      **OBLIGATORIO: Usar sequential-thinking para análisis profundo**
+      **SKILL RECOMENDADO: layout-architect para estructura de página**
+      
+      TAREA: Definir estrategia creativa basada en el material REAL del cliente.
+      
+      A DIFERENCIA de una landing genérica, aquí TENEMOS material del cliente.
+      La estrategia debe HONRAR ese material, no inventar desde cero.
+      
+      1. PERSONALIDAD DE MARCA (inferida del material):
+         - Tono detectado en sus textos/apuntes
+         - Estética de sus fotos (profesional, casual, artesanal)
+         - Referencias que compartió (qué le gusta)
+         - Nivel de formalidad del negocio
+      
+      2. PALETA DE COLORES:
+         - SI tiene logo/marca → usar sus colores como base
+         - SI NO tiene → proponer según rubro + referencias
+         - Asegurar contraste WCAG AA (4.5:1)
+         - Definir: primario, secundario, acento, fondos, texto
+      
+      3. ESTRUCTURA DE PÁGINA (usar skill layout-architect):
+         - Orden de secciones según objetivo de conversión
+         - Qué fotos del cliente usar en cada sección
+         - Dónde necesitamos fotos de Pexels (gaps)
+         - CTAs principales y secundarios
+      
+      4. CONTENIDO:
+         - Reescribir textos del cliente (mejorar sin perder autenticidad)
+         - Crear copy para secciones que el cliente no cubrió
+         - Headlines impactantes basados en su propuesta de valor
+      
+      5. PLAN DE IMÁGENES:
+         - Imágenes del cliente: cuáles usar, dónde, tamaño
+         - Imágenes Pexels necesarias: query, orientación, sección
+      
+      GENERAR: brief-creativo.md con todas las decisiones
+      
+      SEÑAL DE COMPLETADO: "estrategia definida"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "technical-planning"
+    name: "Planificación Técnica"
+    mcps_enabled:
+      - "*"
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 3 - PLANIFICACIÓN TÉCNICA
+      ══════════════════════════════════════════════════════════════════════════
+      
+      **SKILL RECOMENDADO: fresh-ui-components para catálogo de componentes**
+      **SKILL RECOMENDADO: component-builder para arquitectura de componentes**
+      
+      TAREA: Crear plan técnico detallado de implementación.
+      
+      BASADO EN brief-creativo.md, definir:
+      
+      1. ESTRUCTURA DE ARCHIVOS:
+         - routes/index.tsx (landing principal)
+         - routes/privacidad.tsx
+         - routes/terminos.tsx
+         - routes/cookies.tsx
+         - components/ (secciones)
+         - islands/ (interactivos)
+         - static/images/ (fotos del cliente + Pexels)
+      
+      2. COMPONENTES A CREAR:
+         Para cada sección especificar:
+         - Nombre del componente
+         - Variante de Fresh UI a usar (si aplica)
+         - Props esperados
+         - Contenido exacto (del brief creativo)
+         - Imagen asignada (cliente o Pexels)
+      
+      3. ISLANDS NECESARIOS:
+         □ Navbar.tsx (siempre)
+         □ ContactForm.tsx (siempre) → usar skill form-specialist
+         □ WhatsAppButton.tsx (siempre)
+         □ CookieConsent.tsx (siempre)
+         □ MobileMenu.tsx (si hay menú)
+         □ Otros según necesidad
+      
+      4. ANIMACIONES (skill animation-designer):
+         - Qué secciones llevan animación de entrada
+         - Tipo de animación por sección
+         - Respetar reduced-motion
+      
+      5. SEO PLANIFICADO:
+         - Title exacto (max 60 chars)
+         - Description exacta (max 155 chars)
+         - Keywords principales
+         - Schema.org tipo
+         - Open Graph completo
+      
+      SEÑAL DE COMPLETADO: "plan técnico listo"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "project-init"
+    name: "Inicializar Proyecto Fresh"
+    mcps_enabled:
+      - "*"
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 4a - INICIALIZAR PROYECTO DENO FRESH
+      ══════════════════════════════════════════════════════════════════════════
+      
+      TAREA: Crear proyecto Fresh en la ruta especificada.
+      
+      EJECUTAR CON MCP denofreshmcp:
+      - fresh_init_project(project_path="[ruta del plan]")
+      
+      DESPUÉS DE INICIALIZAR:
+      1. Copiar imágenes del cliente a static/images/
+      2. Verificar estructura base correcta
+      
+      REGLAS OBLIGATORIAS:
+      ❌ NUNCA usar: deno task dev (CORROMPE EL PROYECTO)
+      ✅ SIEMPRE usar: deno task build && deno task start
+      
+      SEÑAL DE COMPLETADO: "proyecto inicializado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "sections-creation"
+    name: "Crear Secciones"
+    mcps_enabled:
+      - "*"
+    max_visits: 25
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 4b - CREAR SECCIONES DE LA LANDING
+      ══════════════════════════════════════════════════════════════════════════
+      
+      **SKILLS: component-builder, fresh-ui-components, layout-architect**
+      
+      TAREA: Crear todas las secciones según el plan técnico.
+      
+      Para CADA sección del plan (en orden):
+      1. Usar MCP denofreshmcp: fresh_add_section(project_path, section_name, variant)
+      2. Editar con contenido REAL del brief creativo
+      3. Aplicar estilos según estrategia (colores, tipografía)
+      4. Importar en routes/index.tsx
+      5. Referenciar imágenes del cliente donde corresponda
+      
+      IMPORTANTE - CONTENIDO REAL vs PLACEHOLDER:
+      - PRIORIZAR contenido real extraído del material del cliente
+      - Solo usar placeholder si el cliente explícitamente no proporcionó algo
+      - Marcar placeholders: {/* TODO: Reemplazar con contenido del cliente */}
+      
+      VERIFICAR ACENTUACIÓN en todos los textos en español.
+      Verificar que las imágenes del cliente se referencian correctamente.
+      
+      SEÑAL DE COMPLETADO: "secciones creadas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "islands-creation"
+    name: "Crear Islands Interactivos"
+    mcps_enabled:
+      - "*"
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 4c - CREAR ISLANDS INTERACTIVOS
+      ══════════════════════════════════════════════════════════════════════════
+      
+      **SKILLS: form-specialist (ContactForm), animation-designer (animaciones)**
+      
+      TAREA: Crear todos los islands interactivos.
+      
+      ISLANDS OBLIGATORIOS:
+      □ Navbar.tsx - Con menú mobile responsive
+      □ ContactForm.tsx - Con validación (usar skill form-specialist)
+        → Integrar con Basin o endpoint del cliente
+      □ WhatsAppButton.tsx - Flotante con número del cliente
+      □ CookieConsent.tsx - Con localStorage para persistencia
+      
+      ISLANDS OPCIONALES según plan:
+      □ ScrollToTop.tsx
+      □ TestimonialsSlider.tsx (si tiene testimonios)
+      □ FAQ.tsx (con accordion)
+      □ Gallery.tsx (con lightbox para fotos del cliente)
+      □ CounterStats.tsx (si tiene números/estadísticas)
+      
+      Para CADA island usar MCP denofreshmcp:
+      - fresh_add_island(project_path, island_name)
+      - Personalizar con datos reales del cliente
+      
+      ANIMACIONES (skill animation-designer):
+      - Agregar animaciones de entrada suaves
+      - Respetar prefers-reduced-motion
+      
+      SEÑAL DE COMPLETADO: "islands creados"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "images-setup"
+    name: "Configurar Imágenes"
+    mcps_enabled:
+      - "*"
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 4d - CONFIGURAR IMÁGENES (CLIENTE + PEXELS)
+      ══════════════════════════════════════════════════════════════════════════
+      
+      TAREA: Gestionar todas las imágenes de la landing.
+      
+      PASO 1 - IMÁGENES DEL CLIENTE:
+      - Verificar que están copiadas en static/images/
+      - Optimizar si es necesario (tamaño, formato)
+      - Renombrar con nombres descriptivos (hero-local.jpg, equipo.jpg)
+      
+      PASO 2 - IMÁGENES PEXELS (para gaps):
+      1. Verificar API: pexels_api_status()
+      2. Para CADA imagen faltante del plan:
+         pexels_search_and_download(
+           project_path, query, orientation, size, filename
+         )
+      3. Guardar créditos en CREDITS.md
+      
+      PASO 3 - ACTUALIZAR REFERENCIAS:
+      - Verificar que TODOS los componentes apuntan a /images/[filename]
+      - Alt text descriptivo en CADA imagen
+      - Lazy loading en imágenes below-the-fold
+      
+      SEÑAL DE COMPLETADO: "imágenes configuradas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "seo-implementation"
+    name: "Implementar SEO"
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 5a - IMPLEMENTAR SEO TÉCNICO COMPLETO
+      ══════════════════════════════════════════════════════════════════════════
+      
+      TAREA: SEO técnico según plan.
+      
+      CHECKLIST SEO:
+      □ Meta tags en _app.tsx:
+        - title (max 60 chars)
+        - description (max 155 chars)
+        - keywords, canonical, robots, author
+      
+      □ Open Graph completo:
+        - og:title, og:description, og:image (1200x630)
+        - og:url, og:type, og:locale
+      
+      □ Twitter Cards:
+        - twitter:card, twitter:title, twitter:description, twitter:image
+      
+      □ Schema.org (JSON-LD):
+        - @type según negocio (LocalBusiness, Service, Restaurant, etc.)
+        - name, description, url, address, telephone
+        - priceRange, sameAs (redes sociales)
+      
+      □ Archivos técnicos (MCP denofreshmcp):
+        - fresh_generate_sitemap
+        - fresh_generate_robots
+      
+      □ Jerarquía de encabezados:
+        - Un solo H1 por página
+        - H2, H3 en orden correcto
+      
+      □ Alt text en TODAS las imágenes
+      
+      SEÑAL DE COMPLETADO: "seo implementado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "legal-pages"
+    name: "Páginas Legales"
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 5b - PÁGINAS LEGALES Y COOKIE CONSENT
+      ══════════════════════════════════════════════════════════════════════════
+      
+      TAREA: Crear páginas legales adaptadas al negocio.
+      
+      CREAR:
+      □ routes/privacidad.tsx - Política de Privacidad
+      □ routes/terminos.tsx - Términos y Condiciones
+      □ routes/cookies.tsx - Política de Cookies
+      
+      CONTENIDO adaptado con datos reales del cliente:
+      - Nombre de la empresa
+      - Email de contacto
+      - País/jurisdicción
+      - Servicios específicos
+      
+      FOOTER:
+      - Agregar links a páginas legales
+      - Copyright con nombre del negocio
+      
+      COOKIE CONSENT:
+      - Verificar que CookieConsent island funciona
+      - GA4 solo carga con consentimiento
+      
+      SEÑAL DE COMPLETADO: "legal implementado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "accent-check"
+    name: "Verificar Acentuación"
+    mcps_enabled:
+      - "*"
+    max_visits: 5
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 6a - VERIFICAR ACENTUACIÓN CORRECTA
+      ══════════════════════════════════════════════════════════════════════════
+      
+      TAREA: Revisar acentuación en TODO el proyecto.
+      
+      REVISAR todos los archivos .tsx buscando:
+      
+      ERRORES COMUNES:
+      - "informacion" → "información"
+      - "telefono" → "teléfono"
+      - "direccion" → "dirección"
+      - "pagina" → "página"
+      - "mas" → "más"
+      - "tambien" → "también"
+      - "facil" → "fácil"
+      - "numero" → "número"
+      - "exito" → "éxito"
+      - "atencion" → "atención"
+      - "ubicacion" → "ubicación"
+      - "profesion" → "profesión"
+      
+      VERIFICAR:
+      - Tildes: á, é, í, ó, ú
+      - Eñes: ñ
+      - Diéresis: ü (pingüino, bilingüe)
+      
+      ESPECIAL ATENCIÓN al contenido del cliente (puede tener errores).
+      CORREGIR todos los errores encontrados.
+      
+      SEÑAL DE COMPLETADO: "acentuación verificada"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "ui-review"
+    name: "Review UI/UX"
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 6b - REVIEW UI/UX
+      ══════════════════════════════════════════════════════════════════════════
+      
+      **SKILL: ui-master para revisión integral**
+      
+      TAREA: Revisar calidad visual del sitio con ojo crítico.
+      
+      REVISAR:
+      □ Espaciado consistente entre secciones
+      □ Tipografía legible y jerárquica
+      □ Contraste WCAG AA (4.5:1 mínimo)
+      □ CTAs visibles, claros y con buen contraste
+      □ Responsive: mobile, tablet, desktop
+      □ Imágenes bien dimensionadas y con alt text
+      □ Formulario de contacto funcional y accesible
+      □ WhatsApp button visible pero no intrusivo
+      □ Navbar funcional en mobile
+      □ Coherencia visual con material del cliente (logo, colores)
+      □ Animaciones suaves y no distractoras
+      
+      CRITERIO CLAVE: "¿El cliente reconocerá su negocio en esta página?"
+      
+      FORMATO DE ISSUES:
+      - CRÍTICO: debe corregirse antes de entregar
+      - IMPORTANTE: debería corregirse
+      - MENOR: nice to have
+      
+      SEÑALES:
+      - Si hay issues críticos → "ui requiere mejoras"
+      - Si todo ok → "ui aprobado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "ui-fixes"
+    name: "Correcciones UI"
+    mcps_enabled:
+      - "*"
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      CORRECCIONES UI/UX
+      ══════════════════════════════════════════════════════════════════════════
+      
+      **SKILLS: component-builder, animation-designer según necesidad**
+      
+      TAREA: Aplicar correcciones de UI identificadas.
+      
+      ORDEN:
+      1. Issues CRÍTICOS primero
+      2. Issues IMPORTANTES
+      3. Issues MENORES si hay tiempo
+      
+      Para cada corrección:
+      - Identificar archivo exacto
+      - Aplicar cambio
+      - Verificar que no rompe otra cosa
+      
+      SEÑAL DE COMPLETADO: "correcciones aplicadas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "build-validation"
+    name: "Build y Validación"
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 7 - BUILD Y VALIDACIÓN
+      ══════════════════════════════════════════════════════════════════════════
+      
+      **SKILL: integration-tester para validación**
+      
+      TAREA: Compilar proyecto y validar funcionamiento.
+      
+      EJECUTAR:
+      1. deno task build
+      2. deno task start
+      3. Verificar http://localhost:8000
+      
+      VALIDAR:
+      □ Sin errores de compilación
+      □ Landing principal carga correctamente
+      □ Todas las secciones visibles
+      □ Formulario de contacto funciona
+      □ WhatsApp button funciona (link correcto)
+      □ Links internos funcionan
+      □ Páginas legales cargan
+      □ Responsive funciona (mobile, tablet)
+      □ Imágenes cargan (del cliente y Pexels)
+      □ Cookie consent aparece y funciona
+      
+      SI HAY ERRORES: corregir y volver a build
+      
+      SEÑALES:
+      - Si errores → "build con errores"
+      - Si todo funciona → "build exitoso"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "build-fixes"
+    name: "Corregir Errores Build"
+    mcps_enabled:
+      - "*"
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      CORREGIR ERRORES DE BUILD
+      ══════════════════════════════════════════════════════════════════════════
+      
+      TAREA: Analizar y corregir errores de compilación.
+      
+      PROCESO:
+      1. Leer error completo
+      2. Identificar archivo y línea
+      3. Corregir el error
+      4. Si es error de import → verificar que la dependencia existe
+      5. Si es error de tipos → corregir TypeScript
+      
+      SEÑAL DE COMPLETADO: "errores corregidos"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "final-review"
+    name: "Review Final"
+    mcps_enabled:
+      - "*"
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      FASE 8 - VALIDACIÓN FINAL ANTES DE ENTREGA
+      ══════════════════════════════════════════════════════════════════════════
+      
+      **OBLIGATORIO: Usar sequential-thinking para review completo**
+      
+      CHECKLIST COMPLETO:
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ □ Landing completa con todas las secciones del plan                    │
+      │ □ Contenido real del cliente (no placeholders genéricos)               │
+      │ □ Imágenes del cliente integradas correctamente                        │
+      │ □ SEO básico (meta tags, OG, Schema.org)                               │
+      │ □ Botón WhatsApp flotante con número correcto                          │
+      │ □ Formulario de contacto funcional                                     │
+      │ □ Diseño responsive (mobile, tablet, desktop)                          │
+      │ □ Páginas legales (privacidad, términos, cookies)                      │
+      │ □ Cookie consent funcional                                             │
+      │ □ Acentuación correcta en español                                      │
+      │ □ Build exitoso sin errores                                            │
+      │ □ _fresh/ incluido para deploy                                         │
+      │ □ Colores coherentes con marca del cliente                             │
+      │ □ Logo del cliente presente                                            │
+      └─────────────────────────────────────────────────────────────────────────┘
+      
+      PREGUNTA CLAVE: "¿El cliente reconocerá su negocio y estará orgulloso?"
+      
+      SEÑALES:
+      - Si falta algo → "requiere más trabajo"
+      - Si todo ok → "listo para entrega"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "delivery"
+    name: "Entrega al Cliente"
+    is_end: true
+    mcps_enabled:
+      - "*"
+    max_visits: 1
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      LANDING COMPLETADA - RESUMEN DE ENTREGA
+      ══════════════════════════════════════════════════════════════════════════
+      
+      GENERAR RESUMEN PARA EL CLIENTE:
+      
+      1. PROYECTO:
+         - Ruta: [path]
+         - Cliente: [nombre negocio]
+      
+      2. MATERIAL DEL CLIENTE UTILIZADO:
+         - Fotos: [lista de fotos usadas y dónde]
+         - Textos: [resumen de contenido usado]
+         - Logo: [ubicación]
+      
+      3. SECCIONES IMPLEMENTADAS:
+         - Listar todas con descripción breve
+      
+      4. FUNCIONALIDADES:
+         - WhatsApp: +XX XXX XXX XXX
+         - Formulario: Basin ID / endpoint
+         - Google Analytics: [si aplica]
+      
+      5. SEO IMPLEMENTADO:
+         - Title: [...]
+         - Schema: [tipo]
+         - sitemap.xml y robots.txt
+      
+      6. PÁGINAS LEGALES:
+         - /privacidad
+         - /terminos
+         - /cookies
+      
+      7. COMANDOS PARA EJECUTAR:
+         cd [ruta]
+         deno task build && deno task start
+         → http://localhost:8000
+      
+      8. DEPLOY:
+         - Deno Deploy: https://dash.deno.com
+         - Build Command: echo skip
+         - Entry Point: _fresh/server.js
+      
+      9. CONTENIDO PENDIENTE (si aplica):
+         - Listar placeholders a reemplazar
+      
+      10. IMÁGENES PEXELS (créditos):
+          - Listar fotógrafos y links
+      
+      ══════════════════════════════════════════════════════════════════════════
+
+edges:
+  - id: "intake-to-analysis"
+    from: "material-intake"
+    to: "material-analysis"
+    condition:
+      type: "phrase"
+      phrases:
+        - "material catalogado"
+
+  - id: "analysis-to-gaps"
+    from: "material-analysis"
+    to: "gap-filling"
+    condition:
+      type: "phrase"
+      phrases:
+        - "análisis de material completado"
+
+  - id: "gaps-to-creative"
+    from: "gap-filling"
+    to: "creative-strategy"
+    condition:
+      type: "phrase"
+      phrases:
+        - "información completa"
+
+  - id: "creative-to-planning"
+    from: "creative-strategy"
+    to: "technical-planning"
+    condition:
+      type: "phrase"
+      phrases:
+        - "estrategia definida"
+
+  - id: "planning-to-init"
+    from: "technical-planning"
+    to: "project-init"
+    condition:
+      type: "phrase"
+      phrases:
+        - "plan técnico listo"
+
+  - id: "init-to-sections"
+    from: "project-init"
+    to: "sections-creation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "proyecto inicializado"
+
+  - id: "sections-to-islands"
+    from: "sections-creation"
+    to: "islands-creation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "secciones creadas"
+
+  - id: "islands-to-images"
+    from: "islands-creation"
+    to: "images-setup"
+    condition:
+      type: "phrase"
+      phrases:
+        - "islands creados"
+
+  - id: "images-to-seo"
+    from: "images-setup"
+    to: "seo-implementation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "imágenes configuradas"
+
+  - id: "seo-to-legal"
+    from: "seo-implementation"
+    to: "legal-pages"
+    condition:
+      type: "phrase"
+      phrases:
+        - "seo implementado"
+
+  - id: "legal-to-accent"
+    from: "legal-pages"
+    to: "accent-check"
+    condition:
+      type: "phrase"
+      phrases:
+        - "legal implementado"
+
+  - id: "accent-to-ui"
+    from: "accent-check"
+    to: "ui-review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "acentuación verificada"
+
+  - id: "ui-review-to-fixes"
+    from: "ui-review"
+    to: "ui-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "ui requiere mejoras"
+
+  - id: "ui-fixes-to-review"
+    from: "ui-fixes"
+    to: "ui-review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "correcciones aplicadas"
+
+  - id: "ui-review-to-build"
+    from: "ui-review"
+    to: "build-validation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "ui aprobado"
+    priority: 2
+
+  - id: "build-to-fixes"
+    from: "build-validation"
+    to: "build-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "build con errores"
+
+  - id: "fixes-to-build"
+    from: "build-fixes"
+    to: "build-validation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "errores corregidos"
+
+  - id: "build-to-final"
+    from: "build-validation"
+    to: "final-review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "build exitoso"
+    priority: 2
+
+  - id: "final-to-fixes"
+    from: "final-review"
+    to: "ui-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "requiere más trabajo"
+
+  - id: "final-to-delivery"
+    from: "final-review"
+    to: "delivery"
+    condition:
+      type: "phrase"
+      phrases:
+        - "listo para entrega"
+    priority: 2

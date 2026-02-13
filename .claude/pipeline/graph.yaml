@@ -1,0 +1,800 @@
+# Landing Page Generator Pipeline v1.0
+# Pipeline para crear landing pages profesionales desde cero
+# Incluye proceso creativo, SEO, schemas y verificaciones
+
+metadata:
+  name: "Landing Page Generator"
+  description: "Pipeline completa para crear landing pages profesionales desde cero. Proceso creativo según negocio, SEO, schemas, acentuación."
+  version: "1.0.0"
+  type: "graph"
+  author: "SpeedRunners Software"
+  architecture: "hybrid-multi-agent"
+  agents_required:
+    - "orchestrator"
+    - "fresh-developer"
+    - "creative-director"
+    - "seo-specialist"
+    - "ui-perfectionist"
+  mcps_required:
+    - "denofreshmcp"
+    - "sequential-thinking"
+
+# =============================================================================
+# GLOBAL PROMPT INJECTION
+# =============================================================================
+
+global_prompt: |
+  ══════════════════════════════════════════════════════════════════════════════
+  REGLAS OBLIGATORIAS - LANDING PAGE GENERATOR
+  ══════════════════════════════════════════════════════════════════════════════
+
+  ❌ PROHIBIDO: deno task dev (CORROMPE EL PROYECTO)
+  ✅ OBLIGATORIO: deno task build && deno task start
+
+  ⚠️ DEPLOY A DENO CONSOLE:
+  - El proyecto usa "echo skip" como Build Command en Deno Deploy
+  - ES OBLIGATORIO hacer `deno task build` LOCALMENTE antes de cada commit
+  - El directorio _fresh/ DEBE incluirse en el repositorio
+  - Sin build local previo, el deploy NO funcionará
+
+  FLUJO DE COMMIT:
+  1. Hacer cambios en código
+  2. Ejecutar: deno task build
+  3. Verificar que _fresh/ se actualizó
+  4. git add . && git commit && git push
+
+  PACK SPEEDRUNNERS INCLUYE:
+  - Landing completa (secciones ilimitadas)
+  - SEO básico (meta tags, Open Graph, schema.org)
+  - Botón WhatsApp flotante
+  - Formulario de contacto (Basin)
+  - Hosting de por vida
+  - Diseño responsive
+  - Páginas internas si se necesitan
+
+  VERIFICACIONES OBLIGATORIAS:
+  - Acentuación correcta (á, é, í, ó, ú, ñ, ü)
+  - Contraste WCAG AA (4.5:1 mínimo)
+  - Un solo H1 por página
+  - Schema.org LocalBusiness o según negocio
+  ══════════════════════════════════════════════════════════════════════════════
+
+# =============================================================================
+# NODES
+# =============================================================================
+
+nodes:
+  # ---------------------------------------------------------------------------
+  # FASE 1: CAPTURA DE INFORMACIÓN
+  # ---------------------------------------------------------------------------
+
+  - id: "business-capture"
+    name: "Captura de Información del Negocio"
+    is_start: true
+    model: haiku
+    max_visits: 5
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Recopilar toda la información necesaria del cliente
+      ══════════════════════════════════════════════════════════════════════════
+
+      INFORMACIÓN A SOLICITAR:
+
+      1. DATOS DEL NEGOCIO:
+         □ Nombre del negocio/empresa
+         □ Rubro/industria (restaurante, abogado, clínica, etc.)
+         □ Ubicación (ciudad, país)
+         □ Teléfono/WhatsApp
+         □ Email de contacto
+         □ Redes sociales (si tiene)
+
+      2. PROPUESTA DE VALOR:
+         □ ¿Qué problema resuelve?
+         □ ¿Qué lo diferencia de la competencia?
+         □ Público objetivo
+
+      3. CONTENIDO:
+         □ ¿Tiene textos preparados? (SI/NO)
+         □ ¿Tiene logo? (SI/NO, pedir archivo)
+         □ ¿Tiene imágenes propias? (SI/NO)
+         □ Colores de marca preferidos (o dejar a criterio)
+
+      4. SECCIONES DESEADAS:
+         □ Hero (obligatorio)
+         □ Servicios
+         □ Sobre nosotros
+         □ Testimonios
+         □ Galería
+         □ FAQ
+         □ Contacto (obligatorio)
+
+      5. RUTA DEL PROYECTO:
+         □ ¿Dónde crear el proyecto?
+
+      Si el cliente NO tiene contenido, indicar que se usarán placeholders
+      editables posteriormente.
+
+      SEÑAL DE COMPLETADO: "información capturada"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 2: PROCESO CREATIVO
+  # ---------------------------------------------------------------------------
+
+  - id: "creative-strategy"
+    name: "Estrategia Creativa"
+    model: opus
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Definir estrategia creativa según el tipo de negocio
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Usar sequential-thinking para análisis profundo**
+
+      ANALIZAR:
+
+      1. PERSONALIDAD DE MARCA según rubro:
+         - Restaurante: cálido, apetitoso, acogedor
+         - Abogado: profesional, confiable, serio
+         - Clínica: limpio, confiable, tecnológico
+         - Startup: moderno, innovador, dinámico
+         - Artesano: auténtico, personal, único
+
+      2. PALETA DE COLORES:
+         - Definir primario, secundario, acento
+         - Justificar psicología del color para el rubro
+         - Asegurar contraste WCAG AA
+
+      3. TONO DE COMUNICACIÓN:
+         - Formal vs informal
+         - Técnico vs accesible
+         - Ejemplos de frases clave
+
+      4. ESTRUCTURA RECOMENDADA:
+         - Orden de secciones según objetivo de conversión
+         - CTAs principales y secundarios
+         - Puntos de fricción a eliminar
+
+      5. IMÁGENES:
+         - Keywords para Pexels según rubro
+         - Estilo fotográfico (profesional, lifestyle, abstracto)
+         - Orientación preferida (landscape, portrait)
+
+      GENERAR DOCUMENTO:
+      - brief-creativo.md con todas las decisiones
+
+      SEÑAL DE COMPLETADO: "estrategia definida"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 3: PLANIFICACIÓN TÉCNICA
+  # ---------------------------------------------------------------------------
+
+  - id: "technical-planning"
+    name: "Planificación Técnica"
+    model: sonnet
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Crear plan técnico detallado de implementación
+      ══════════════════════════════════════════════════════════════════════════
+
+      BASADO EN la estrategia creativa, definir:
+
+      1. ESTRUCTURA DE ARCHIVOS:
+         - routes/index.tsx (landing principal)
+         - routes/privacidad.tsx
+         - routes/terminos.tsx
+         - routes/cookies.tsx
+         - components/ (secciones)
+         - islands/ (interactivos)
+
+      2. COMPONENTES A CREAR:
+         Para cada sección, especificar:
+         - Nombre del componente
+         - Props esperados
+         - Contenido exacto o placeholder
+
+      3. ISLANDS NECESARIOS:
+         □ Navbar.tsx (siempre)
+         □ ContactForm.tsx (siempre)
+         □ WhatsAppButton.tsx (siempre)
+         □ CookieConsent.tsx (siempre)
+         □ MobileMenu.tsx (si hay menú)
+         □ Otros según necesidad
+
+      4. SEO A IMPLEMENTAR:
+         - Title exacto (max 60 chars)
+         - Description exacta (max 155 chars)
+         - Keywords principales
+         - Schema.org tipo (LocalBusiness, Service, etc.)
+         - Open Graph completo
+
+      5. IMÁGENES PEXELS:
+         Para cada imagen necesaria:
+         - Query de búsqueda
+         - Nombre de archivo destino
+         - Orientación y tamaño
+
+      SEÑAL DE COMPLETADO: "plan técnico listo"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 4: CONSTRUCCIÓN
+  # ---------------------------------------------------------------------------
+
+  - id: "project-init"
+    name: "Inicializar Proyecto"
+    model: haiku
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Inicializar proyecto Deno Fresh
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega al subagente `fresh-developer`**
+
+      EJECUTAR:
+      - fresh_init_project(project_path="[ruta del plan]")
+
+      RECORDAR:
+      ❌ NUNCA usar: deno task dev
+      ✅ SIEMPRE usar: deno task build && deno task start
+
+      SEÑAL DE COMPLETADO: "proyecto inicializado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "sections-creation"
+    name: "Crear Secciones"
+    model: sonnet
+    max_visits: 25
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Crear todas las secciones según el plan técnico
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega al subagente `fresh-developer`**
+
+      Para CADA sección del plan (en orden):
+      1. Crear componente en components/
+      2. Implementar con contenido del cliente O placeholders claros
+      3. Aplicar estilos según estrategia creativa
+      4. Importar en routes/index.tsx
+
+      CONTENIDO PLACEHOLDER (si no hay del cliente):
+      - Usar texto Lorem ipsum descriptivo
+         - Marcar claramente: {/* TODO: Reemplazar con contenido del cliente */}
+      - Usar colores de la estrategia creativa
+
+      VERIFICAR ACENTUACIÓN en todos los textos español.
+
+      SEÑAL DE COMPLETADO: "secciones creadas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "islands-creation"
+    name: "Crear Islands"
+    model: haiku
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Crear todos los islands interactivos
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega al subagente `fresh-developer`**
+
+      ISLANDS OBLIGATORIOS:
+      □ Navbar.tsx - Con menú mobile
+      □ ContactForm.tsx - Con Basin o similar
+      □ WhatsAppButton.tsx - Flotante
+      □ CookieConsent.tsx - Con localStorage
+
+      ISLANDS OPCIONALES según plan:
+      □ ScrollToTop.tsx
+      □ Testimonials.tsx (si tiene slider)
+      □ FAQ.tsx (con accordion)
+      □ Gallery.tsx (con lightbox)
+
+      SEÑAL DE COMPLETADO: "islands creados"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "images-download"
+    name: "Descargar Imágenes"
+    model: haiku
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Descargar imágenes de Pexels según el plan
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega al subagente `fresh-developer`**
+
+      SI el cliente tiene imágenes propias:
+      - Pedirlas y colocarlas en static/images/
+
+      SI NO tiene imágenes:
+      1. Verificar API: pexels_api_status()
+      2. Para CADA imagen del plan:
+         pexels_search_and_download(
+           project_path, query, orientation, size, filename
+         )
+      3. Actualizar referencias en componentes
+      4. Guardar créditos de fotógrafos en CREDITS.md
+
+      SEÑAL DE COMPLETADO: "imágenes listas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 5: SEO Y LEGAL
+  # ---------------------------------------------------------------------------
+
+  - id: "seo-implementation"
+    name: "Implementar SEO"
+    model: sonnet
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Implementar SEO técnico completo
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega al subagente `seo-specialist`**
+
+      CHECKLIST SEO:
+      □ Meta tags en _app.tsx:
+        - title (max 60 chars)
+        - description (max 155 chars)
+        - keywords
+        - canonical
+        - robots
+        - author
+
+      □ Open Graph completo:
+        - og:title
+        - og:description
+        - og:image (1200x630)
+        - og:url
+        - og:type
+        - og:locale
+
+      □ Twitter Cards:
+        - twitter:card
+        - twitter:title
+        - twitter:description
+        - twitter:image
+
+      □ Schema.org (JSON-LD):
+        - @type según negocio (LocalBusiness, Service, etc.)
+        - name, description, url
+        - address (si aplica)
+        - telephone
+        - priceRange
+        - sameAs (redes sociales)
+
+      □ Archivos técnicos:
+        - sitemap.xml
+        - robots.txt
+
+      □ Jerarquía de encabezados:
+        - Un solo H1 por página
+        - H2, H3 en orden correcto
+
+      □ Alt text en todas las imágenes
+
+      SEÑAL DE COMPLETADO: "seo implementado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "legal-pages"
+    name: "Páginas Legales"
+    model: sonnet
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Crear páginas legales y cookie consent
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega al subagente `seo-specialist`**
+
+      CREAR:
+      □ routes/privacidad.tsx - Política de Privacidad
+      □ routes/terminos.tsx - Términos y Condiciones
+      □ routes/cookies.tsx - Política de Cookies
+
+      CONTENIDO adaptado al negocio:
+      - Nombre de la empresa
+      - Email de contacto
+      - País/jurisdicción
+
+      FOOTER:
+      - Agregar links a páginas legales
+
+      COOKIE CONSENT:
+      - Verificar que CookieConsent.tsx funciona
+      - GA4 solo carga con consentimiento
+
+      SEÑAL DE COMPLETADO: "legal implementado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 6: VERIFICACIONES
+  # ---------------------------------------------------------------------------
+
+  - id: "accent-check"
+    name: "Verificar Acentuación"
+    model: haiku
+    max_visits: 5
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Verificar acentuación correcta en todo el proyecto
+      ══════════════════════════════════════════════════════════════════════════
+
+      REVISAR TODOS los archivos .tsx buscando:
+
+      ERRORES COMUNES:
+      - "informacion" → "información"
+      - "telefono" → "teléfono"
+      - "direccion" → "dirección"
+      - "pagina" → "página"
+      - "mas" → "más"
+      - "tambien" → "también"
+      - "asi" → "así"
+      - "facil" → "fácil"
+      - "numero" → "número"
+      - "exito" → "éxito"
+
+      VERIFICAR:
+      - Tildes: á, é, í, ó, ú
+      - Eñes: ñ
+      - Diéresis: ü (pingüino, bilingüe)
+
+      CORREGIR todos los errores encontrados.
+
+      SEÑAL DE COMPLETADO: "acentuación verificada"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "ui-review"
+    name: "Review UI/UX"
+    model: sonnet
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Revisar calidad visual del sitio
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega al subagente `ui-perfectionist`**
+
+      REVISAR:
+      □ Espaciado consistente
+      □ Tipografía legible
+      □ Contraste WCAG AA
+      □ CTAs visibles y claros
+      □ Responsive (mobile-first)
+      □ Imágenes bien dimensionadas
+      □ Formulario funcional
+
+      CRITERIO: "¿Pagaría el cliente $30.000 por esto?"
+
+      SEÑALES:
+      - Si hay issues críticos → "ui requiere mejoras"
+      - Si todo ok → "ui aprobado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "ui-fixes"
+    name: "Correcciones UI"
+    model: sonnet
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Aplicar correcciones de UI identificadas
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega al subagente `ui-perfectionist`**
+
+      Corregir todos los issues identificados en el review.
+
+      SEÑAL DE COMPLETADO: "correcciones aplicadas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 7: BUILD Y VALIDACIÓN
+  # ---------------------------------------------------------------------------
+
+  - id: "build-validation"
+    name: "Build y Validación"
+    model: haiku
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Compilar proyecto y validar funcionamiento
+      ══════════════════════════════════════════════════════════════════════════
+
+      EJECUTAR:
+      1. deno task build
+      2. deno task start
+      3. Verificar http://localhost:8000
+
+      VALIDAR:
+      □ Sin errores de compilación
+      □ Todas las páginas cargan
+      □ Formulario funciona
+      □ WhatsApp button funciona
+      □ Links internos funcionan
+      □ Responsive funciona
+
+      SI HAY ERRORES:
+      - Corregir y volver a build
+
+      SEÑALES:
+      - Si errores → "build con errores"
+      - Si ok → "build exitoso"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "build-fixes"
+    name: "Corregir Errores Build"
+    model: sonnet
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Corregir errores de build
+      ══════════════════════════════════════════════════════════════════════════
+
+      Analizar errores y corregir.
+
+      SEÑAL DE COMPLETADO: "errores corregidos"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 8: ENTREGA
+  # ---------------------------------------------------------------------------
+
+  - id: "final-review"
+    name: "Review Final"
+    model: opus
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Validación final antes de entrega
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Usar sequential-thinking para review completo**
+
+      CHECKLIST PACK SPEEDRUNNERS:
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ □ Landing completa con todas las secciones                             │
+      │ □ SEO básico (meta tags, OG, schema)                                   │
+      │ □ Botón WhatsApp flotante                                              │
+      │ □ Formulario de contacto funcional                                     │
+      │ □ Diseño responsive                                                    │
+      │ □ Páginas legales (privacidad, términos, cookies)                      │
+      │ □ Cookie consent funcional                                             │
+      │ □ Acentuación correcta                                                 │
+      │ □ Build exitoso                                                        │
+      │ □ _fresh/ incluido para deploy                                         │
+      └─────────────────────────────────────────────────────────────────────────┘
+
+      SEÑALES:
+      - Si falta algo → "requiere más trabajo"
+      - Si todo ok → "listo para entrega"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "delivery"
+    name: "Entrega al Cliente"
+    is_end: true
+    model: haiku
+    max_visits: 1
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      LANDING COMPLETADA - RESUMEN DE ENTREGA
+      ══════════════════════════════════════════════════════════════════════════
+
+      GENERAR RESUMEN PARA EL CLIENTE:
+
+      1. PROYECTO:
+         - Ruta: [path]
+         - Cliente: [nombre negocio]
+
+      2. SECCIONES IMPLEMENTADAS:
+         - Listar todas
+
+      3. FUNCIONALIDADES:
+         - WhatsApp: +XX XXX XXX XXX
+         - Formulario: Basin ID
+         - Google Analytics: [si aplica]
+
+      4. SEO IMPLEMENTADO:
+         - Title: [...]
+         - Schema: [tipo]
+
+      5. ARCHIVOS ENTREGADOS:
+         - sitemap.xml
+         - robots.txt
+         - Páginas legales
+
+      6. COMANDOS PARA EJECUTAR:
+         cd [ruta]
+         deno task build && deno task start
+         → http://localhost:8000
+
+      7. DEPLOY:
+         - Deno Deploy: https://dash.deno.com
+         - Build Command: echo skip
+         - Entry Point: _fresh/server.js
+
+      8. CONTENIDO PENDIENTE (si aplica):
+         - Listar placeholders a reemplazar
+
+      ══════════════════════════════════════════════════════════════════════════
+
+# =============================================================================
+# EDGES
+# =============================================================================
+
+edges:
+  # --- Fase 1-2: Captura y Creatividad ---
+  - id: "capture-to-creative"
+    from: "business-capture"
+    to: "creative-strategy"
+    condition:
+      type: "phrase"
+      phrases:
+        - "información capturada"
+    priority: 1
+
+  - id: "creative-to-planning"
+    from: "creative-strategy"
+    to: "technical-planning"
+    condition:
+      type: "phrase"
+      phrases:
+        - "estrategia definida"
+    priority: 1
+
+  # --- Fase 3: Planificación a Construcción ---
+  - id: "planning-to-init"
+    from: "technical-planning"
+    to: "project-init"
+    condition:
+      type: "phrase"
+      phrases:
+        - "plan técnico listo"
+    priority: 1
+
+  # --- Fase 4: Construcción ---
+  - id: "init-to-sections"
+    from: "project-init"
+    to: "sections-creation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "proyecto inicializado"
+    priority: 1
+
+  - id: "sections-to-islands"
+    from: "sections-creation"
+    to: "islands-creation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "secciones creadas"
+    priority: 1
+
+  - id: "islands-to-images"
+    from: "islands-creation"
+    to: "images-download"
+    condition:
+      type: "phrase"
+      phrases:
+        - "islands creados"
+    priority: 1
+
+  # --- Fase 5: SEO y Legal ---
+  - id: "images-to-seo"
+    from: "images-download"
+    to: "seo-implementation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "imágenes listas"
+    priority: 1
+
+  - id: "seo-to-legal"
+    from: "seo-implementation"
+    to: "legal-pages"
+    condition:
+      type: "phrase"
+      phrases:
+        - "seo implementado"
+    priority: 1
+
+  # --- Fase 6: Verificaciones ---
+  - id: "legal-to-accent"
+    from: "legal-pages"
+    to: "accent-check"
+    condition:
+      type: "phrase"
+      phrases:
+        - "legal implementado"
+    priority: 1
+
+  - id: "accent-to-ui"
+    from: "accent-check"
+    to: "ui-review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "acentuación verificada"
+    priority: 1
+
+  # --- UI Review Loop ---
+  - id: "ui-review-to-fixes"
+    from: "ui-review"
+    to: "ui-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "ui requiere mejoras"
+    priority: 1
+
+  - id: "ui-fixes-to-review"
+    from: "ui-fixes"
+    to: "ui-review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "correcciones aplicadas"
+    priority: 1
+
+  - id: "ui-review-to-build"
+    from: "ui-review"
+    to: "build-validation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "ui aprobado"
+    priority: 2
+
+  # --- Fase 7: Build Loop ---
+  - id: "build-to-fixes"
+    from: "build-validation"
+    to: "build-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "build con errores"
+    priority: 1
+
+  - id: "fixes-to-build"
+    from: "build-fixes"
+    to: "build-validation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "errores corregidos"
+    priority: 1
+
+  - id: "build-to-final"
+    from: "build-validation"
+    to: "final-review"
+    condition:
+      type: "phrase"
+      phrases:
+        - "build exitoso"
+    priority: 2
+
+  # --- Fase 8: Final ---
+  - id: "final-to-fixes"
+    from: "final-review"
+    to: "ui-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "requiere más trabajo"
+    priority: 1
+
+  - id: "final-to-delivery"
+    from: "final-review"
+    to: "delivery"
+    condition:
+      type: "phrase"
+      phrases:
+        - "listo para entrega"
+    priority: 2

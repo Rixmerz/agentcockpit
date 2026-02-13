@@ -27,6 +27,7 @@ import {
   FileEdit,
   FilePlus,
   FileCheck,
+  Trash2,
 } from 'lucide-react';
 import {
   setRemoteUrl,
@@ -35,6 +36,7 @@ import {
   hasLocalGitRepo,
   getGitRoot,
   initRepository,
+  removeRepository,
   getSyncStatus,
   gitPush,
   type SyncStatus,
@@ -84,6 +86,8 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
   const [pushStatus, setPushStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [copied, setCopied] = useState(false);
+  const [confirmRemoveGit, setConfirmRemoveGit] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   // Load git info with strict detection
   const loadGitInfo = useCallback(async () => {
@@ -273,6 +277,25 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
       setIsPushing(false);
     }
   }, [projectPath, loadGitInfo]);
+
+  // Handle remove git
+  const handleRemoveGit = useCallback(async () => {
+    if (!projectPath) return;
+    setIsRemoving(true);
+    try {
+      await removeRepository(projectPath);
+      setConfirmRemoveGit(false);
+      await loadGitInfo();
+      onGitInit?.(); // Notify parent to refresh git info
+    } catch (error) {
+      setGitState(prev => ({
+        ...prev,
+        error: `Failed to remove git: ${error}`,
+      }));
+    } finally {
+      setIsRemoving(false);
+    }
+  }, [projectPath, loadGitInfo, onGitInit]);
 
   // No project selected
   if (!projectPath) {
@@ -598,6 +621,43 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
                     ))}
                 </div>
               )}
+
+              {/* Remove Git */}
+              <div className="git-danger-zone">
+                {!confirmRemoveGit ? (
+                  <button
+                    className="git-remove-btn"
+                    onClick={() => setConfirmRemoveGit(true)}
+                  >
+                    <Trash2 size={12} />
+                    <span>Remove Git</span>
+                  </button>
+                ) : (
+                  <div className="git-remove-confirm">
+                    <span className="git-remove-warning">This will delete .git — are you sure?</span>
+                    <div className="git-remove-actions">
+                      <button
+                        className="git-remove-btn git-remove-btn--confirm"
+                        onClick={handleRemoveGit}
+                        disabled={isRemoving}
+                      >
+                        {isRemoving ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={12} />
+                        )}
+                        <span>{isRemoving ? 'Removing...' : 'Confirm'}</span>
+                      </button>
+                      <button
+                        className="git-remove-btn git-remove-btn--cancel"
+                        onClick={() => setConfirmRemoveGit(false)}
+                      >
+                        <span>Cancel</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
