@@ -28,6 +28,8 @@ tauri-plugin-fs = "2"
 portable-pty = "0.8"
 parking_lot = "0.12"
 tauri-plugin-shell = "2"
+tiny_http = "0.12"
+uuid = { version = "1", features = ["v4"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
