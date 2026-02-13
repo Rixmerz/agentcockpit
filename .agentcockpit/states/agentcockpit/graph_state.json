@@ -1,0 +1,29 @@
+{
+  "current_nodes": [
+    "done"
+  ],
+  "node_visits": {
+    "classify-task": 1,
+    "done": 1
+  },
+  "execution_path": [
+    {
+      "from_node": null,
+      "to_node": "classify-task",
+      "edge_id": null,
+      "timestamp": "2026-02-13T16:57:00.862840",
+      "reason": "Graph reset"
+    },
+    {
+      "from_node": "classify-task",
+      "to_node": "done",
+      "edge_id": null,
+      "timestamp": "2026-02-13T16:57:15.271216",
+      "reason": "Admin jump to done"
+    }
+  ],
+  "active_graph": "macro-orchestrator",
+  "max_visits_default": 10,
+  "total_transitions": 1,
+  "last_activity": "2026-02-13T16:57:15.271240"
+}

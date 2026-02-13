@@ -22,6 +22,7 @@ import {
   Download,
   Trash2,
   Settings,
+  Database,
 } from 'lucide-react';
 import { DropdownPanel, DropdownItem, DropdownSection } from './DropdownPanel';
 import { AudioVisualizer } from './AudioVisualizer';
@@ -37,13 +38,9 @@ import {
   uninstallPipelineHooks,
 } from '../../services/hookService';
 import { McpManagerModal } from '../mcp/McpManagerModal';
-import {
-  getGitStatus,
-  hasLocalGitRepo,
-  getSyncStatus,
-  gitPush,
-  type SyncStatus,
-} from '../../services/gitService';
+import { gitPush, type SyncStatus } from '../../services/gitService';
+import { useGitWatcherEvent } from '../../core/utils/gitWatcherEventBus';
+import { gitWatcherService } from '../../services/gitWatcherService';
 import {
   getHistory,
   restoreSnapshot,
@@ -51,6 +48,13 @@ import {
   type HistoryItem,
 } from '../../services/snapshotService';
 import { useSnapshotEvent, snapshotEvents } from '../../core/utils/eventBus';
+import { useIndexEvent } from '../../core/utils/indexEventBus';
+import {
+  isDeltaCodeCubeInstalled,
+  getIndexStats,
+  reindexProject,
+  type IndexStats,
+} from '../../services/deltacodecubeService';
 
 // Helper function for relative time
 function formatRelativeTime(timestamp: number): string {
@@ -131,7 +135,6 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     syncStatus: null,
     hasRepo: false,
   });
-  const [gitLoading, setGitLoading] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
   const [showGitSettings, setShowGitSettings] = useState(false);
 
@@ -140,6 +143,55 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [isRestoring, setIsRestoring] = useState<number | null>(null);
+
+  // Index state (DeltaCodeCube)
+  const [dccInstalled, setDccInstalled] = useState(false);
+  const [indexStats, setIndexStats] = useState<IndexStats | null>(null);
+  const [indexLoading, setIndexLoading] = useState(false);
+
+  // Load index info
+  const loadIndexInfo = useCallback(async () => {
+    try {
+      const installed = await isDeltaCodeCubeInstalled();
+      setDccInstalled(installed);
+      if (installed && projectPath) {
+        const stats = await getIndexStats(projectPath);
+        setIndexStats(stats);
+      } else {
+        setIndexStats(null);
+      }
+    } catch (err) {
+      console.warn('[ControlBar] Failed to load index info:', err);
+    }
+  }, [projectPath]);
+
+  // Index: check installed once (lightweight, uses cache), data on-demand
+  useEffect(() => {
+    const delay = setTimeout(() => {
+      isDeltaCodeCubeInstalled().then(setDccInstalled).catch(() => {});
+    }, 3000);
+    return () => clearTimeout(delay);
+  }, []);
+
+  useIndexEvent('indexed', (data) => {
+    if (data.projectPath === projectPath) {
+      loadIndexInfo();
+    }
+  }, [projectPath, loadIndexInfo]);
+
+  // Handle reindex
+  const handleReindex = useCallback(async () => {
+    if (!projectPath) return;
+    setIndexLoading(true);
+    try {
+      const stats = await reindexProject(projectPath);
+      if (stats) setIndexStats(stats);
+    } catch (err) {
+      console.error('[ControlBar] Reindex failed:', err);
+    } finally {
+      setIndexLoading(false);
+    }
+  }, [projectPath]);
 
   // Load pipelines
   useEffect(() => {
@@ -188,8 +240,10 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     }
   }, []);
 
+  // MCPs: load once after 2s delay, then on-demand via dropdown open
   useEffect(() => {
-    loadMcps();
+    const delay = setTimeout(loadMcps, 2000);
+    return () => clearTimeout(delay);
   }, [loadMcps]);
 
   // Load Ports
@@ -267,58 +321,18 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     window.open(`http://localhost:${port}`, '_blank');
   }, []);
 
-  // Load Git info
-  const loadGitInfo = useCallback(async () => {
-    if (!projectPath) {
-      setGitInfo({
-        branch: null,
-        hasChanges: false,
-        modifiedCount: 0,
-        stagedCount: 0,
-        untrackedCount: 0,
-        syncStatus: null,
-        hasRepo: false,
-      });
-      return;
-    }
-
-    setGitLoading(true);
-    try {
-      const hasRepo = await hasLocalGitRepo(projectPath);
-      if (!hasRepo) {
-        setGitInfo({
-          branch: null,
-          hasChanges: false,
-          modifiedCount: 0,
-          stagedCount: 0,
-          untrackedCount: 0,
-          syncStatus: null,
-          hasRepo: false,
-        });
-        return;
-      }
-
-      const [status, syncStatus] = await Promise.all([
-        getGitStatus(projectPath),
-        getSyncStatus(projectPath),
-      ]);
-
-      const totalChanges = status.modifiedFiles.length + status.stagedFiles.length + status.untrackedFiles.length;
-
-      setGitInfo({
-        branch: status.branch,
-        hasChanges: totalChanges > 0,
-        modifiedCount: status.modifiedFiles.length,
-        stagedCount: status.stagedFiles.length,
-        untrackedCount: status.untrackedFiles.length,
-        syncStatus,
-        hasRepo: true,
-      });
-    } catch (err) {
-      console.warn('[ControlBar] Failed to load git info:', err);
-    } finally {
-      setGitLoading(false);
-    }
+  // Subscribe to git watcher status events
+  useGitWatcherEvent('status', (data) => {
+    if (data.projectPath !== projectPath) return;
+    setGitInfo({
+      branch: data.branch,
+      hasChanges: data.hasChanges,
+      modifiedCount: data.modifiedFiles.length,
+      stagedCount: data.stagedFiles.length,
+      untrackedCount: data.untrackedFiles.length,
+      syncStatus: data.syncStatus,
+      hasRepo: data.hasRepo,
+    });
   }, [projectPath]);
 
   // Handle git push
@@ -327,13 +341,13 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     setIsPushing(true);
     try {
       await gitPush(projectPath);
-      await loadGitInfo();
+      gitWatcherService.pollNow();
     } catch (error) {
       console.error('[ControlBar] Push failed:', error);
     } finally {
       setIsPushing(false);
     }
-  }, [projectPath, loadGitInfo]);
+  }, [projectPath]);
 
   // Load snapshots
   const loadSnapshots = useCallback(async () => {
@@ -398,19 +412,7 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     }
   }, [projectPath, loadSnapshots]);
 
-  // Load ports on mount and periodically
-  useEffect(() => {
-    loadPorts();
-    const interval = setInterval(loadPorts, 10000); // Every 10 seconds
-    return () => clearInterval(interval);
-  }, [loadPorts]);
-
-  // Load git info when project changes
-  useEffect(() => {
-    loadGitInfo();
-    const interval = setInterval(loadGitInfo, 5000); // Every 5 seconds
-    return () => clearInterval(interval);
-  }, [loadGitInfo]);
+  // Ports: on-demand only (loaded when dropdown opens)
 
   // Load snapshots when project changes
   useEffect(() => {
@@ -564,6 +566,7 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
           label="MCP Servers"
           badge={mcpServers.length || undefined}
           statusDot={mcpServers.length > 0 ? 'active' : 'none'}
+          onOpen={loadMcps}
         >
           {mcpLoading ? (
             <div className="dropdown__empty">Loading...</div>
@@ -602,6 +605,7 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
           label="Active Ports"
           badge={activePorts.length || undefined}
           statusDot={activePorts.length > 0 ? 'active' : 'none'}
+          onOpen={loadPorts}
         >
           <DropdownSection title="Active Ports">
             {portsLoading ? (
@@ -657,9 +661,7 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
           badge={gitInfo.hasChanges ? (gitInfo.modifiedCount + gitInfo.stagedCount + gitInfo.untrackedCount) : undefined}
           statusDot={gitInfo.hasChanges ? 'warning' : gitInfo.hasRepo ? 'active' : 'none'}
         >
-          {gitLoading ? (
-            <div className="dropdown__empty">Loading...</div>
-          ) : !gitInfo.hasRepo ? (
+          {!gitInfo.hasRepo ? (
             <>
               <div className="dropdown__empty">No git repository</div>
               <DropdownSection title="Actions">
@@ -743,7 +745,7 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
                 <DropdownItem
                   icon={<RefreshCw size={14} />}
                   label="Refresh"
-                  onClick={loadGitInfo}
+                  onClick={() => gitWatcherService.pollNow()}
                 />
               </DropdownSection>
             </>
@@ -794,6 +796,65 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
           </DropdownSection>
         </DropdownPanel>
 
+        {/* Index Dropdown (DeltaCodeCube) */}
+        {dccInstalled && (
+          <DropdownPanel
+            trigger={indexStats ? `Index ${indexStats.grade}` : 'Index'}
+            triggerIcon={<Database size={12} />}
+            label={`Codebase Index${projectPath ? ` — ${projectPath.split('/').pop()}` : ''}`}
+            statusDot={indexStats ? 'active' : 'none'}
+            onOpen={loadIndexInfo}
+          >
+            {indexStats ? (
+              <>
+                <DropdownSection title="Codebase Health">
+                  <DropdownItem
+                    icon={<Database size={14} />}
+                    label={`Score: ${indexStats.codebaseScore}`}
+                    description={`Grade ${indexStats.grade} - ${indexStats.totalFiles} files | ${projectPath?.split('/').pop() || ''}`}
+                  />
+                </DropdownSection>
+
+                <DropdownSection title="Distribution">
+                  {Object.entries(indexStats.distribution).map(([grade, count]) => (
+                    count > 0 && (
+                      <DropdownItem
+                        key={grade}
+                        icon={<Check size={14} />}
+                        label={`Grade ${grade}`}
+                        badge={String(count)}
+                      />
+                    )
+                  ))}
+                </DropdownSection>
+
+                <DropdownSection title="Actions">
+                  <DropdownItem
+                    icon={indexLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    label={indexLoading ? 'Reindexing...' : 'Reindex'}
+                    description="Re-scan project files"
+                    onClick={handleReindex}
+                    disabled={indexLoading}
+                  />
+                </DropdownSection>
+              </>
+            ) : (
+              <>
+                <div className="dropdown__empty">No index data for {projectPath?.split('/').pop() || 'project'}</div>
+                <DropdownSection title="Actions">
+                  <DropdownItem
+                    icon={indexLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    label={indexLoading ? `Indexing ${projectPath?.split('/').pop() || ''}...` : 'Index Now'}
+                    description={`Index ${projectPath?.split('/').pop() || 'project'} files`}
+                    onClick={handleReindex}
+                    disabled={indexLoading}
+                  />
+                </DropdownSection>
+              </>
+            )}
+          </DropdownPanel>
+        )}
+
         <div className="control-bar__divider" />
 
         {/* Audio Visualizer - BF3 Style (at the right end) */}
@@ -815,7 +876,7 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
       >
         <GitSettings
           projectPath={projectPath}
-          onGitInit={() => loadGitInfo()}
+          onGitInit={() => gitWatcherService.pollNow()}
         />
       </Modal>
     </div>

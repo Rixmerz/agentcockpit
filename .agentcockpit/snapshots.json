@@ -71,8 +71,18 @@
         ".pipeline-manager/data/ig-mcp.db-shm",
         ".pipeline-manager/data/ig-mcp.db-wal"
       ]
+    },
+    {
+      "version": 220,
+      "commitHash": "57cb786b4ea3cf61615e06a32d3e2e3c83bcbca8",
+      "tag": "snapshot-v220",
+      "timestamp": 1769641299000,
+      "message": "Snapshot V220",
+      "filesChanged": [
+        "src/hooks/usePty.ts"
+      ]
     }
   ],
-  "nextVersion": 219,
+  "nextVersion": 221,
   "currentVersion": 113
 }

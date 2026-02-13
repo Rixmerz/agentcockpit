@@ -38,5 +38,77 @@
     ],
     "created_at": "2026-01-21T09:32:23.744570",
     "updated_at": "2026-01-21T09:32:23.744570"
+  },
+  {
+    "key": "graph-enforcer-hook",
+    "value": "Implementado .claude/hooks/graph_enforcer.py \u2014 PreToolUse hook que hace hard-enforcement de tools_blocked por nodo de grafo. Lee graph_state.json (hub centralizado via ~/.agentcockpit/config.json) y graph.yaml (local al proyecto). Parser YAML minimal (~25 lineas) que solo extrae id + tools_blocked de la seccion nodes. Soporta wildcard '*'. Fail-safe: approve en cualquier error. Registrado como PRIMER entry en settings.json PreToolUse con matcher '*' y timeout 3s. Reemplaza 3 legacy hooks eliminados (pipeline_enforcer.py, pipeline_auto_advance.py, debug_post_tool.py) que leian steps.yaml/state.json obsoleto.",
+    "tags": [
+      "architecture",
+      "hooks",
+      "enforcement",
+      "graph-pipeline",
+      "decision"
+    ],
+    "created_at": "2026-02-13T17:12:56.756456",
+    "updated_at": "2026-02-13T17:12:56.756456"
+  },
+  {
+    "key": "hook-self-blocking-gotcha",
+    "value": "GOTCHA: Al registrar graph_enforcer.py como hook, si ya hay un grafo activo con tools_blocked en el nodo actual, el hook se activa INMEDIATAMENTE y bloquea las propias tools del desarrollador (Write, Edit, Bash). Para desbloquear: usar mcp__pipeline-manager__graph_set_node para saltar a un nodo sin tools_blocked (ej: 'done'), o desactivar el grafo. Esto ocurrio durante la implementacion y valido que el enforcement funciona correctamente.",
+    "tags": [
+      "gotcha",
+      "hooks",
+      "enforcement",
+      "debugging"
+    ],
+    "created_at": "2026-02-13T17:13:04.600348",
+    "updated_at": "2026-02-13T17:13:04.600348"
+  },
+  {
+    "key": "ts-dts-shadowing-bug",
+    "value": "BUG TypeScript: Un archivo .d.ts con el mismo nombre base que un .ts (ej: debug.d.ts junto a debug.ts) es IGNORADO por TypeScript cuando el .ts existe. El declare global en debug.d.ts nunca se procesaba, causando TS2339 en window.__debug. Fix: mover la augmentacion global a src/global.d.ts (nombre unico sin .ts correspondiente). Aplica a cualquier proyecto TS con noEmit:true.",
+    "tags": [
+      "gotcha",
+      "typescript",
+      "debugging",
+      "pattern"
+    ],
+    "created_at": "2026-02-13T17:13:10.130555",
+    "updated_at": "2026-02-13T17:13:10.130555"
+  },
+  {
+    "key": "enforcement-hard-vs-soft",
+    "value": "DECISION: tools_blocked tiene dos capas de enforcement. HARD: graph_enforcer.py hook (PreToolUse, no se puede ignorar). SOFT: prompt_injection en el nodo (el modelo puede ignorar). mcps_enabled se aplica HARD dentro de execute_mcp_tool en server.py:979. Esta arquitectura de doble capa asegura que incluso si el modelo ignora instrucciones, las restricciones criticas se mantienen.",
+    "tags": [
+      "architecture",
+      "decision",
+      "enforcement",
+      "graph-pipeline"
+    ],
+    "created_at": "2026-02-13T17:13:14.389065",
+    "updated_at": "2026-02-13T17:13:14.389065"
+  },
+  {
+    "key": "rust-manager-cfg-guard",
+    "value": "FIX Rust: tauri::Manager solo se usa dentro de #[cfg(debug_assertions)] (para app.get_webview_window). En release builds causa warning unused import. Fix: poner el import detras de #[cfg(debug_assertions)]. Archivo: src-tauri/src/lib.rs.",
+    "tags": [
+      "fix",
+      "rust",
+      "tauri",
+      "pattern"
+    ],
+    "created_at": "2026-02-13T17:13:17.935828",
+    "updated_at": "2026-02-13T17:13:17.935828"
+  },
+  {
+    "key": "version-bump-v1.2.0",
+    "value": "Version bump 1.1.0 -> 1.2.0 (MINOR segun semver). Razon: nueva funcionalidad retrocompatible (graph enforcer hook). Archivos actualizados: package.json, src-tauri/tauri.conf.json, src-tauri/Cargo.toml. Incluye tambien fixes de build (TS errors, Vite warning, Rust warning) y cleanup de hooks legacy.",
+    "tags": [
+      "version",
+      "release",
+      "semver"
+    ],
+    "created_at": "2026-02-13T17:13:22.173336",
+    "updated_at": "2026-02-13T17:13:22.173336"
   }
 ]

@@ -1,0 +1,254 @@
+/**
+ * Index Panel Styles (DeltaCodeCube)
+ * Grade badges, tabs, distribution display
+ */
+
+/* Grade badge colors */
+.index-grade-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+}
+
+.index-grade-badge--A { background: rgba(0, 200, 83, 0.15); color: #00c853; }
+.index-grade-badge--B { background: rgba(0, 191, 165, 0.15); color: #00bfa5; }
+.index-grade-badge--C { background: rgba(255, 196, 0, 0.15); color: #ffc400; }
+.index-grade-badge--D { background: rgba(255, 145, 0, 0.15); color: #ff9100; }
+.index-grade-badge--F { background: rgba(255, 61, 0, 0.15); color: #ff3d00; }
+
+/* Grade inline text */
+.index-grade-text--A { color: #00c853; }
+.index-grade-text--B { color: #00bfa5; }
+.index-grade-text--C { color: #ffc400; }
+.index-grade-text--D { color: #ff9100; }
+.index-grade-text--F { color: #ff3d00; }
+
+/* Dashboard panel */
+.index-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+/* Tabs */
+.index-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.index-tab {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.index-tab:hover {
+  color: var(--text-primary);
+  background: rgba(var(--accent-rgb, 0, 200, 200), 0.08);
+}
+
+.index-tab.active {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb, 0, 200, 200), 0.12);
+}
+
+/* Overview section */
+.index-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.index-score-display {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.index-score-value {
+  font-size: 2rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.index-score-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.index-score-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.index-score-files {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Distribution bar */
+.index-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.index-dist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+}
+
+.index-dist-grade {
+  width: 20px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
+.index-dist-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.index-dist-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.index-dist-fill--A { background: #00c853; }
+.index-dist-fill--B { background: #00bfa5; }
+.index-dist-fill--C { background: #ffc400; }
+.index-dist-fill--D { background: #ff9100; }
+.index-dist-fill--F { background: #ff3d00; }
+
+.index-dist-count {
+  width: 24px;
+  text-align: right;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Tensions list */
+.index-tensions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.index-tension-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-xs);
+  border-left: 2px solid var(--color-status-warning);
+  font-size: 0.75rem;
+}
+
+.index-tension-files {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.index-tension-arrow {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.index-tension-distance {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+/* Debt list */
+.index-debt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.index-debt-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-xs);
+  font-size: 0.75rem;
+}
+
+.index-debt-file {
+  flex: 1;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.index-debt-score {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+/* Empty state */
+.index-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+/* Section header */
+.index-section-header {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}

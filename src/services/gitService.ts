@@ -248,6 +248,14 @@ export async function getGitStatus(projectPath: string): Promise<GitStatus> {
 }
 
 /**
+ * Get the current HEAD commit hash.
+ * Returns null if no commits exist yet.
+ */
+export async function getHeadCommitHash(projectPath: string): Promise<string | null> {
+  return await execGitSafe(projectPath, 'rev-parse HEAD');
+}
+
+/**
  * Get list of uncommitted changes (simplified)
  */
 export async function getUncommittedChanges(projectPath: string): Promise<string[]> {
@@ -623,6 +631,37 @@ export async function getCommitFiles(projectPath: string, commitHash: string): P
   const result = await execGitSafe(projectPath, `diff-tree --no-commit-id --name-only -r ${commitHash}`);
   if (!result) return [];
   return result.split('\n').filter(Boolean);
+}
+
+/**
+ * Get files changed between two commits.
+ * Returns relative paths of files that were added, modified, or deleted.
+ */
+export async function getFilesBetweenCommits(
+  projectPath: string,
+  fromHash: string,
+  toHash: string
+): Promise<{ changed: string[]; added: string[]; deleted: string[] }> {
+  const result = await execGitSafe(projectPath, `diff --name-status ${fromHash}..${toHash}`);
+  if (!result) return { changed: [], added: [], deleted: [] };
+
+  const changed: string[] = [];
+  const added: string[] = [];
+  const deleted: string[] = [];
+
+  for (const line of result.split('\n').filter(Boolean)) {
+    const status = line[0];
+    const file = line.substring(1).trim();
+    if (status === 'A') {
+      added.push(file);
+    } else if (status === 'D') {
+      deleted.push(file);
+    } else {
+      changed.push(file); // M, R, C, etc.
+    }
+  }
+
+  return { changed, added, deleted };
 }
 
 /**

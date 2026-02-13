@@ -1,0 +1,21 @@
+{
+  "current_nodes": [
+    "material-intake"
+  ],
+  "node_visits": {
+    "material-intake": 1
+  },
+  "execution_path": [
+    {
+      "from_node": null,
+      "to_node": "material-intake",
+      "edge_id": null,
+      "timestamp": "2026-02-08T17:40:50.187769",
+      "reason": "Graph initialized"
+    }
+  ],
+  "active_graph": "landing-from-materials-graph",
+  "max_visits_default": 10,
+  "total_transitions": 0,
+  "last_activity": "2026-02-08T17:40:50.188499"
+}
