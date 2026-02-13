@@ -10,10 +10,10 @@ import type { ReactNode } from 'react';
 import type { AppState, AppAction, Project, Terminal } from '../types';
 import type { AppContextType, TerminalWriter } from './types';
 import { usePersistence } from '../hooks/usePersistence';
+import { debugStateRegistry } from '../core/debugStateRegistry';
 import { ptyClose } from '../services/tauriService';
 import { cleanStaleSessionsOnStartup } from '../services/projectSessionService';
 import { hasLocalGitRepo, initRepository } from '../services/gitService';
-
 // Domain reducers
 import { projectReducer } from './ProjectContext';
 import { settingsReducer } from './SettingsContext';
@@ -93,6 +93,17 @@ export function AppProvider({ children }: AppProviderProps) {
     stateRef.current = state;
   }, [state]);
 
+  // Convenience getters (declared early for debug registry)
+  const activeProject = state.projects.find(p => p.id === state.activeProjectId) || null;
+  const activeTerminal = activeProject?.terminals.find(t => t.id === state.activeTerminalId) || null;
+
+  // Sync state to debug registry (DEV only)
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      debugStateRegistry.update(state, activeProject, activeTerminal);
+    }
+  }, [state, activeProject, activeTerminal]);
+
   // Persistence
   const { scheduleSave } = usePersistence({
     onLoad: useCallback((config) => {
@@ -131,10 +142,6 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   }, [state.isLoading]);
 
-  // Convenience getters
-  const activeProject = state.projects.find(p => p.id === state.activeProjectId) || null;
-  const activeTerminal = activeProject?.terminals.find(t => t.id === state.activeTerminalId) || null;
-
   const generateId = () => crypto.randomUUID();
 
   // ==================== Actions ====================
@@ -154,6 +161,7 @@ export function AppProvider({ children }: AppProviderProps) {
     hasLocalGitRepo(path).then(hasRepo => {
       if (!hasRepo) initRepository(path).catch(console.warn);
     });
+
   }, [scheduleSave]);
 
   const removeProject = useCallback((id: string) => {

@@ -1,12 +1,152 @@
 mod pty;
 mod browser;
+#[cfg(debug_assertions)]
+mod debug_server;
 
 use pty::PtyManager;
 use browser::BrowserState;
 use std::sync::Arc;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::io::{BufRead, BufReader, Write};
 use parking_lot::Mutex;
-use tauri::RunEvent;
+use tauri::{RunEvent, Manager};
+
+// =====================================================
+// DeltaCodeCube MCP Client (persistent process)
+// =====================================================
+
+struct DccMcpClient {
+    child: std::process::Child,
+    stdin: std::process::ChildStdin,
+    reader: BufReader<std::process::ChildStdout>,
+    next_id: u64,
+}
+
+impl DccMcpClient {
+    fn call_tool(&mut self, name: &str, args: &str) -> Result<String, String> {
+        let id = self.next_id;
+        self.next_id += 1;
+
+        let msg = format!(
+            r#"{{"jsonrpc":"2.0","id":{},"method":"tools/call","params":{{"name":"{}","arguments":{}}}}}"#,
+            id, name, args
+        );
+
+        writeln!(self.stdin, "{}", msg).map_err(|e| format!("dcc write: {}", e))?;
+        self.stdin.flush().map_err(|e| format!("dcc flush: {}", e))?;
+
+        let id_str = format!("\"id\":{}", id);
+        loop {
+            let mut line = String::new();
+            let bytes = self.reader.read_line(&mut line).map_err(|e| format!("dcc read: {}", e))?;
+            if bytes == 0 {
+                return Err("DCC process exited unexpectedly".to_string());
+            }
+            let trimmed = line.trim();
+            if trimmed.is_empty() { continue; }
+            if trimmed.contains(&id_str) {
+                return Ok(trimmed.to_string());
+            }
+        }
+    }
+}
+
+impl Drop for DccMcpClient {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+    }
+}
+
+struct DccState {
+    client: Option<DccMcpClient>,
+}
+
+impl DccState {
+    fn new() -> Self { Self { client: None } }
+}
+
+#[tauri::command]
+async fn dcc_start(state: tauri::State<'_, Arc<Mutex<DccState>>>, dcc_path: String) -> Result<String, String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut st = state.lock();
+
+        if st.client.is_some() {
+            return Ok(r#"{"status":"already_running"}"#.to_string());
+        }
+
+        let mut cmd = Command::new("uv");
+        cmd.args(["run", "--directory", &dcc_path, "deltacodecube"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
+
+        if let Ok(home) = std::env::var("HOME") { cmd.env("HOME", &home); }
+        if let Ok(user) = std::env::var("USER") { cmd.env("USER", &user); }
+        cmd.env("PATH", build_extended_path());
+
+        let mut child = cmd.spawn().map_err(|e| format!("dcc spawn: {}", e))?;
+
+        let stdin = child.stdin.take().ok_or("dcc: no stdin")?;
+        let stdout = child.stdout.take().ok_or("dcc: no stdout")?;
+        let reader = BufReader::new(stdout);
+
+        let mut client = DccMcpClient { child, stdin, reader, next_id: 1 };
+
+        // MCP initialize handshake
+        let init_id = client.next_id;
+        client.next_id += 1;
+        let init_msg = format!(
+            r#"{{"jsonrpc":"2.0","id":{},"method":"initialize","params":{{"protocolVersion":"2024-11-05","capabilities":{{}},"clientInfo":{{"name":"agentcockpit","version":"1.0"}}}}}}"#,
+            init_id
+        );
+
+        writeln!(client.stdin, "{}", init_msg).map_err(|e| format!("dcc init write: {}", e))?;
+        client.stdin.flush().map_err(|e| format!("dcc init flush: {}", e))?;
+
+        // Read init response (skip notifications)
+        let id_str = format!("\"id\":{}", init_id);
+        loop {
+            let mut line = String::new();
+            let bytes = client.reader.read_line(&mut line).map_err(|e| format!("dcc init read: {}", e))?;
+            if bytes == 0 { return Err("DCC process exited during init".to_string()); }
+            if line.trim().contains(&id_str) { break; }
+        }
+
+        // Send initialized notification
+        writeln!(client.stdin, r#"{{"jsonrpc":"2.0","method":"notifications/initialized"}}"#)
+            .map_err(|e| format!("dcc notify write: {}", e))?;
+        client.stdin.flush().map_err(|e| format!("dcc notify flush: {}", e))?;
+
+        st.client = Some(client);
+        Ok(r#"{"status":"started"}"#.to_string())
+    })
+    .await
+    .map_err(|e| format!("dcc_start task: {}", e))?
+}
+
+#[tauri::command]
+async fn dcc_call(
+    state: tauri::State<'_, Arc<Mutex<DccState>>>,
+    tool_name: String,
+    arguments: String,
+) -> Result<String, String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut st = state.lock();
+        let client = st.client.as_mut().ok_or("DCC not started".to_string())?;
+        client.call_tool(&tool_name, &arguments)
+    })
+    .await
+    .map_err(|e| format!("dcc_call task: {}", e))?
+}
+
+#[tauri::command]
+fn dcc_stop(state: tauri::State<'_, Arc<Mutex<DccState>>>) -> Result<String, String> {
+    let mut st = state.lock();
+    st.client = None; // Drop kills child process
+    Ok(r#"{"status":"stopped"}"#.to_string())
+}
 
 /// Get the NVM node bin path, respecting user's default alias or falling back to latest version
 /// This ensures bundled apps use the same node version as the user's terminal
@@ -157,6 +297,7 @@ pub fn run() {
     let pty_manager = Arc::new(Mutex::new(PtyManager::new()));
     let pty_manager_for_shutdown = pty_manager.clone();
     let browser_state = Arc::new(Mutex::new(BrowserState::new()));
+    let dcc_state = Arc::new(Mutex::new(DccState::new()));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -164,6 +305,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(pty_manager)
         .manage(browser_state)
+        .manage(dcc_state)
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -172,28 +314,72 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // Start debug HTTP server (DEV only)
+            #[cfg(debug_assertions)]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    debug_server::start(window, app.handle().clone());
+                }
+            }
+
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            execute_command,
-            pty::pty_spawn,
-            pty::pty_write,
-            pty::pty_resize,
-            pty::pty_close,
-            browser::browser_create,
-            browser::browser_close,
-            browser::browser_close_all,
-            browser::browser_navigate,
-            browser::browser_set_position,
-            browser::browser_show,
-            browser::browser_hide,
-            browser::browser_hide_all,
-            browser::browser_exists,
-            browser::browser_get_tabs,
-            browser::browser_url_report,
-            browser::media_state_report,
-            browser::media_send_command,
-        ])
+        .invoke_handler({
+            #[cfg(debug_assertions)]
+            {
+                tauri::generate_handler![
+                    execute_command,
+                    dcc_start,
+                    dcc_call,
+                    dcc_stop,
+                    pty::pty_spawn,
+                    pty::pty_write,
+                    pty::pty_resize,
+                    pty::pty_close,
+                    browser::browser_create,
+                    browser::browser_close,
+                    browser::browser_close_all,
+                    browser::browser_navigate,
+                    browser::browser_set_position,
+                    browser::browser_show,
+                    browser::browser_hide,
+                    browser::browser_hide_all,
+                    browser::browser_exists,
+                    browser::browser_get_tabs,
+                    browser::browser_url_report,
+                    browser::media_state_report,
+                    browser::media_send_command,
+                    debug_server::debug_callback,
+                ]
+            }
+            #[cfg(not(debug_assertions))]
+            {
+                tauri::generate_handler![
+                    execute_command,
+                    dcc_start,
+                    dcc_call,
+                    dcc_stop,
+                    pty::pty_spawn,
+                    pty::pty_write,
+                    pty::pty_resize,
+                    pty::pty_close,
+                    browser::browser_create,
+                    browser::browser_close,
+                    browser::browser_close_all,
+                    browser::browser_navigate,
+                    browser::browser_set_position,
+                    browser::browser_show,
+                    browser::browser_hide,
+                    browser::browser_hide_all,
+                    browser::browser_exists,
+                    browser::browser_get_tabs,
+                    browser::browser_url_report,
+                    browser::media_state_report,
+                    browser::media_send_command,
+                ]
+            }
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(move |_app_handle, event| {
