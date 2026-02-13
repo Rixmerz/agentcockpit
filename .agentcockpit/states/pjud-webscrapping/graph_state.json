@@ -1,0 +1,21 @@
+{
+  "current_nodes": [
+    "thinking"
+  ],
+  "node_visits": {
+    "thinking": 1
+  },
+  "execution_path": [
+    {
+      "from_node": null,
+      "to_node": "thinking",
+      "edge_id": null,
+      "timestamp": "2026-02-07T12:53:12.518Z",
+      "reason": "Graph activated"
+    }
+  ],
+  "active_graph": "haiku-orchestrator",
+  "max_visits_default": 10,
+  "total_transitions": 0,
+  "last_activity": "2026-02-07T12:53:12.521Z"
+}

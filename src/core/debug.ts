@@ -7,7 +7,6 @@
  * DEV-only: mounted in main.tsx when import.meta.env.DEV.
  */
 
-import { invoke } from '@tauri-apps/api/core';
 import { debugStateRegistry } from './debugStateRegistry';
 
 // Services

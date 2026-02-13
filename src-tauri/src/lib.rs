@@ -9,7 +9,9 @@ use std::sync::Arc;
 use std::process::{Command, Stdio};
 use std::io::{BufRead, BufReader, Write};
 use parking_lot::Mutex;
-use tauri::{RunEvent, Manager};
+use tauri::RunEvent;
+#[cfg(debug_assertions)]
+use tauri::Manager;
 
 // =====================================================
 // DeltaCodeCube MCP Client (persistent process)

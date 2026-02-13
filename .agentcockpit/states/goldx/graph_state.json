@@ -1,0 +1,45 @@
+{
+  "current_nodes": [
+    "seo-technical"
+  ],
+  "node_visits": {
+    "project-scan": 1,
+    "structure-analysis": 1,
+    "content-fixes": 1,
+    "seo-technical": 1
+  },
+  "execution_path": [
+    {
+      "from_node": null,
+      "to_node": "project-scan",
+      "edge_id": null,
+      "timestamp": "2026-01-29T15:52:46.137Z",
+      "reason": "Graph reset"
+    },
+    {
+      "from_node": "project-scan",
+      "to_node": "structure-analysis",
+      "edge_id": "scan-to-structure",
+      "timestamp": "2026-01-29T14:58:11.775463",
+      "reason": "Proyecto Fresh identificado, pasando a an\u00e1lisis de estructura"
+    },
+    {
+      "from_node": "structure-analysis",
+      "to_node": "content-fixes",
+      "edge_id": null,
+      "timestamp": "2026-01-29T14:59:00.643718",
+      "reason": "Admin jump to content-fixes"
+    },
+    {
+      "from_node": "content-fixes",
+      "to_node": "seo-technical",
+      "edge_id": "fixes-to-seo",
+      "timestamp": "2026-01-29T15:05:58.480123",
+      "reason": "Cambios del cliente implementados: colores, logos, testimonios eliminados, estilo profesional"
+    }
+  ],
+  "active_graph": "fresh-seo-optimizer",
+  "max_visits_default": 10,
+  "total_transitions": 3,
+  "last_activity": "2026-01-29T15:05:58.480157"
+}

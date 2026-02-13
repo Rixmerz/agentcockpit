@@ -1,0 +1,141 @@
+{
+  "current_nodes": [
+    "delivery"
+  ],
+  "node_visits": {
+    "material-intake": 1,
+    "material-analysis": 1,
+    "gap-filling": 1,
+    "creative-strategy": 1,
+    "technical-planning": 1,
+    "project-init": 1,
+    "sections-creation": 1,
+    "islands-creation": 1,
+    "images-setup": 1,
+    "seo-implementation": 1,
+    "legal-pages": 1,
+    "accent-check": 1,
+    "ui-review": 1,
+    "build-validation": 1,
+    "final-review": 1,
+    "delivery": 1
+  },
+  "execution_path": [
+    {
+      "from_node": null,
+      "to_node": "material-intake",
+      "edge_id": null,
+      "timestamp": "2026-02-08T20:41:28.915Z",
+      "reason": "Graph activated"
+    },
+    {
+      "from_node": "material-intake",
+      "to_node": "material-analysis",
+      "edge_id": "intake-to-analysis",
+      "timestamp": "2026-02-08T18:11:38.934532",
+      "reason": "Material catalogado completamente: logos, imagenes, textos PPTX, colores de marca identificados. Gaps resueltos con el cliente."
+    },
+    {
+      "from_node": "material-analysis",
+      "to_node": "gap-filling",
+      "edge_id": "analysis-to-gaps",
+      "timestamp": "2026-02-08T18:14:00.668618",
+      "reason": "Analisis profundo completado. Brief generado en andares-consultoria/brief-del-cliente.md con toda la informacion extraida, inferencias e informacion faltante identificada."
+    },
+    {
+      "from_node": "gap-filling",
+      "to_node": "creative-strategy",
+      "edge_id": "gaps-to-creative",
+      "timestamp": "2026-02-08T18:19:49.568073",
+      "reason": "Informacion completa: email, WhatsApp, dominio confirmados. Brief actualizado. Stack definido: Deno Fresh via MCP."
+    },
+    {
+      "from_node": "creative-strategy",
+      "to_node": "technical-planning",
+      "edge_id": "creative-to-planning",
+      "timestamp": "2026-02-08T18:21:25.690386",
+      "reason": "Estrategia creativa definida: paleta de colores, estructura de 9 secciones, copy completo, plan de imagenes, brief-creativo.md generado."
+    },
+    {
+      "from_node": "technical-planning",
+      "to_node": "project-init",
+      "edge_id": "planning-to-init",
+      "timestamp": "2026-02-08T18:22:41.440780",
+      "reason": "Plan tecnico completado: estructura archivos, componentes MCP, secciones, animaciones, SEO definidos. Tipo agency/corporate. Plan guardado en plan-tecnico.md."
+    },
+    {
+      "from_node": "project-init",
+      "to_node": "sections-creation",
+      "edge_id": "init-to-sections",
+      "timestamp": "2026-02-08T18:24:02.080804",
+      "reason": "Proyecto Fresh 2.x inicializado en andares-consultoria/. Imagenes copiadas a static/images/. Estructura base verificada."
+    },
+    {
+      "from_node": "sections-creation",
+      "to_node": "islands-creation",
+      "edge_id": "sections-to-islands",
+      "timestamp": "2026-02-08T18:27:49.956641",
+      "reason": "Todas las secciones creadas: Hero, Quienes somos, Servicios (3 cards + expandidos), Cultura Seguridad, Como trabajamos (5 pasos), Clientes, Contacto, Footer, WhatsApp flotante. Build exitoso."
+    },
+    {
+      "from_node": "islands-creation",
+      "to_node": "images-setup",
+      "edge_id": "islands-to-images",
+      "timestamp": "2026-02-08T18:28:01.913633",
+      "reason": "Islands creados: Navbar.tsx (scroll + mobile menu), ContactForm.tsx (con validacion). WhatsApp como elemento estatico. Build exitoso."
+    },
+    {
+      "from_node": "images-setup",
+      "to_node": "seo-implementation",
+      "edge_id": "images-to-seo",
+      "timestamp": "2026-02-08T18:28:18.488979",
+      "reason": "Imagenes del cliente configuradas: logo (horizontal, blanco, negro, vertical), hero-team, laura, safety-helmet, coaching-stairs, hands-team, logos clientes (mutual, fundacion-emprender). Todas referenciadas con alt text descriptivo y lazy loading."
+    },
+    {
+      "from_node": "seo-implementation",
+      "to_node": "legal-pages",
+      "edge_id": "seo-to-legal",
+      "timestamp": "2026-02-08T18:29:14.445413",
+      "reason": "SEO completo: meta tags, OG, Twitter Cards, Schema.org JSON-LD (ProfessionalService), robots.txt, sitemap.xml, alt text en todas las imagenes, un solo H1, canonical URL."
+    },
+    {
+      "from_node": "legal-pages",
+      "to_node": "accent-check",
+      "edge_id": "legal-to-accent",
+      "timestamp": "2026-02-08T18:30:38.369515",
+      "reason": "Legales pospuestas por decision del cliente. Primero landing funcional."
+    },
+    {
+      "from_node": "accent-check",
+      "to_node": "ui-review",
+      "edge_id": "accent-to-ui",
+      "timestamp": "2026-02-08T18:30:56.120430",
+      "reason": "Acentuacion verificada: todo el contenido en espanol tiene tildes correctas, enes y caracteres especiales bien usados."
+    },
+    {
+      "from_node": "ui-review",
+      "to_node": "build-validation",
+      "edge_id": "ui-review-to-build",
+      "timestamp": "2026-02-08T18:31:49.443269",
+      "reason": "UI verificada: todas las secciones presentes, HTML completo, SEO implementado, imagenes cargando, formulario funcional, WhatsApp flotante activo. Server responde 200 OK."
+    },
+    {
+      "from_node": "build-validation",
+      "to_node": "final-review",
+      "edge_id": "build-to-final",
+      "timestamp": "2026-02-08T18:33:33.671191",
+      "reason": "Build exitoso, server 200 OK, todas las secciones verificadas"
+    },
+    {
+      "from_node": "final-review",
+      "to_node": "delivery",
+      "edge_id": "final-to-delivery",
+      "timestamp": "2026-02-08T18:34:52.435052",
+      "reason": "Review final aprobado: 12/14 checklist items OK, 2 omitidos por decisi\u00f3n del usuario (legales). Landing completa con contenido real del cliente."
+    }
+  ],
+  "active_graph": "landing-from-materials",
+  "max_visits_default": 10,
+  "total_transitions": 15,
+  "last_activity": "2026-02-08T18:34:52.435106"
+}
