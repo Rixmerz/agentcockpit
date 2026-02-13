@@ -70,9 +70,5 @@ export const claudePlugin: AgentPlugin = {
   },
 };
 
-// Re-export components for direct usage
-export { ClaudeLauncher } from './components/ClaudeLauncher';
-export { McpPanel } from './components/McpPanel';
-export { ClaudeQuickActions } from './components/QuickActions';
-export { buildClaudeCommand } from './services/claudeService';
+// Re-export types that may be needed externally
 export type { McpServer, McpServerConfig } from './components/McpPanel';

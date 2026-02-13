@@ -9,13 +9,14 @@ import { useState, useCallback, useEffect } from 'react';
 import { Settings, Github } from 'lucide-react';
 import { usePlugins } from '../../plugins/context/PluginContext';
 import { AgentTabs } from '../../core/components/AgentTabs';
-import { SessionManager } from './SessionManager';
+import { SessionManager } from '../../agents/claude/components/SessionManager';
 import { SettingsModal } from '../settings/SettingsModal';
 import { GitHubLoginModal } from '../sidebar-left/GitHubLoginModal';
 import { createSession, updateSessionLastUsed, getSessions, markSessionAsPreExisting, type ProjectSession } from '../../services/projectSessionService';
-import { buildClaudeCommand } from '../../services/claudeService';
+import { buildClaudeCommand } from '../../agents/claude/services/claudeService';
 import { executeAction } from '../../core/utils/terminalCommands';
 import { getCurrentUser, type GitHubUser } from '../../services/githubService';
+import { ErrorBanner } from '../common/ErrorBanner';
 import type { McpServerInfo } from '../../plugins/types/plugin';
 
 interface ActionsPanelProps {
@@ -284,38 +285,7 @@ export function ActionsPanel({
 
       {/* Session Error Display */}
       {sessionError && (
-        <div className="session-error" style={{
-          padding: '12px',
-          margin: '8px',
-          borderRadius: '6px',
-          backgroundColor: 'rgba(239, 68, 68, 0.15)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
-          color: '#ef4444'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-            <span style={{ fontSize: '14px' }}>⚠️</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: '12px', marginBottom: '4px' }}>Session Error</div>
-              <div style={{ fontSize: '11px', opacity: 0.9 }}>{sessionError}</div>
-              <button
-                style={{
-                  fontSize: '11px',
-                  textDecoration: 'underline',
-                  marginTop: '8px',
-                  opacity: 0.7,
-                  background: 'none',
-                  border: 'none',
-                  color: 'inherit',
-                  cursor: 'pointer',
-                  padding: 0
-                }}
-                onClick={() => setSessionError(null)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <ErrorBanner message={sessionError} onClose={() => setSessionError(null)} />
       )}
 
       {/* Agent Tabs */}

@@ -311,6 +311,20 @@ EOF`,
 }
 
 /**
+ * Remove git repository (.git directory) from a project
+ */
+export async function removeRepository(projectPath: string): Promise<void> {
+  await withTimeout(
+    invoke<string>('execute_command', {
+      cmd: 'rm -rf .git',
+      cwd: projectPath,
+    }),
+    INVOKE_TIMEOUT_MS,
+    'rm -rf .git'
+  );
+}
+
+/**
  * Check if remote exists
  */
 export async function hasRemote(projectPath: string, remoteName: string = 'origin'): Promise<boolean> {

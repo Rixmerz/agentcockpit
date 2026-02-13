@@ -1,0 +1,726 @@
+# Fresh SEO Optimizer Pipeline v1.0
+# Revisa y optimiza proyectos Deno Fresh existentes: SEO, accesibilidad, contraste, acentuaciones
+
+metadata:
+  name: "Fresh SEO Optimizer"
+  description: "Pipeline para revisar y optimizar proyectos Deno Fresh existentes. Mejora SEO, accesibilidad, contraste WCAG y acentuaciones."
+  version: "1.0.0"
+  type: "graph"
+  author: "SpeedRunners"
+  architecture: "hybrid-multi-agent"
+  agents_required:
+    - "web-analyzer"
+    - "orchestrator"
+    - "seo-specialist"
+    - "ui-perfectionist"
+    - "fresh-developer"
+  mcps_required:
+    - "denofreshmcp"
+    - "lighthouse"
+    - "sequential-thinking"
+
+# =============================================================================
+# GLOBAL PROMPT INJECTION
+# =============================================================================
+
+global_prompt: |
+  ══════════════════════════════════════════════════════════════════════════════
+  REGLAS OBLIGATORIAS - FRESH SEO OPTIMIZER
+  ══════════════════════════════════════════════════════════════════════════════
+
+  OBJETIVO: Optimizar proyecto Deno Fresh EXISTENTE (no crear nuevo)
+
+  ❌ PROHIBIDO: deno task dev (DEPRECADO en Fresh 2.x)
+  ✅ OBLIGATORIO: deno task build && deno task start
+
+  VERIFICACIONES CRÍTICAS:
+  - Acentuación correcta español (á, é, í, ó, ú, ñ, ü)
+  - Contraste WCAG AA (4.5:1 mínimo para texto normal)
+  - Un solo H1 por página
+  - Alt text en TODAS las imágenes
+  - Meta tags completos
+
+  PRESERVAR:
+  - Estructura existente del proyecto
+  - Lógica de negocio
+  - Datos originales (precios, nombres, etc.)
+  ══════════════════════════════════════════════════════════════════════════════
+
+# =============================================================================
+# NODES - Fases del proceso de optimización
+# =============================================================================
+
+nodes:
+  # ---------------------------------------------------------------------------
+  # FASE 1: ANÁLISIS DEL PROYECTO EXISTENTE
+  # ---------------------------------------------------------------------------
+
+  - id: "project-scan"
+    name: "Escaneo del Proyecto"
+    is_start: true
+    model: haiku
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Identificar proyecto Fresh a optimizar
+      ══════════════════════════════════════════════════════════════════════════
+
+      RECOPILAR:
+      1. Ruta del proyecto Fresh existente
+      2. ¿Proyecto corriendo? (verificar localhost:8000)
+      3. Idioma principal (es/en)
+      4. País target (para páginas legales)
+      5. Áreas prioritarias (SEO, accesibilidad, contenido, todo)
+
+      VALIDAR QUE EXISTE:
+      - deno.json o deno.jsonc
+      - routes/ directory
+      - fresh.gen.ts o fresh.config.ts
+
+      SEÑAL DE COMPLETADO: "proyecto identificado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "structure-analysis"
+    name: "Análisis de Estructura"
+    model: sonnet
+    max_visits: 5
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Analizar estructura completa del proyecto Fresh
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `web-analyzer`**
+
+      ANALIZAR:
+
+      1. RUTAS Y PÁGINAS:
+         - Listar todas las routes/*.tsx
+         - Identificar layouts (_app.tsx, _layout.tsx)
+         - Páginas de error (_404.tsx, _500.tsx)
+
+      2. COMPONENTES:
+         - components/*.tsx
+         - islands/*.tsx (interactivos)
+
+      3. SEO ACTUAL:
+         - Meta tags existentes
+         - Open Graph
+         - Schema.org (JSON-LD)
+         - sitemap.xml, robots.txt
+
+      4. CONTENIDO:
+         - Textos principales
+         - Headings (H1, H2, H3)
+         - Imágenes y alt texts
+
+      FORMATO DE SALIDA:
+      ```
+      ESTRUCTURA DEL PROYECTO
+      ├── Routes: X páginas
+      ├── Components: X
+      ├── Islands: X
+      ├── SEO: [completo/parcial/ausente]
+      └── Contenido: [analizado]
+      ```
+
+      SEÑAL DE COMPLETADO: "estructura analizada"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "lighthouse-initial"
+    name: "Lighthouse Inicial"
+    model: sonnet
+    max_visits: 5
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Ejecutar auditoría Lighthouse del estado actual
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `web-analyzer`**
+
+      PREREQUISITO: Servidor corriendo (deno task build && deno task start)
+
+      EJECUTAR:
+      1. Buscar herramienta: mcp__pipeline-manager__search_tools(query="lighthouse")
+      2. Ejecutar auditoría en http://localhost:8000
+
+      DOCUMENTAR BASELINE:
+      | Métrica        | Score Actual | Target | Gap |
+      |----------------|--------------|--------|-----|
+      | Performance    |      ??      |  >90   |     |
+      | Accessibility  |      ??      |  >95   |     |
+      | Best Practices |      ??      |  >95   |     |
+      | SEO            |      ??      |  >95   |     |
+
+      LISTAR TOP 5 ISSUES por categoría.
+
+      SEÑAL DE COMPLETADO: "baseline lighthouse documentado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 2: ANÁLISIS DE CONTENIDO Y ACENTUACIÓN
+  # ---------------------------------------------------------------------------
+
+  - id: "content-audit"
+    name: "Auditoría de Contenido"
+    model: sonnet
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Revisar contenido textual y acentuación
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `seo-specialist`**
+
+      REVISAR EN CADA ARCHIVO .tsx:
+
+      1. ACENTUACIÓN ESPAÑOL:
+         □ Palabras comunes mal acentuadas
+         □ "mas" vs "más", "solo" vs "sólo"
+         □ Tildes en mayúsculas (Á, É, Í, Ó, Ú)
+         □ Ñ correcta (no "n")
+
+      2. HEADINGS:
+         □ ¿H1 único por página?
+         □ ¿Jerarquía correcta? (H1 > H2 > H3)
+         □ ¿Keywords en headings?
+
+      3. TEXTOS SEO:
+         □ Densidad de keywords
+         □ Longitud de párrafos
+         □ CTAs claros
+
+      4. ALT TEXTS:
+         □ ¿Todas las imágenes tienen alt?
+         □ ¿Alt descriptivo y con keywords?
+
+      FORMATO:
+      ```
+      ISSUES DE CONTENIDO ENCONTRADOS
+      ================================
+      🔴 CRÍTICOS (afectan SEO/accesibilidad):
+      - [archivo:línea] descripción
+
+      🟡 IMPORTANTES:
+      - [archivo:línea] descripción
+
+      🟢 MENORES:
+      - [archivo:línea] descripción
+      ```
+
+      SEÑAL DE COMPLETADO: "auditoría de contenido completada"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 3: PLANIFICACIÓN DE MEJORAS
+  # ---------------------------------------------------------------------------
+
+  - id: "optimization-plan"
+    name: "Plan de Optimización"
+    model: opus
+    max_visits: 3
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Crear plan de optimización priorizado
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `orchestrator`**
+
+      El subagente debe usar sequential-thinking para:
+      - Sintetizar todos los hallazgos
+      - Priorizar por impacto en scores
+      - Crear plan ejecutable
+
+      PLAN DEBE INCLUIR:
+
+      1. CORRECCIONES INMEDIATAS (impacto alto):
+         - Acentuaciones críticas
+         - H1 duplicados
+         - Alt texts faltantes
+         - Meta tags ausentes
+
+      2. MEJORAS SEO TÉCNICO:
+         - Schema.org a añadir/mejorar
+         - Open Graph completo
+         - Twitter Cards
+         - sitemap.xml / robots.txt
+
+      3. ACCESIBILIDAD:
+         - Issues de contraste
+         - Focus states
+         - ARIA labels
+
+      4. OPTIMIZACIONES:
+         - Performance (lazy loading, preload)
+         - Best Practices
+
+      FORMATO DEL PLAN:
+      | Prioridad | Tarea | Archivo(s) | Impacto Estimado |
+      |-----------|-------|------------|------------------|
+
+      SEÑAL DE COMPLETADO: "plan de optimización creado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 4: CORRECCIONES DE CONTENIDO
+  # ---------------------------------------------------------------------------
+
+  - id: "content-fixes"
+    name: "Corregir Contenido"
+    model: sonnet
+    max_visits: 20
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Aplicar correcciones de contenido según el plan
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `seo-specialist`**
+
+      CORREGIR EN ORDEN:
+
+      1. ACENTUACIONES:
+         - Buscar y reemplazar palabras mal acentuadas
+         - Verificar cada archivo .tsx
+
+      2. HEADINGS:
+         - Asegurar H1 único por página
+         - Corregir jerarquía si está rota
+
+      3. ALT TEXTS:
+         - Añadir alt descriptivos a imágenes sin alt
+         - Mejorar alt genéricos ("imagen", "foto")
+
+      4. TEXTOS SEO:
+         - Optimizar titles (50-60 chars)
+         - Optimizar descriptions (150-160 chars)
+
+      VERIFICAR después de cada corrección.
+
+      SEÑAL DE COMPLETADO: "contenido corregido"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 5: SEO TÉCNICO
+  # ---------------------------------------------------------------------------
+
+  - id: "seo-technical"
+    name: "SEO Técnico"
+    model: sonnet
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Implementar/mejorar SEO técnico
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `seo-specialist`**
+
+      USAR HERRAMIENTAS MCP (buscar primero):
+      - fresh_generate_sitemap
+      - fresh_generate_robots
+      - fresh_add_schema
+      - og_validator
+
+      CHECKLIST:
+
+      □ META TAGS:
+        - Title optimizado cada página
+        - Description única cada página
+        - Canonical URLs
+
+      □ OPEN GRAPH:
+        - og:title, og:description
+        - og:image (1200x630)
+        - og:type, og:url
+
+      □ TWITTER CARDS:
+        - twitter:card
+        - twitter:title, twitter:description
+        - twitter:image
+
+      □ SCHEMA.ORG (JSON-LD):
+        - Organization
+        - WebSite con SearchAction
+        - Product (si aplica)
+        - FAQPage (si hay FAQ)
+        - BreadcrumbList
+
+      □ ARCHIVOS:
+        - sitemap.xml actualizado
+        - robots.txt correcto
+
+      SEÑAL DE COMPLETADO: "seo técnico implementado"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 6: ACCESIBILIDAD Y CONTRASTE
+  # ---------------------------------------------------------------------------
+
+  - id: "accessibility-check"
+    name: "Verificar Accesibilidad"
+    model: sonnet
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Auditar y corregir accesibilidad WCAG 2.1 AA
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `ui-perfectionist`**
+
+      USAR: fresh_contrast_check para verificar colores
+
+      CHECKLIST WCAG:
+
+      □ CONTRASTE:
+        - Texto normal: ratio ≥ 4.5:1
+        - Texto grande (18px+): ratio ≥ 3:1
+        - Iconos/elementos UI: ratio ≥ 3:1
+
+      □ NAVEGACIÓN:
+        - Skip link presente
+        - Focus visible en todos los elementos interactivos
+        - Tab order lógico
+
+      □ FORMULARIOS:
+        - Labels asociados a inputs
+        - Error messages accesibles
+        - Required fields indicados
+
+      □ ARIA:
+        - Landmarks (nav, main, footer)
+        - Live regions para contenido dinámico
+        - aria-label donde necesario
+
+      □ IMÁGENES:
+        - alt="" para decorativas
+        - alt descriptivo para informativas
+
+      SEÑALES:
+      - Si hay issues → "accesibilidad requiere correcciones"
+      - Si todo ok → "accesibilidad verificada"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "accessibility-fixes"
+    name: "Corregir Accesibilidad"
+    model: sonnet
+    max_visits: 15
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Aplicar correcciones de accesibilidad
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `ui-perfectionist`**
+
+      CORREGIR POR PRIORIDAD:
+
+      1. CONTRASTE (más impacto en score):
+         - Ajustar colores de texto
+         - Ajustar colores de fondo
+         - Verificar con fresh_contrast_check
+
+      2. FOCUS STATES:
+         - Añadir outline visible
+         - Usar focus-visible para mejor UX
+
+      3. SKIP LINK:
+         - Añadir si no existe
+         - Debe ser primer elemento focusable
+
+      4. ARIA:
+         - Añadir roles faltantes
+         - Añadir labels faltantes
+
+      SEÑAL DE COMPLETADO: "correcciones de accesibilidad aplicadas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 7: PÁGINAS TÉCNICAS Y LEGALES
+  # ---------------------------------------------------------------------------
+
+  - id: "technical-pages"
+    name: "Páginas Técnicas"
+    model: sonnet
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Verificar/crear páginas técnicas y legales
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `seo-specialist`**
+
+      VERIFICAR/CREAR:
+
+      □ ERROR PAGES:
+        - routes/_404.tsx (diseño consistente)
+        - routes/_500.tsx (diseño consistente)
+
+      □ LEGALES (según país target):
+        - /privacidad o /privacy
+        - /terminos o /terms
+        - /cookies
+
+      □ COOKIE CONSENT:
+        - Banner funcional
+        - Respeta preferencias
+        - Link a política de cookies
+
+      □ FOOTER:
+        - Links a páginas legales
+        - Año actual en copyright
+
+      □ FAVICONS:
+        - favicon.ico
+        - apple-touch-icon.png
+        - manifest.json (PWA)
+
+      SEÑAL DE COMPLETADO: "páginas técnicas listas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 8: AUDITORÍA FINAL Y COMPARACIÓN
+  # ---------------------------------------------------------------------------
+
+  - id: "lighthouse-final"
+    name: "Lighthouse Final"
+    model: sonnet
+    max_visits: 10
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Ejecutar auditoría Lighthouse final y comparar
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `web-analyzer`**
+
+      PREREQUISITO: Rebuild del proyecto
+      ```bash
+      deno task build && deno task start
+      ```
+
+      EJECUTAR auditoría en http://localhost:8000
+
+      COMPARAR CON BASELINE:
+      | Métrica        | Antes | Después | Cambio | Target | ¿OK? |
+      |----------------|-------|---------|--------|--------|------|
+      | Performance    |  ??   |   ??    |  +??   |  >90   |      |
+      | Accessibility  |  ??   |   ??    |  +??   |  >95   |      |
+      | Best Practices |  ??   |   ??    |  +??   |  >95   |      |
+      | SEO            |  ??   |   ??    |  +??   |  >95   |      |
+
+      SEÑALES:
+      - Si TODOS ≥ target → "auditoría aprobada"
+      - Si alguno falla → "requiere correcciones adicionales"
+      ══════════════════════════════════════════════════════════════════════════
+
+  - id: "final-fixes"
+    name: "Correcciones Finales"
+    model: opus
+    max_visits: 20
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      TAREA: Resolver issues pendientes para alcanzar targets
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `orchestrator`**
+
+      El subagente debe usar sequential-thinking para:
+      - Analizar issues restantes
+      - Priorizar por impacto
+      - Aplicar correcciones
+
+      DESPUÉS DE CORRECCIONES:
+      ```bash
+      deno task build && deno task start
+      ```
+
+      SEÑAL DE COMPLETADO: "correcciones finales aplicadas"
+      ══════════════════════════════════════════════════════════════════════════
+
+  # ---------------------------------------------------------------------------
+  # FASE 9: REPORTE FINAL
+  # ---------------------------------------------------------------------------
+
+  - id: "optimization-complete"
+    name: "Optimización Completa"
+    is_end: true
+    model: haiku
+    max_visits: 1
+    prompt_injection: |
+      ══════════════════════════════════════════════════════════════════════════
+      PROYECTO OPTIMIZADO - REPORTE FINAL
+      ══════════════════════════════════════════════════════════════════════════
+
+      **OBLIGATORIO: Delega esta tarea al subagente `fresh-developer`**
+
+      GENERAR REPORTE:
+
+      1. RESUMEN EJECUTIVO
+         - Proyecto: [ruta]
+         - Fecha de optimización
+         - Tiempo total
+
+      2. MEJORAS LIGHTHOUSE
+         | Métrica        | Antes | Después | Mejora |
+         |----------------|-------|---------|--------|
+         | Performance    |       |         |   +XX  |
+         | Accessibility  |       |         |   +XX  |
+         | Best Practices |       |         |   +XX  |
+         | SEO            |       |         |   +XX  |
+
+      3. CORRECCIONES APLICADAS
+         - Acentuaciones: X corregidas
+         - Alt texts: X añadidos/mejorados
+         - Meta tags: X optimizados
+         - Schema.org: X añadidos
+         - Contraste: X colores ajustados
+
+      4. ARCHIVOS MODIFICADOS
+         - Lista de archivos tocados
+
+      5. PRÓXIMOS PASOS RECOMENDADOS
+         - Mejoras adicionales opcionales
+         - Monitoreo sugerido
+
+      COMANDOS PARA VERIFICAR:
+      ```bash
+      cd [ruta]
+      deno task build && deno task start
+      # Abrir http://localhost:8000
+      ```
+      ══════════════════════════════════════════════════════════════════════════
+
+# =============================================================================
+# EDGES - Transiciones entre nodos
+# =============================================================================
+
+edges:
+  # --- Fase 1: Análisis ---
+  - id: "scan-to-structure"
+    from: "project-scan"
+    to: "structure-analysis"
+    condition:
+      type: "phrase"
+      phrases:
+        - "proyecto identificado"
+    priority: 1
+
+  - id: "structure-to-lighthouse"
+    from: "structure-analysis"
+    to: "lighthouse-initial"
+    condition:
+      type: "phrase"
+      phrases:
+        - "estructura analizada"
+    priority: 1
+
+  - id: "lighthouse-to-content"
+    from: "lighthouse-initial"
+    to: "content-audit"
+    condition:
+      type: "phrase"
+      phrases:
+        - "baseline lighthouse documentado"
+    priority: 1
+
+  # --- Fase 2: Contenido ---
+  - id: "content-to-plan"
+    from: "content-audit"
+    to: "optimization-plan"
+    condition:
+      type: "phrase"
+      phrases:
+        - "auditoría de contenido completada"
+    priority: 1
+
+  # --- Fase 3: Plan ---
+  - id: "plan-to-fixes"
+    from: "optimization-plan"
+    to: "content-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "plan de optimización creado"
+    priority: 1
+
+  # --- Fase 4: Correcciones contenido ---
+  - id: "fixes-to-seo"
+    from: "content-fixes"
+    to: "seo-technical"
+    condition:
+      type: "phrase"
+      phrases:
+        - "contenido corregido"
+    priority: 1
+
+  # --- Fase 5: SEO Técnico ---
+  - id: "seo-to-accessibility"
+    from: "seo-technical"
+    to: "accessibility-check"
+    condition:
+      type: "phrase"
+      phrases:
+        - "seo técnico implementado"
+    priority: 1
+
+  # --- Fase 6: Accesibilidad (LOOP) ---
+  - id: "accessibility-to-fixes"
+    from: "accessibility-check"
+    to: "accessibility-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "accesibilidad requiere correcciones"
+    priority: 1
+
+  - id: "accessibility-fixes-to-check"
+    from: "accessibility-fixes"
+    to: "accessibility-check"
+    condition:
+      type: "phrase"
+      phrases:
+        - "correcciones de accesibilidad aplicadas"
+    priority: 1
+
+  - id: "accessibility-to-technical"
+    from: "accessibility-check"
+    to: "technical-pages"
+    condition:
+      type: "phrase"
+      phrases:
+        - "accesibilidad verificada"
+    priority: 2
+
+  # --- Fase 7: Páginas técnicas ---
+  - id: "technical-to-lighthouse"
+    from: "technical-pages"
+    to: "lighthouse-final"
+    condition:
+      type: "phrase"
+      phrases:
+        - "páginas técnicas listas"
+    priority: 1
+
+  # --- Fase 8: Auditoría Final (LOOP) ---
+  - id: "lighthouse-to-fixes"
+    from: "lighthouse-final"
+    to: "final-fixes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "requiere correcciones adicionales"
+    priority: 1
+
+  - id: "fixes-to-lighthouse"
+    from: "final-fixes"
+    to: "lighthouse-final"
+    condition:
+      type: "phrase"
+      phrases:
+        - "correcciones finales aplicadas"
+    priority: 1
+
+  - id: "lighthouse-to-complete"
+    from: "lighthouse-final"
+    to: "optimization-complete"
+    condition:
+      type: "phrase"
+      phrases:
+        - "auditoría aprobada"
+    priority: 2

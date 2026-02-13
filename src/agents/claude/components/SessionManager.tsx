@@ -4,7 +4,7 @@ import {
   createSession,
   deleteSession,
   type ProjectSession,
-} from '../../services/projectSessionService';
+} from '../../../services/projectSessionService';
 
 interface SessionManagerProps {
   projectPath: string | null;

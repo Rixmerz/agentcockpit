@@ -287,6 +287,9 @@ export interface BuildCommandOptions {
 
   /** Whether to enable default MCP */
   mcpDefault?: boolean;
+
+  /** Whether to skip permission prompts */
+  skipPermissions?: boolean;
 }
 
 // ==================== Shared Types ====================

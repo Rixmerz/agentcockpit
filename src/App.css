@@ -5556,6 +5556,75 @@ input[type="checkbox"] {
   color: #3b82f6;
 }
 
+/* Git Danger Zone (Remove Git) */
+.git-danger-zone {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+.git-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.git-remove-btn:hover {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.git-remove-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.git-remove-warning {
+  font-size: 11px;
+  color: #ef4444;
+}
+
+.git-remove-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.git-remove-btn--confirm {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.git-remove-btn--confirm:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.git-remove-btn--confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.git-remove-btn--cancel {
+  color: var(--text-secondary);
+  border-color: var(--glass-border);
+}
+
+.git-remove-btn--cancel:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 /* ========================================
    IDLE MODE - Cinematic Fade Effect
    Must be at end for CSS specificity

@@ -153,6 +153,10 @@ export function buildClaudeCommand(options: BuildCommandOptions): string {
     args.push('--no-mcp-default');
   }
 
+  if (options.skipPermissions) {
+    args.push('--dangerously-skip-permissions');
+  }
+
   // Additional args
   if (options.additionalArgs) {
     args.push(...options.additionalArgs);

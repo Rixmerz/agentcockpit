@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { DropdownPanel, DropdownItem, DropdownSection } from './DropdownPanel';
 import { AudioVisualizer } from './AudioVisualizer';
+import { Modal } from '../common/Modal';
+import { GitSettings } from '../sidebar-right/GitSettings';
 
 // Import services
 import { pipelineService, copyAllAssetsToProject } from '../../services/pipelineService';
@@ -131,6 +133,7 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
   });
   const [gitLoading, setGitLoading] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
+  const [showGitSettings, setShowGitSettings] = useState(false);
 
   // Snapshot state
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
@@ -235,8 +238,11 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     }
   }, []);
 
-  // Kill port
+  // Kill port (optimistic UI)
   const handleKillPort = useCallback(async (port: number) => {
+    // Optimistic: remove from UI immediately
+    setActivePorts(prev => prev.filter(p => p.port !== port));
+    // Kill in background
     try {
       const result = await invoke<string>('execute_command', {
         cmd: `lsof -ti:${port} 2>/dev/null`,
@@ -249,11 +255,11 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
           cwd: '/',
         });
       }
-      setTimeout(loadPorts, 500);
     } catch (error) {
       console.warn(`[ControlBar] Error killing port ${port}:`, error);
-      setTimeout(loadPorts, 500);
     }
+    // Delayed refresh to catch respawned processes
+    setTimeout(loadPorts, 2000);
   }, [loadPorts]);
 
   // Open port in browser
@@ -654,7 +660,17 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
           {gitLoading ? (
             <div className="dropdown__empty">Loading...</div>
           ) : !gitInfo.hasRepo ? (
-            <div className="dropdown__empty">No git repository</div>
+            <>
+              <div className="dropdown__empty">No git repository</div>
+              <DropdownSection title="Actions">
+                <DropdownItem
+                  icon={<Settings size={14} />}
+                  label="Git Settings"
+                  description="Initialize repo & configure remote"
+                  onClick={() => setShowGitSettings(true)}
+                />
+              </DropdownSection>
+            </>
           ) : (
             <>
               <DropdownSection title="Branch">
@@ -718,6 +734,12 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
               )}
 
               <DropdownSection>
+                <DropdownItem
+                  icon={<Settings size={14} />}
+                  label="Git Settings"
+                  description="Remote URL, sync & config"
+                  onClick={() => setShowGitSettings(true)}
+                />
                 <DropdownItem
                   icon={<RefreshCw size={14} />}
                   label="Refresh"
@@ -784,6 +806,18 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
         onClose={() => setShowMcpManager(false)}
         onMcpsChanged={loadMcps}
       />
+
+      {/* Git Settings Modal */}
+      <Modal
+        isOpen={showGitSettings}
+        onClose={() => setShowGitSettings(false)}
+        title="Git Settings"
+      >
+        <GitSettings
+          projectPath={projectPath}
+          onGitInit={() => loadGitInfo()}
+        />
+      </Modal>
     </div>
   );
 }
