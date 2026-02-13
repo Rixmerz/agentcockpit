@@ -16,6 +16,7 @@ interface DropdownPanelProps {
   width?: 'default' | 'wide';
   badge?: string | number;
   statusDot?: 'active' | 'warning' | 'error' | 'none';
+  onOpen?: () => void;
 }
 
 export function DropdownPanel({
@@ -27,6 +28,7 @@ export function DropdownPanel({
   width = 'default',
   badge,
   statusDot = 'none',
+  onOpen,
 }: DropdownPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -78,8 +80,11 @@ export function DropdownPanel({
   }, [isOpen]);
 
   const toggle = useCallback(() => {
-    setIsOpen(prev => !prev);
-  }, []);
+    setIsOpen(prev => {
+      if (!prev && onOpen) onOpen();
+      return !prev;
+    });
+  }, [onOpen]);
 
   const close = useCallback(() => {
     setIsOpen(false);

@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApp, useAppSettings } from '../contexts/AppContext';
 import { hasLocalGitRepo, initRepository } from '../services/gitService';
+import { gitWatcherService } from '../services/gitWatcherService';
 import { useIdleMode } from '../hooks/useIdleMode';
 import { useBackgroundImage } from '../hooks/useBackgroundImage';
 import { useIDEDetection } from '../hooks/useIDEDetection';
@@ -32,6 +33,16 @@ export function AppShell() {
     hasLocalGitRepo(activeProject.path).then(hasRepo => {
       if (!hasRepo) initRepository(activeProject.path).catch(console.warn);
     });
+  }, [activeProject?.path]);
+
+  // Git watcher lifecycle
+  useEffect(() => {
+    if (activeProject?.path) {
+      gitWatcherService.start(activeProject.path);
+    } else {
+      gitWatcherService.stop();
+    }
+    return () => gitWatcherService.stop();
   }, [activeProject?.path]);
 
   // Idle mode

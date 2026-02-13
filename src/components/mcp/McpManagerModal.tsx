@@ -29,6 +29,7 @@ import {
   Info,
   Settings,
   GitBranch,
+  Database,
   Loader2
 } from 'lucide-react';
 import {
@@ -55,6 +56,11 @@ import {
   type ManagedMcp,
   type McpServerConfig
 } from '../../services/mcpConfigService';
+import {
+  isDeltaCodeCubeInstalled,
+  installDeltaCodeCubeMcp,
+  uninstallDeltaCodeCubeMcp,
+} from '../../services/deltacodecubeService';
 interface McpManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -83,6 +89,10 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
   const [agentcockpitPath, setAgentcockpitPathState] = useState<string>('');
   const [showPathInput, setShowPathInput] = useState(false);
 
+  // DeltaCodeCube state
+  const [dccInstalled, setDccInstalled] = useState(false);
+  const [dccLoading, setDccLoading] = useState(false);
+
   // Show temporary message
   const showMessage = useCallback((type: 'success' | 'error' | 'warning', text: string) => {
     setMessage({ type, text });
@@ -93,14 +103,15 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [config, desktop, code, gemini, path, pipelineInstalled, acPath] = await Promise.all([
+      const [config, desktop, code, gemini, path, pipelineInstalled, acPath, dccInstalledResult] = await Promise.all([
         loadMcpConfig(),
         loadDesktopMcps(),
         loadCodeMcps(),
         loadGeminiMcps(),
         getConfigFilePath(),
         isPipelineManagerInstalled(),
-        getAgentcockpitPath()
+        getAgentcockpitPath(),
+        isDeltaCodeCubeInstalled()
       ]);
 
       setActiveMcps(Object.values(config.mcpServers));
@@ -110,6 +121,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
       setConfigPath(path);
       setPipelineManagerInstalled(pipelineInstalled);
       setAgentcockpitPathState(acPath || '');
+      setDccInstalled(dccInstalledResult);
     } catch (e) {
       console.error('[McpManager] Load error:', e);
       showMessage('error', `Error loading MCPs: ${e}`);
@@ -190,6 +202,43 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
       }
     } finally {
       setPipelineManagerLoading(false);
+    }
+  }, [showMessage, loadData, onMcpsChanged]);
+
+  // Handle install DeltaCodeCube
+  const handleInstallDcc = useCallback(async () => {
+    setDccLoading(true);
+    try {
+      const pathToUse = agentcockpitPath || (await getAgentcockpitPath()) || undefined;
+      const result = await installDeltaCodeCubeMcp(pathToUse);
+      if (result.success) {
+        showMessage('success', result.message);
+        setDccInstalled(true);
+        loadData();
+        onMcpsChanged?.();
+      } else {
+        showMessage('error', result.message);
+      }
+    } finally {
+      setDccLoading(false);
+    }
+  }, [agentcockpitPath, showMessage, loadData, onMcpsChanged]);
+
+  // Handle uninstall DeltaCodeCube
+  const handleUninstallDcc = useCallback(async () => {
+    setDccLoading(true);
+    try {
+      const result = await uninstallDeltaCodeCubeMcp();
+      if (result.success) {
+        showMessage('success', result.message);
+        setDccInstalled(false);
+        loadData();
+        onMcpsChanged?.();
+      } else {
+        showMessage('error', result.message);
+      }
+    } finally {
+      setDccLoading(false);
     }
   }, [showMessage, loadData, onMcpsChanged]);
 
@@ -810,6 +859,58 @@ Or with mcpServers wrapper:
                     </div>
                   </div>
                 )}
+
+                {/* DeltaCodeCube Section */}
+                <div className="mcp-section-header" style={{ marginTop: '1.5rem' }}>
+                  <span>DeltaCodeCube MCP</span>
+                </div>
+
+                <div className="mcp-pipeline-section">
+                  <div className="mcp-pipeline-info">
+                    <Database size={20} style={{ color: dccInstalled ? 'var(--accent)' : 'var(--text-muted)' }} />
+                    <div className="mcp-pipeline-details">
+                      <span className="mcp-pipeline-title">DeltaCodeCube</span>
+                      <span className="mcp-pipeline-description">
+                        Multi-dimensional code indexing for similarity search, impact analysis,
+                        tension detection, and technical debt scoring (grades A-F).
+                      </span>
+                      <span className={`mcp-pipeline-status ${dccInstalled ? 'installed' : 'not-installed'}`}>
+                        {dccInstalled ? (
+                          <><Check size={12} /> Installed</>
+                        ) : (
+                          <><AlertTriangle size={12} /> Not installed</>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mcp-pipeline-actions">
+                    {dccInstalled ? (
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={handleUninstallDcc}
+                        disabled={dccLoading}
+                      >
+                        {dccLoading ? (
+                          <><Loader2 size={14} className="animate-spin" /> Removing...</>
+                        ) : (
+                          <><Trash2 size={14} /> Uninstall</>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-primary btn-sm"
+                        onClick={handleInstallDcc}
+                        disabled={dccLoading}
+                      >
+                        {dccLoading ? (
+                          <><Loader2 size={14} className="animate-spin" /> Installing...</>
+                        ) : (
+                          <><Download size={14} /> Install</>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
 
                 <div className="mcp-settings-note">
                   <Info size={14} />

@@ -1,4 +1,4 @@
-import type { DebugAPI } from './debug';
+import type { DebugAPI } from './core/debug';
 
 declare global {
   interface Window {

@@ -1,0 +1,188 @@
+/**
+ * Git Watcher Service (Singleton)
+ *
+ * Centralized polling service that monitors git state every 10s.
+ *
+ * Events:
+ * - 'status'  → every poll (UI: branch, changes count, sync)
+ * - 'changed' → when dirty file set changes (new/removed files)
+ * - 'commit'  → when HEAD hash changes (new commit detected)
+ * - 'error'   → on poll failure
+ *
+ * DCC reindex triggers on 'commit' only — a commit is a stable
+ * checkpoint where contracts, tensions, and debt analysis make sense.
+ */
+
+import { getGitStatus, getSyncStatus, hasLocalGitRepo, getHeadCommitHash, getFilesBetweenCommits } from './gitService';
+import { isDeltaCodeCubeInstalled, incrementalReindex, indexProject } from './deltacodecubeService';
+import { gitWatcherEvents } from '../core/utils/gitWatcherEventBus';
+
+const POLL_INTERVAL_MS = 10_000;
+
+// Module-level singleton state
+let _intervalId: ReturnType<typeof setInterval> | null = null;
+let _projectPath: string | null = null;
+let _isPolling = false;
+let _lastFileSet: Set<string> = new Set();
+let _lastHeadHash: string | null = null;
+
+async function doPoll(): Promise<void> {
+  if (_isPolling || !_projectPath) return;
+  _isPolling = true;
+
+  const projectPath = _projectPath;
+
+  try {
+    const hasRepo = await hasLocalGitRepo(projectPath);
+
+    if (!hasRepo) {
+      gitWatcherEvents.emit('status', {
+        projectPath,
+        branch: null,
+        hasChanges: false,
+        modifiedFiles: [],
+        stagedFiles: [],
+        untrackedFiles: [],
+        syncStatus: null,
+        hasRepo: false,
+        timestamp: Date.now(),
+      });
+      _lastFileSet = new Set();
+      _lastHeadHash = null;
+      return;
+    }
+
+    const [status, syncStatus, headHash] = await Promise.all([
+      getGitStatus(projectPath),
+      getSyncStatus(projectPath),
+      getHeadCommitHash(projectPath),
+    ]);
+
+    const allFiles = [
+      ...status.modifiedFiles,
+      ...status.stagedFiles,
+      ...status.untrackedFiles,
+    ];
+    const currentFileSet = new Set(allFiles);
+
+    // Always emit status (UI needs this every poll)
+    gitWatcherEvents.emit('status', {
+      projectPath,
+      branch: status.branch,
+      hasChanges: status.hasUncommittedChanges,
+      modifiedFiles: status.modifiedFiles,
+      stagedFiles: status.stagedFiles,
+      untrackedFiles: status.untrackedFiles,
+      syncStatus,
+      hasRepo: true,
+      timestamp: Date.now(),
+    });
+
+    // Detect dirty file set changes (new/removed files from working tree)
+    const added = allFiles.filter(f => !_lastFileSet.has(f));
+    const removed = [..._lastFileSet].filter(f => !currentFileSet.has(f));
+
+    if (added.length > 0 || removed.length > 0) {
+      console.log(`[GitWatcher] Files changed: +${added.length} -${removed.length}`, [...added, ...removed].slice(0, 5));
+      gitWatcherEvents.emit('changed', {
+        projectPath,
+        changedFiles: [...added, ...removed],
+        addedFiles: added,
+        removedFiles: removed,
+        timestamp: Date.now(),
+      });
+    }
+
+    // Detect new commit (HEAD hash changed)
+    if (headHash && _lastHeadHash !== null && headHash !== _lastHeadHash) {
+      console.log(`[GitWatcher] New commit detected: ${headHash.substring(0, 8)} (was ${_lastHeadHash.substring(0, 8)})`);
+      gitWatcherEvents.emit('commit', {
+        projectPath,
+        commitHash: headHash,
+        previousHash: _lastHeadHash,
+        timestamp: Date.now(),
+      });
+    }
+
+    _lastFileSet = currentFileSet;
+    _lastHeadHash = headHash;
+  } catch (err) {
+    console.warn('[GitWatcher] Poll error:', err);
+    gitWatcherEvents.emit('error', {
+      projectPath,
+      error: String(err),
+      timestamp: Date.now(),
+    });
+  } finally {
+    _isPolling = false;
+  }
+}
+
+function start(projectPath: string): void {
+  if (_intervalId !== null) {
+    stop();
+  }
+
+  _projectPath = projectPath;
+  _lastFileSet = new Set();
+  _lastHeadHash = null;
+  console.log(`[GitWatcher] Started watching: ${projectPath}`);
+
+  // Immediate first poll (captures baseline, won't emit commit/changed)
+  doPoll();
+
+  _intervalId = setInterval(doPoll, POLL_INTERVAL_MS);
+}
+
+function stop(): void {
+  if (_intervalId !== null) {
+    clearInterval(_intervalId);
+    _intervalId = null;
+    console.log(`[GitWatcher] Stopped`);
+  }
+  _projectPath = null;
+  _isPolling = false;
+  _lastFileSet = new Set();
+  _lastHeadHash = null;
+}
+
+function pollNow(): void {
+  doPoll();
+}
+
+export const gitWatcherService = { start, stop, pollNow };
+
+// --- DCC consumer: incremental reindex on new commits ---
+gitWatcherEvents.on('commit', async (data) => {
+  console.log(`[GitWatcher] Commit ${data.commitHash.substring(0, 8)} → checking changed files`);
+  try {
+    // Static import at top — module is already in main bundle (statically imported elsewhere)
+    const installed = await isDeltaCodeCubeInstalled();
+    if (!installed) {
+      console.log('[GitWatcher] DCC not installed, skipping');
+      return;
+    }
+
+    // If no previous hash (first commit or fresh start), do full index
+    if (!data.previousHash) {
+      console.log('[GitWatcher] No previous hash, doing full index');
+      await indexProject(data.projectPath);
+      return;
+    }
+
+    // Get files changed between previous and current commit
+    const diff = await getFilesBetweenCommits(data.projectPath, data.previousHash, data.commitHash);
+    const totalChanged = diff.changed.length + diff.added.length;
+
+    if (totalChanged === 0) {
+      console.log('[GitWatcher] No files changed in commit, skipping');
+      return;
+    }
+
+    console.log(`[GitWatcher] Incremental reindex: ${diff.changed.length} modified, ${diff.added.length} new, ${diff.deleted.length} deleted`);
+    await incrementalReindex(data.projectPath, diff.changed, diff.added);
+    console.log('[GitWatcher] Incremental reindex completed');
+  } catch (err) {
+    console.warn('[GitWatcher] DCC auto-reindex failed:', err);
+  }
+});

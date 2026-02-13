@@ -17,6 +17,7 @@ import { buildClaudeCommand } from '../../agents/claude/services/claudeService';
 import { executeAction } from '../../core/utils/terminalCommands';
 import { getCurrentUser, type GitHubUser } from '../../services/githubService';
 import { ErrorBanner } from '../common/ErrorBanner';
+import { IndexDashboardPanel } from '../index-panel/IndexDashboardPanel';
 import type { McpServerInfo } from '../../plugins/types/plugin';
 
 interface ActionsPanelProps {
@@ -359,6 +360,9 @@ export function ActionsPanel({
           onSessionCreated={handleSessionCreated}
         />
       )}
+
+      {/* Index Dashboard (DeltaCodeCube) */}
+      <IndexDashboardPanel projectPath={projectPath} />
     </div>
   );
 }
