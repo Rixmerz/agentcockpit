@@ -195,7 +195,15 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
 
   // Load pipelines
   useEffect(() => {
-    if (!projectPath) return;
+    if (!projectPath) {
+      setAvailablePipelines([]);
+      setActivePipeline(null);
+      setIsPipelineInstalled(false);
+      return;
+    }
+
+    // Clear stale state from previous project immediately
+    setActivePipeline(null);
 
     const loadPipelines = async () => {
       try {

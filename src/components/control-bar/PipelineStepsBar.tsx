@@ -15,10 +15,11 @@ interface PipelineNode {
 
 interface PipelineStepsBarProps {
   projectPath: string | null;
+  refreshKey?: number;
   onNodeClick?: (nodeId: string) => void;
 }
 
-export function PipelineStepsBar({ projectPath, onNodeClick }: PipelineStepsBarProps) {
+export function PipelineStepsBar({ projectPath, refreshKey, onNodeClick }: PipelineStepsBarProps) {
   const [pipelineName, setPipelineName] = useState<string | null>(null);
   const [nodes, setNodes] = useState<PipelineNode[]>([]);
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
@@ -26,10 +27,13 @@ export function PipelineStepsBar({ projectPath, onNodeClick }: PipelineStepsBarP
 
   // Load pipeline status
   useEffect(() => {
+    // Immediately clear previous project's state
+    setNodes([]);
+    setCurrentNodeId(null);
+    setPipelineName(null);
+    setCompletedNodes(new Set());
+
     if (!projectPath) {
-      setNodes([]);
-      setCurrentNodeId(null);
-      setPipelineName(null);
       return;
     }
 
@@ -78,7 +82,7 @@ export function PipelineStepsBar({ projectPath, onNodeClick }: PipelineStepsBarP
     // Poll for updates every 2 seconds
     const interval = setInterval(loadStatus, 2000);
     return () => clearInterval(interval);
-  }, [projectPath]);
+  }, [projectPath, refreshKey]);
 
   // Handle node click
   const handleNodeClick = useCallback((nodeId: string) => {

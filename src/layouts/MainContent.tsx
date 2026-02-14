@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback } from 'react';
+
 import { useApp, useAppSettings } from '../contexts/AppContext';
 import { TerminalView } from '../components/terminal/TerminalView';
 import { TerminalHeader } from '../components/terminal/TerminalHeader';
@@ -34,6 +35,7 @@ export function MainContentArea({
 
   // Browser panel state
   const [browserOpen, setBrowserOpen] = useState(false);
+  const [pipelineRefreshKey, setPipelineRefreshKey] = useState(0);
 
   const handleBrowserToggle = useCallback(async () => {
     if (browserOpen) {
@@ -50,10 +52,14 @@ export function MainContentArea({
       <div className="app-top-bars">
         <ControlBar
           projectPath={activeProject?.path || null}
-          onPipelineChange={(name) => console.log('[App] Pipeline changed:', name)}
+          onPipelineChange={(name) => {
+            console.log('[App] Pipeline changed:', name);
+            setPipelineRefreshKey(k => k + 1);
+          }}
         />
         <PipelineStepsBar
           projectPath={activeProject?.path || null}
+          refreshKey={pipelineRefreshKey}
           onNodeClick={(nodeId) => console.log('[App] Node clicked:', nodeId)}
         />
       </div>
