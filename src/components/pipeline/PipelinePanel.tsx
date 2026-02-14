@@ -98,6 +98,24 @@ export function PipelinePanel({ projectPath, onModalStateChange }: PipelinePanel
     enabledRef.current = enabled;
   }, [enabled]);
 
+  // Reset all state immediately on project switch
+  useEffect(() => {
+    setState(null);
+    setSteps([]);
+    setActivePipelineName(null);
+    setGraphState(null);
+    setAvailableEdges([]);
+    setEnabled(false);
+    setIsInstalled(false);
+    setError(null);
+    setShowEdges(false);
+    setPipelineDropdownOpen(false);
+    // Reset polling refs to prevent stale comparisons
+    lastStateRef.current = null;
+    activePipelineRef.current = null;
+    enabledRef.current = true;
+  }, [projectPath]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
