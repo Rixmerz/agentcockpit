@@ -39,21 +39,33 @@ from .graph_state import (
 )
 
 
-# Lifespan: auto-index tools on startup
-@asynccontextmanager
-async def _server_lifespan(server):
-    """Auto-index MCP tools when server starts."""
+# Lifespan: auto-index tools on startup (non-blocking)
+async def _auto_index_background():
+    """Background task: index MCP tools without blocking server startup."""
     try:
-        result = await _do_refresh_tool_index()
+        result = await asyncio.wait_for(_do_refresh_tool_index(), timeout=30.0)
         total = result.get("total_tools", 0)
         mcps = len(result.get("indexed_mcps", []))
         errors = result.get("errors") or []
         print(f"[pipeline-manager] Auto-indexed {total} tools from {mcps} MCPs", file=sys.stderr)
         for err in errors:
             print(f"[pipeline-manager] Index warning: {err}", file=sys.stderr)
+    except asyncio.TimeoutError:
+        print("[pipeline-manager] Auto-index timed out after 30s (non-fatal)", file=sys.stderr)
     except Exception as e:
         print(f"[pipeline-manager] Auto-index failed (non-fatal): {e}", file=sys.stderr)
+
+
+@asynccontextmanager
+async def _server_lifespan(server):
+    """Server lifespan: launch auto-index in background (non-blocking)."""
+    task = asyncio.create_task(_auto_index_background())
     yield {}
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 
 # Create FastMCP server with lifespan
@@ -1201,6 +1213,9 @@ async def _do_refresh_tool_index(mcp_name: str | None = None) -> dict:
     mcps_to_index = [mcp_name] if mcp_name else list(configs.keys())
 
     for name in mcps_to_index:
+        # Skip self to avoid recursive deadlock
+        if name == "pipeline-manager":
+            continue
         if name not in configs:
             errors.append(f"MCP '{name}' not found in config")
             continue
