@@ -638,30 +638,53 @@ async function saveAppConfig(config: AppConfig): Promise<boolean> {
  */
 async function autoDetectAgentcockpitPath(): Promise<string | null> {
   try {
-    // Try to get cwd via Tauri command
-    const cwd = await invoke<string>('execute_command', { cmd: 'pwd', cwd: '/' });
-    const cwdPath = cwd.trim();
-
-    // Check if .pipeline-manager exists in cwd (development mode)
-    const pipelinePath = `${cwdPath}/.pipeline-manager`;
-    if (await exists(pipelinePath)) {
-      return cwdPath;
+    // 1. Check saved app-config.json first (fastest)
+    const appConfig = await loadAppConfig();
+    if (appConfig.agentcockpitPath) {
+      const savedPath = `${appConfig.agentcockpitPath}/.pipeline-manager`;
+      if (await exists(savedPath)) {
+        return appConfig.agentcockpitPath;
+      }
     }
 
-    // Fallback: check saved config
-    const config = await loadAppConfig();
-    if (config.agentcockpitPath) {
-      const savedPipelinePath = `${config.agentcockpitPath}/.pipeline-manager`;
-      if (await exists(savedPipelinePath)) {
-        return config.agentcockpitPath;
+    // 2. Check hub config.json (has hub_dir from pipeline-manager setup)
+    const configDir = await getConfigDir();
+    const hubConfigPath = `${configDir}/config.json`;
+    if (await exists(hubConfigPath)) {
+      const hubContent = await readTextFile(hubConfigPath);
+      const hubConfig = JSON.parse(hubContent);
+      if (hubConfig.hub_dir) {
+        const hubPipelinePath = `${hubConfig.hub_dir}/.pipeline-manager`;
+        if (await exists(hubPipelinePath)) {
+          return hubConfig.hub_dir;
+        }
+      }
+    }
+
+    // 3. Try cwd detection (development mode)
+    const cwd = await invoke<string>('execute_command', { cmd: 'pwd', cwd: '/' });
+    const cwdPath = cwd.trim();
+    if (cwdPath !== '/') {
+      const pipelinePath = `${cwdPath}/.pipeline-manager`;
+      if (await exists(pipelinePath)) {
+        return cwdPath;
       }
     }
 
     return null;
   } catch {
-    // Fallback to saved config
-    const config = await loadAppConfig();
-    return config.agentcockpitPath || null;
+    // Last resort: check saved configs
+    try {
+      const appConfig = await loadAppConfig();
+      if (appConfig.agentcockpitPath) return appConfig.agentcockpitPath;
+
+      const configDir = await getConfigDir();
+      const hubContent = await readTextFile(`${configDir}/config.json`);
+      const hubConfig = JSON.parse(hubContent);
+      return hubConfig.hub_dir || null;
+    } catch {
+      return null;
+    }
   }
 }
 
