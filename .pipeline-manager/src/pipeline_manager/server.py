@@ -15,10 +15,12 @@ Architecture (Centralized Hub - AgentCockpit):
 """
 
 import os
+import sys
 import json
 import asyncio
 import subprocess
 import uuid
+from contextlib import asynccontextmanager
 from difflib import SequenceMatcher
 from pathlib import Path
 from datetime import datetime
@@ -36,8 +38,26 @@ from .graph_state import (
     reset_graph_state, get_graph_state_file, get_graph_file, get_node_visit_warning
 )
 
-# Create FastMCP server
-mcp = FastMCP("pipeline-manager")
+
+# Lifespan: auto-index tools on startup
+@asynccontextmanager
+async def _server_lifespan(server):
+    """Auto-index MCP tools when server starts."""
+    try:
+        result = await _do_refresh_tool_index()
+        total = result.get("total_tools", 0)
+        mcps = len(result.get("indexed_mcps", []))
+        errors = result.get("errors") or []
+        print(f"[pipeline-manager] Auto-indexed {total} tools from {mcps} MCPs", file=sys.stderr)
+        for err in errors:
+            print(f"[pipeline-manager] Index warning: {err}", file=sys.stderr)
+    except Exception as e:
+        print(f"[pipeline-manager] Auto-index failed (non-fatal): {e}", file=sys.stderr)
+    yield {}
+
+
+# Create FastMCP server with lifespan
+mcp = FastMCP("pipeline-manager", lifespan=_server_lifespan)
 
 # ============================================================================
 # AgentCockpit Hub Configuration (Centralized Architecture)
@@ -1170,17 +1190,9 @@ def reset_learned_weights(confirm: bool = False) -> dict:
     }
 
 
-@mcp.tool()
-async def refresh_tool_index(mcp_name: str | None = None) -> dict:
-    """Actualiza el índice de tools para búsqueda semántica.
-
-    Conecta a los MCPs y obtiene su lista de tools para indexar.
-    Ejecutar después de agregar nuevos MCPs o cuando el índice esté vacío.
-
-    Args:
-        mcp_name: MCP específico a indexar (opcional, default: todos)
-    """
-    global _tool_index
+async def _do_refresh_tool_index(mcp_name: str | None = None) -> dict:
+    """Core indexing logic. Called from lifespan (auto) and refresh_tool_index (manual)."""
+    global _tool_index, _request_counter
 
     configs = load_mcp_configs()
     indexed_count = 0
@@ -1200,7 +1212,6 @@ async def refresh_tool_index(mcp_name: str | None = None) -> dict:
                 continue
 
             # Get tools list via MCP protocol
-            global _request_counter
             _request_counter += 1
 
             # Send tools/list request
@@ -1238,6 +1249,20 @@ async def refresh_tool_index(mcp_name: str | None = None) -> dict:
         "total_tools": indexed_count,
         "errors": errors if errors else None
     }
+
+
+@mcp.tool()
+async def refresh_tool_index(mcp_name: str | None = None) -> dict:
+    """Actualiza el índice de tools para búsqueda semántica.
+
+    Conecta a los MCPs y obtiene su lista de tools para indexar.
+    Usar para reindexar después de agregar nuevos MCPs.
+    El índice se carga automáticamente al iniciar el servidor.
+
+    Args:
+        mcp_name: MCP específico a reindexar (opcional, default: todos)
+    """
+    return await _do_refresh_tool_index(mcp_name)
 
 
 @mcp.tool()
