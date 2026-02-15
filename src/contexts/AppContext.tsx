@@ -5,7 +5,7 @@
  * coordinates persistence, and provides backward-compatible hooks.
  */
 
-import { createContext, useContext, useReducer, useCallback, useRef, useEffect } from 'react';
+import { createContext, useContext, useReducer, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { AppState, AppAction, Project, Terminal } from '../types';
 import type { AppContextType, TerminalWriter } from './types';
@@ -228,7 +228,7 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   }, [state.activeTerminalId]);
 
-  const value: AppContextType = {
+  const value: AppContextType = useMemo(() => ({
     state,
     dispatch,
     activeProject,
@@ -245,7 +245,23 @@ export function AppProvider({ children }: AppProviderProps) {
     registerPtyId,
     unregisterPtyId,
     scheduleSave,
-  };
+  }), [
+    state,
+    activeProject,
+    activeTerminal,
+    addProject,
+    removeProject,
+    addTerminal,
+    removeTerminal,
+    renameTerminal,
+    setActiveTerminal,
+    registerTerminalWriter,
+    unregisterTerminalWriter,
+    writeToActiveTerminal,
+    registerPtyId,
+    unregisterPtyId,
+    scheduleSave,
+  ]);
 
   return (
     <AppContext.Provider value={value}>

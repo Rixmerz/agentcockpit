@@ -29,6 +29,8 @@ export function projectReducer(state: AppState, action: AppAction): AppState {
       };
 
     case 'SET_ACTIVE_PROJECT':
+      // Guard: skip if already active (avoids unnecessary re-render cascade)
+      if (state.activeProjectId === action.payload) return state;
       return { ...state, activeProjectId: action.payload };
 
     case 'ADD_TERMINAL': {
@@ -74,6 +76,8 @@ export function projectReducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'SET_ACTIVE_TERMINAL':
+      // Guard: skip if already active (avoids unnecessary re-render cascade)
+      if (state.activeTerminalId === action.payload) return state;
       return { ...state, activeTerminalId: action.payload };
 
     case 'SET_MODEL':
