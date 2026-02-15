@@ -10,6 +10,7 @@
 
 import { exists, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { invoke } from '@tauri-apps/api/core';
+import { homeDir } from '@tauri-apps/api/path';
 import {
   loadMcpConfig,
   saveMcpConfig,
@@ -75,7 +76,7 @@ let _installedCache: boolean | undefined;
 let _installedPromise: Promise<boolean> | null = null;
 let _dccPathCache: string | null | undefined;
 let _dccPathPromise: Promise<string | null> | null = null;
-let _serverStarted = false;
+let _serverStartedForProject: string | null = null;
 let _serverStartPromise: Promise<void> | null = null;
 let _indexingInProgress = false;
 
@@ -107,7 +108,7 @@ function invalidateDccCaches() {
   _installedPromise = null;
   _dccPathCache = undefined;
   _dccPathPromise = null;
-  _serverStarted = false;
+  _serverStartedForProject = null;
   _serverStartPromise = null;
 }
 
@@ -232,31 +233,64 @@ async function _resolveDccPath(): Promise<string | null> {
  * Ensure the DCC MCP server is running (lazy start, deduplicated).
  * Starts the process + MCP handshake on first call.
  */
-async function ensureDccServer(): Promise<void> {
-  if (_serverStarted) return;
-  if (!_serverStartPromise) {
-    _serverStartPromise = (async () => {
-      const dccPath = await getDccPath();
-      if (!dccPath) throw new Error('DCC path not found');
+let _homeDirCache: string | null = null;
 
-      await invoke('dcc_start', { dccPath });
-      _serverStarted = true;
-      _serverStartPromise = null;
-      console.log('[DCC] MCP server started');
-    })();
-
-    _serverStartPromise.catch(() => {
-      _serverStartPromise = null;
-    });
+async function getProjectDataDir(projectPath: string): Promise<string> {
+  if (!_homeDirCache) {
+    _homeDirCache = await homeDir();
   }
+  // FNV-1a hash to avoid collisions between projects with same basename
+  let hash = 2166136261;
+  for (let i = 0; i < projectPath.length; i++) {
+    hash ^= projectPath.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const hashHex = (hash >>> 0).toString(16).padStart(8, '0');
+  const basename = projectPath.split('/').filter(Boolean).pop() || 'project';
+  return `${_homeDirCache}.deltacodecube/projects/${basename}-${hashHex}`;
+}
+
+async function ensureDccServer(projectPath: string): Promise<void> {
+  if (_serverStartedForProject === projectPath) return;
+
+  if (_serverStartPromise) {
+    await _serverStartPromise;
+    if (_serverStartedForProject === projectPath) return;
+  }
+
+  _serverStartPromise = (async () => {
+    // Stop current instance if running for different project
+    if (_serverStartedForProject !== null) {
+      console.log(`[DCC] Switching project: ${_serverStartedForProject} -> ${projectPath}`);
+      try { await invoke('dcc_stop'); } catch (e) {
+        console.warn('[DCC] Stop failed during project switch:', e);
+      }
+      _serverStartedForProject = null;
+    }
+
+    const dccPath = await getDccPath();
+    if (!dccPath) throw new Error('DCC path not found');
+
+    const dataDir = await getProjectDataDir(projectPath);
+    await invoke('dcc_start', { dccPath, dataDir });
+    _serverStartedForProject = projectPath;
+    _serverStartPromise = null;
+    console.log(`[DCC] MCP server started for project: ${projectPath}`);
+  })();
+
+  _serverStartPromise.catch(() => {
+    _serverStartPromise = null;
+  });
   return _serverStartPromise;
 }
 
 /**
  * Call a DCC MCP tool and return the parsed result content.
  */
-async function callDccTool(toolName: string, args: Record<string, unknown> = {}): Promise<unknown> {
-  await ensureDccServer();
+async function callDccTool(toolName: string, args: Record<string, unknown> = {}, projectPath?: string): Promise<unknown> {
+  if (projectPath) {
+    await ensureDccServer(projectPath);
+  }
 
   const response = await invoke<string>('dcc_call', {
     toolName,
@@ -301,9 +335,9 @@ export async function indexProject(projectPath: string): Promise<IndexStats | nu
   try {
     indexEvents.emit('indexing', { projectPath, timestamp: Date.now() });
 
-    await callDccTool('cube_index_directory', { path: projectPath });
+    await callDccTool('cube_index_directory', { path: projectPath }, projectPath);
     console.log('[DCC] cube_index_directory completed, fetching debt...');
-    const debtResult = await callDccTool('cube_get_debt');
+    const debtResult = await callDccTool('cube_get_debt', {}, projectPath);
     console.log('[DCC] cube_get_debt raw keys:', debtResult && typeof debtResult === 'object' ? Object.keys(debtResult as object) : typeof debtResult);
     const stats = parseDebtResultForProject(debtResult, projectPath);
 
@@ -338,9 +372,9 @@ export async function reindexProject(projectPath: string): Promise<IndexStats | 
   try {
     indexEvents.emit('indexing', { projectPath, timestamp: Date.now() });
 
-    await callDccTool('cube_index_directory', { path: projectPath });
+    await callDccTool('cube_index_directory', { path: projectPath }, projectPath);
     console.log('[DCC] cube_index_directory completed, fetching debt...');
-    const debtResult = await callDccTool('cube_get_debt');
+    const debtResult = await callDccTool('cube_get_debt', {}, projectPath);
     console.log('[DCC] cube_get_debt raw keys:', debtResult && typeof debtResult === 'object' ? Object.keys(debtResult as object) : typeof debtResult);
     const stats = parseDebtResultForProject(debtResult, projectPath);
 
@@ -397,7 +431,7 @@ export async function incrementalReindex(
     for (const file of changedFiles) {
       const absPath = `${projectPath}/${file}`;
       try {
-        await callDccTool('cube_reindex', { file_path: absPath });
+        await callDccTool('cube_reindex', { file_path: absPath }, projectPath);
       } catch (e) {
         console.warn(`[DCC] Failed to reindex ${file}:`, e);
       }
@@ -407,14 +441,14 @@ export async function incrementalReindex(
     for (const file of addedFiles) {
       const absPath = `${projectPath}/${file}`;
       try {
-        await callDccTool('cube_index_file', { file_path: absPath });
+        await callDccTool('cube_index_file', { file_path: absPath }, projectPath);
       } catch (e) {
         console.warn(`[DCC] Failed to index new file ${file}:`, e);
       }
     }
 
     console.log('[DCC] Incremental reindex done, fetching debt...');
-    const debtResult = await callDccTool('cube_get_debt');
+    const debtResult = await callDccTool('cube_get_debt', {}, projectPath);
     const stats = parseDebtResultForProject(debtResult, projectPath);
 
     if (stats) {
@@ -456,7 +490,7 @@ function filterFilesByProject(files: Record<string, unknown>[], projectPath: str
 export async function getIndexStats(projectPath: string): Promise<IndexStats | null> {
   if (_indexingInProgress || !projectPath) return null;
   try {
-    const result = await callDccTool('cube_get_debt');
+    const result = await callDccTool('cube_get_debt', {}, projectPath);
     return parseDebtResultForProject(result, projectPath);
   } catch (e) {
     console.error('[DCC] Stats error:', e);
@@ -467,7 +501,7 @@ export async function getIndexStats(projectPath: string): Promise<IndexStats | n
 export async function getTensions(projectPath: string): Promise<TensionInfo[]> {
   if (_indexingInProgress || !projectPath) return [];
   try {
-    const result = await callDccTool('cube_get_tensions', { limit: 50 });
+    const result = await callDccTool('cube_get_tensions', { limit: 50 }, projectPath);
 
     const tensions = Array.isArray(result) ? result
       : (result && typeof result === 'object' && 'tensions' in (result as Record<string, unknown>))
@@ -499,7 +533,7 @@ export async function getTensions(projectPath: string): Promise<TensionInfo[]> {
 export async function getDebt(projectPath: string): Promise<DebtInfo[]> {
   if (_indexingInProgress || !projectPath) return [];
   try {
-    const result = await callDccTool('cube_get_debt');
+    const result = await callDccTool('cube_get_debt', {}, projectPath);
 
     if (result && typeof result === 'object') {
       const data = result as Record<string, unknown>;
@@ -529,7 +563,7 @@ export async function getDebt(projectPath: string): Promise<DebtInfo[]> {
 export async function generateArchitecture(projectPath: string): Promise<string | null> {
   if (_indexingInProgress) return null;
   try {
-    const result = await callDccTool('cube_generate_architecture', { project_path: projectPath });
+    const result = await callDccTool('cube_generate_architecture', { project_path: projectPath }, projectPath);
 
     if (result && typeof result === 'object' && 'html' in (result as Record<string, unknown>)) {
       return String((result as Record<string, unknown>).html);
@@ -552,7 +586,7 @@ export async function generateArchitecture(projectPath: string): Promise<string 
 export async function generateMatrix(projectPath: string): Promise<string | null> {
   if (_indexingInProgress) return null;
   try {
-    const result = await callDccTool('cube_generate_matrix', { project_path: projectPath });
+    const result = await callDccTool('cube_generate_matrix', { project_path: projectPath }, projectPath);
 
     if (result && typeof result === 'object' && 'html' in (result as Record<string, unknown>)) {
       return String((result as Record<string, unknown>).html);
