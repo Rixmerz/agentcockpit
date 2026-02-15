@@ -564,10 +564,14 @@ export async function openConfigInEditor(): Promise<{ success: boolean; message:
       await saveMcpConfig(getDefaultConfig());
     }
 
-    await invoke<string>('execute_command', {
-      cmd: `open "${configPath}"`,
-      cwd: '/'
-    });
+    await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `open "${configPath}"`,
+        cwd: '/'
+      }),
+      INVOKE_TIMEOUT_MS,
+      'open config in editor'
+    );
 
     return { success: true, message: 'Opening config file...' };
   } catch (e) {
@@ -662,7 +666,11 @@ async function autoDetectAgentcockpitPath(): Promise<string | null> {
     }
 
     // 3. Try cwd detection (development mode)
-    const cwd = await invoke<string>('execute_command', { cmd: 'pwd', cwd: '/' });
+    const cwd = await withTimeout(
+      invoke<string>('execute_command', { cmd: 'pwd', cwd: '/' }),
+      INVOKE_TIMEOUT_MS,
+      'detect agentcockpit path (pwd)'
+    );
     const cwdPath = cwd.trim();
     if (cwdPath !== '/') {
       const pipelinePath = `${cwdPath}/.pipeline-manager`;

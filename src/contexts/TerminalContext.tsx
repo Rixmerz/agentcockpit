@@ -35,6 +35,9 @@ export function terminalReducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'SET_TERMINAL_ACTIVITY': {
+      // Guard: skip if isFinished hasn't changed (avoids unnecessary re-render cascade)
+      const existing = state.terminalActivity.get(action.payload.terminalId);
+      if (existing && existing.isFinished === action.payload.isFinished) return state;
       const newActivity = new Map(state.terminalActivity);
       newActivity.set(action.payload.terminalId, {
         terminalId: action.payload.terminalId,
