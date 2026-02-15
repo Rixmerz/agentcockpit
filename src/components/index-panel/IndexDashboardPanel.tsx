@@ -55,14 +55,22 @@ export function IndexDashboardPanel({ projectPath }: IndexDashboardPanelProps) {
     setDebt(debtResult);
   }, [projectPath]);
 
-  // No auto-load — only refresh on index events (data loads on event)
+  // Clear stale data and reload when project changes
   useEffect(() => {
-    // Just check if installed (lightweight, cached)
-    const delay = setTimeout(() => {
-      isDeltaCodeCubeInstalled().then(setInstalled).catch(() => {});
-    }, 5000);
-    return () => clearTimeout(delay);
-  }, []);
+    setStats(null);
+    setTensions([]);
+    setDebt([]);
+
+    if (!projectPath) return;
+
+    // Check installed + load data for new project
+    isDeltaCodeCubeInstalled().then(isInstalled => {
+      setInstalled(isInstalled);
+      if (isInstalled) {
+        loadData();
+      }
+    }).catch(() => {});
+  }, [projectPath, loadData]);
 
   // Auto-refresh on index events
   useIndexEvent('indexed', (data) => {

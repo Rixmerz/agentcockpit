@@ -4,7 +4,7 @@
  * Calls generateArchitecture() and renders HTML in a sandboxed iframe.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Loader2, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { generateArchitecture } from '../../services/deltacodecubeService';
 
@@ -16,6 +16,12 @@ export function ArchitectureView({ projectPath }: ArchitectureViewProps) {
   const [html, setHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+
+  // Clear stale data on project switch
+  useEffect(() => {
+    setHtml(null);
+    setExpanded(false);
+  }, [projectPath]);
 
   const handleGenerate = useCallback(async () => {
     if (!projectPath) return;
