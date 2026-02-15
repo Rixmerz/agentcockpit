@@ -25,9 +25,8 @@ export function PipelineStepsBar({ projectPath, refreshKey, onNodeClick }: Pipel
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [completedNodes, setCompletedNodes] = useState<Set<string>>(new Set());
 
-  // Load pipeline status
+  // Load pipeline status — RE-ENABLED for diagnostic V4
   useEffect(() => {
-    // Immediately clear previous project's state
     setNodes([]);
     setCurrentNodeId(null);
     setPipelineName(null);
@@ -50,7 +49,6 @@ export function PipelineStepsBar({ projectPath, refreshKey, onNodeClick }: Pipel
         setPipelineName(status.graphName || null);
         setCurrentNodeId(status.currentNode);
 
-        // Convert nodes to our format
         const nodeList: PipelineNode[] = status.nodes.map((n: any) => ({
           id: n.id,
           name: n.name || n.id,
@@ -60,7 +58,6 @@ export function PipelineStepsBar({ projectPath, refreshKey, onNodeClick }: Pipel
 
         setNodes(nodeList);
 
-        // Determine completed nodes (visited and not current)
         const completed = new Set<string>();
         nodeList.forEach(n => {
           if (n.visits > 0 && n.id !== status.currentNode) {
@@ -68,7 +65,6 @@ export function PipelineStepsBar({ projectPath, refreshKey, onNodeClick }: Pipel
           }
         });
         setCompletedNodes(completed);
-
       } catch (err) {
         console.warn('[PipelineStepsBar] Failed to load status:', err);
         setNodes([]);

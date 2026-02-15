@@ -3,7 +3,7 @@
  * Contains: Pipeline, MCPs, Ports, Git
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
   Workflow,
@@ -51,6 +51,7 @@ import { useSnapshotEvent, snapshotEvents } from '../../core/utils/eventBus';
 import { useIndexEvent } from '../../core/utils/indexEventBus';
 import {
   isDeltaCodeCubeInstalled,
+  isDccServerRunningFor,
   getIndexStats,
   reindexProject,
   type IndexStats,
@@ -144,50 +145,70 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [isRestoring, setIsRestoring] = useState<number | null>(null);
 
-  // Index state (DeltaCodeCube)
+  // Index state (DeltaCodeCube) — with per-project cache
   const [dccInstalled, setDccInstalled] = useState(false);
   const [indexStats, setIndexStats] = useState<IndexStats | null>(null);
   const [indexLoading, setIndexLoading] = useState(false);
+  const [indexError, setIndexError] = useState<string | null>(null);
+  const indexCacheRef = useRef<Map<string, IndexStats>>(new Map());
 
-  // Load index info
-  const loadIndexInfo = useCallback(async () => {
-    try {
-      const installed = await isDeltaCodeCubeInstalled();
-      setDccInstalled(installed);
-      if (installed && projectPath) {
-        const stats = await getIndexStats(projectPath);
-        setIndexStats(stats);
-      } else {
-        setIndexStats(null);
-      }
-    } catch (err) {
-      console.warn('[ControlBar] Failed to load index info:', err);
+  // Check DCC install + restore cached stats or auto-load if server running
+  useEffect(() => {
+    if (!projectPath) {
+      setDccInstalled(false);
+      setIndexStats(null);
+      setIndexError(null);
+      return;
     }
+
+    // Restore from cache immediately (no async wait)
+    const cached = indexCacheRef.current.get(projectPath);
+    setIndexStats(cached || null);
+    setIndexError(null);
+
+    isDeltaCodeCubeInstalled().then(installed => {
+      setDccInstalled(installed);
+      if (installed && !cached && isDccServerRunningFor(projectPath)) {
+        // Server already running, safe to load stats without spawning subprocess
+        getIndexStats(projectPath).then(stats => {
+          if (stats) {
+            setIndexStats(stats);
+            indexCacheRef.current.set(projectPath, stats);
+          }
+        }).catch(() => {});
+      }
+    }).catch(() => setDccInstalled(false));
   }, [projectPath]);
 
-  // Index: check installed once (lightweight, uses cache), data on-demand
-  useEffect(() => {
-    const delay = setTimeout(() => {
-      isDeltaCodeCubeInstalled().then(setDccInstalled).catch(() => {});
-    }, 3000);
-    return () => clearTimeout(delay);
-  }, []);
-
+  // Listen for index events — update stats when indexing completes
   useIndexEvent('indexed', (data) => {
-    if (data.projectPath === projectPath) {
-      loadIndexInfo();
+    if (data.projectPath === projectPath && dccInstalled) {
+      getIndexStats(projectPath).then(stats => {
+        if (stats) {
+          setIndexStats(stats);
+          indexCacheRef.current.set(projectPath, stats);
+        }
+      }).catch(() => {});
     }
-  }, [projectPath, loadIndexInfo]);
+  }, [projectPath, dccInstalled]);
 
-  // Handle reindex
+  // Handle reindex (explicit user action — starts DCC server if needed)
   const handleReindex = useCallback(async () => {
     if (!projectPath) return;
     setIndexLoading(true);
+    setIndexError(null);
     try {
       const stats = await reindexProject(projectPath);
-      if (stats) setIndexStats(stats);
+      if (stats) {
+        setIndexStats(stats);
+        indexCacheRef.current.set(projectPath, stats);
+      } else {
+        setIndexError('Indexing returned no results');
+      }
     } catch (err) {
-      console.error('[ControlBar] Reindex failed:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[ControlBar] Reindex failed:', msg);
+      setIndexError(msg);
     } finally {
       setIndexLoading(false);
     }
@@ -202,7 +223,6 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
       return;
     }
 
-    // Clear stale state from previous project immediately
     setActivePipeline(null);
 
     const loadPipelines = async () => {
@@ -210,7 +230,6 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
         const pipelines = await pipelineService.listAvailablePipelines(projectPath);
         setAvailablePipelines(pipelines);
 
-        // Check if there's an active pipeline
         const status = await pipelineService.getStatus(projectPath);
         if (status) {
           setActivePipeline({
@@ -220,7 +239,6 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
           });
         }
 
-        // Check if pipeline hooks are installed
         const installed = await isPipelineHooksInstalled(projectPath);
         setIsPipelineInstalled(installed);
       } catch (err) {
@@ -248,10 +266,9 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     }
   }, []);
 
-  // MCPs: load once after 2s delay, then on-demand via dropdown open
+  // Load MCPs on mount
   useEffect(() => {
-    const delay = setTimeout(loadMcps, 2000);
-    return () => clearTimeout(delay);
+    loadMcps();
   }, [loadMcps]);
 
   // Load Ports
@@ -422,7 +439,7 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
 
   // Ports: on-demand only (loaded when dropdown opens)
 
-  // Load snapshots when project changes
+  // Load snapshots on mount
   useEffect(() => {
     loadSnapshots();
   }, [loadSnapshots]);
@@ -807,11 +824,10 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
         {/* Index Dropdown (DeltaCodeCube) */}
         {dccInstalled && (
           <DropdownPanel
-            trigger={indexStats ? `Index ${indexStats.grade}` : 'Index'}
+            trigger={indexError ? 'Index Error' : indexLoading ? 'Indexing...' : indexStats ? `Index ${indexStats.grade}` : 'Index'}
             triggerIcon={<Database size={12} />}
             label={`Codebase Index${projectPath ? ` — ${projectPath.split('/').pop()}` : ''}`}
-            statusDot={indexStats ? 'active' : 'none'}
-            onOpen={loadIndexInfo}
+            statusDot={indexError ? 'error' : indexStats ? 'active' : 'none'}
           >
             {indexStats ? (
               <>
@@ -849,6 +865,15 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
             ) : (
               <>
                 <div className="dropdown__empty">No index data for {projectPath?.split('/').pop() || 'project'}</div>
+                {indexError && (
+                  <DropdownSection title="Error">
+                    <DropdownItem
+                      icon={<AlertCircle size={14} />}
+                      label="Index failed"
+                      description={indexError.length > 80 ? indexError.slice(0, 80) + '...' : indexError}
+                    />
+                  </DropdownSection>
+                )}
                 <DropdownSection title="Actions">
                   <DropdownItem
                     icon={indexLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}

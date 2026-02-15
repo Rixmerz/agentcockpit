@@ -154,6 +154,10 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
     if (ptyIdRef.current === null) {
       return; // Silently ignore if no PTY
     }
+    // Guard: ignore 0x0 resize (happens when xterm container gets display:none)
+    if (cols <= 0 || rows <= 0) {
+      return;
+    }
     await ptyResize(ptyIdRef.current, cols, rows);
   }, []);
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, memo } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -18,7 +18,7 @@ interface TerminalViewProps {
   onActivity?: () => void;
 }
 
-export function TerminalView({ terminalId, workingDir, onClose, onActivity }: TerminalViewProps) {
+export const TerminalView = memo(function TerminalView({ terminalId, workingDir, onClose, onActivity }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const initializedRef = useRef(false);
@@ -173,12 +173,21 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
       onActivity?.();
     });
 
-    // Resize
+    // Resize — guard against 0x0 dimensions (happens when container gets display:none)
     terminal.onResize(({ cols, rows }) => {
-      resize(cols, rows).catch(console.error);
+      if (cols > 0 && rows > 0) {
+        resize(cols, rows).catch(console.error);
+      }
     });
 
-    return () => {};
+    // Cleanup: dispose xterm and addons (stops FitAddon ResizeObserver)
+    return () => {
+      fitAddon.dispose();
+      clipboardAddon.dispose();
+      webLinksAddon.dispose();
+      terminal.dispose();
+      terminalRef.current = null;
+    };
   }, [terminalId, workingDir, spawn, write, resize, registerPtyId, signalUserInput]);
 
   return (
@@ -191,4 +200,4 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
       }}
     />
   );
-}
+});

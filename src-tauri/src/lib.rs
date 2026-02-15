@@ -8,6 +8,7 @@ use browser::BrowserState;
 use std::sync::Arc;
 use std::process::{Command, Stdio};
 use std::io::{BufRead, BufReader, Write};
+use std::thread;
 use parking_lot::Mutex;
 use tauri::RunEvent;
 #[cfg(debug_assertions)]
@@ -84,50 +85,89 @@ async fn dcc_start(state: tauri::State<'_, Arc<Mutex<DccState>>>, dcc_path: Stri
             st.client = None;
         }
 
+        // Write stderr to a debug file for diagnostics
+        let home_dir = std::env::var("HOME").unwrap_or_default();
+        let stderr_file = std::fs::File::create(format!("{}/dcc-stderr.log", home_dir))
+            .map(Stdio::from)
+            .unwrap_or(Stdio::null());
+
         let mut cmd = Command::new("uv");
         cmd.args(["run", "--directory", &dcc_path, "deltacodecube"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null());
+            .stderr(stderr_file)
+            .env_clear();
 
-        if let Ok(home) = std::env::var("HOME") { cmd.env("HOME", &home); }
+        cmd.env("HOME", &home_dir);
         if let Ok(user) = std::env::var("USER") { cmd.env("USER", &user); }
+        if let Ok(tmp) = std::env::var("TMPDIR") { cmd.env("TMPDIR", &tmp); }
         cmd.env("PATH", build_extended_path());
         cmd.env("DCC_DATA_DIR", &data_dir);
 
         let mut child = cmd.spawn().map_err(|e| format!("dcc spawn: {}", e))?;
 
-        let stdin = child.stdin.take().ok_or("dcc: no stdin")?;
+        let mut stdin = child.stdin.take().ok_or("dcc: no stdin")?;
         let stdout = child.stdout.take().ok_or("dcc: no stdout")?;
         let reader = BufReader::new(stdout);
 
-        let mut client = DccMcpClient { child, stdin, reader, next_id: 1 };
+        // stderr goes to ~/dcc-stderr.log for diagnostics
 
         // MCP initialize handshake
-        let init_id = client.next_id;
-        client.next_id += 1;
+        let init_id = 1u64;
         let init_msg = format!(
             r#"{{"jsonrpc":"2.0","id":{},"method":"initialize","params":{{"protocolVersion":"2024-11-05","capabilities":{{}},"clientInfo":{{"name":"agentcockpit","version":"1.0"}}}}}}"#,
             init_id
         );
 
-        writeln!(client.stdin, "{}", init_msg).map_err(|e| format!("dcc init write: {}", e))?;
-        client.stdin.flush().map_err(|e| format!("dcc init flush: {}", e))?;
+        writeln!(stdin, "{}", init_msg).map_err(|e| format!("dcc init write: {}", e))?;
+        stdin.flush().map_err(|e| format!("dcc init flush: {}", e))?;
 
-        // Read init response (skip notifications)
+        // Read init response with REAL timeout (thread + channel)
+        // read_line is blocking, so we run it in a thread and recv_timeout on channel
         let id_str = format!("\"id\":{}", init_id);
-        loop {
-            let mut line = String::new();
-            let bytes = client.reader.read_line(&mut line).map_err(|e| format!("dcc init read: {}", e))?;
-            if bytes == 0 { return Err("DCC process exited during init".to_string()); }
-            if line.trim().contains(&id_str) { break; }
-        }
+        let (tx, rx) = std::sync::mpsc::channel();
+        thread::spawn(move || {
+            let mut reader = reader;
+            loop {
+                let mut line = String::new();
+                match reader.read_line(&mut line) {
+                    Ok(0) => {
+                        let _ = tx.send(Err("DCC process exited during init (EOF on stdout)".to_string()));
+                        return;
+                    }
+                    Ok(_) => {
+                        if line.trim().contains(&id_str) {
+                            let _ = tx.send(Ok(reader));
+                            return;
+                        }
+                        // Skip notification lines
+                    }
+                    Err(e) => {
+                        let _ = tx.send(Err(format!("dcc init read: {}", e)));
+                        return;
+                    }
+                }
+            }
+        });
+
+        let reader = match rx.recv_timeout(std::time::Duration::from_secs(10)) {
+            Ok(Ok(r)) => r,
+            Ok(Err(e)) => {
+                let _ = child.kill();
+                return Err(format!("{} (see ~/dcc-stderr.log)", e));
+            }
+            Err(_) => {
+                let _ = child.kill();
+                return Err("DCC handshake timed out after 10s".to_string());
+            }
+        };
 
         // Send initialized notification
-        writeln!(client.stdin, r#"{{"jsonrpc":"2.0","method":"notifications/initialized"}}"#)
+        writeln!(stdin, r#"{{"jsonrpc":"2.0","method":"notifications/initialized"}}"#)
             .map_err(|e| format!("dcc notify write: {}", e))?;
-        client.stdin.flush().map_err(|e| format!("dcc notify flush: {}", e))?;
+        stdin.flush().map_err(|e| format!("dcc notify flush: {}", e))?;
 
+        let client = DccMcpClient { child, stdin, reader, next_id: 2 };
         st.client = Some(client);
         st.current_data_dir = Some(data_dir);
         Ok(r#"{"status":"started"}"#.to_string())
@@ -270,38 +310,42 @@ fn build_extended_path() -> String {
 /// set HOME, USER, SHELL, PATH (with NVM/Homebrew) for all commands.
 /// This fixes git, mcp, and other CLI tools not working in bundled app.
 #[tauri::command]
-fn execute_command(cmd: String, cwd: String) -> Result<String, String> {
-    let mut command = Command::new("sh");
-    command.arg("-c").arg(&cmd).current_dir(&cwd);
+async fn execute_command(cmd: String, cwd: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut command = Command::new("sh");
+        command.arg("-c").arg(&cmd).current_dir(&cwd);
 
-    // Copy essential environment variables (learned from opcode project)
-    if let Ok(home) = std::env::var("HOME") {
-        command.env("HOME", &home);
-    }
-    if let Ok(user) = std::env::var("USER") {
-        command.env("USER", &user);
-    }
-    if let Ok(shell) = std::env::var("SHELL") {
-        command.env("SHELL", &shell);
-    }
-
-    // Set extended PATH with NVM, Homebrew, etc.
-    command.env("PATH", build_extended_path());
-
-    // Copy additional useful environment variables
-    for var in &["LANG", "LC_ALL", "EDITOR", "VISUAL", "XDG_CONFIG_HOME", "TERM"] {
-        if let Ok(value) = std::env::var(var) {
-            command.env(var, &value);
+        // Copy essential environment variables (learned from opcode project)
+        if let Ok(home) = std::env::var("HOME") {
+            command.env("HOME", &home);
         }
-    }
+        if let Ok(user) = std::env::var("USER") {
+            command.env("USER", &user);
+        }
+        if let Ok(shell) = std::env::var("SHELL") {
+            command.env("SHELL", &shell);
+        }
 
-    let output = command.output().map_err(|e| e.to_string())?;
+        // Set extended PATH with NVM, Homebrew, etc.
+        command.env("PATH", build_extended_path());
 
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
-    }
+        // Copy additional useful environment variables
+        for var in &["LANG", "LC_ALL", "EDITOR", "VISUAL", "XDG_CONFIG_HOME", "TERM"] {
+            if let Ok(value) = std::env::var(var) {
+                command.env(var, &value);
+            }
+        }
+
+        let output = command.output().map_err(|e| e.to_string())?;
+
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).to_string())
+        }
+    })
+    .await
+    .map_err(|e| format!("execute_command task: {}", e))?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
