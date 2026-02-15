@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeltaCodeCube Timeline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #0f1419 50%, #0d1117 100%);
+            color: #e6edf3;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #a78bfa;
+        }
+        .timeline {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, #a78bfa, #6366f1, #8b5cf6);
+        }
+        .event {
+            position: relative;
+            padding-left: 50px;
+            margin-bottom: 1.5rem;
+        }
+        .event::before {
+            content: '';
+            position: absolute;
+            left: 12px;
+            top: 8px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 3px solid #0a0a0f;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+        }
+        .event.delta::before {
+            background: linear-gradient(135deg, #0891b2 0%, #22d3ee 100%);
+            box-shadow: 0 0 12px rgba(8, 145, 178, 0.6);
+        }
+        .event.tension::before {
+            background: linear-gradient(135deg, #dc2626 0%, #f87171 100%);
+            box-shadow: 0 0 12px rgba(220, 38, 38, 0.6);
+        }
+        .event.tension_resolved::before {
+            background: linear-gradient(135deg, #059669 0%, #34d399 100%);
+            box-shadow: 0 0 12px rgba(5, 150, 105, 0.6);
+        }
+        .event.commit::before {
+            background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%);
+            box-shadow: 0 0 12px rgba(124, 58, 237, 0.6);
+        }
+        .event-card {
+            background: linear-gradient(135deg, rgba(22, 27, 34, 0.95) 0%, rgba(13, 17, 23, 0.95) 100%);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            border: 1px solid rgba(48, 54, 61, 0.8);
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        }
+        .event-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            border-color: rgba(139, 92, 246, 0.5);
+        }
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .event-title {
+            font-weight: 600;
+            color: #f4f4f5;
+        }
+        .event-time {
+            font-size: 0.8rem;
+            color: #a1a1aa;
+        }
+        .event-desc {
+            font-size: 0.9rem;
+            color: #a1a1aa;
+            margin-bottom: 0.5rem;
+        }
+        .event-type {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .type-delta {
+            background: linear-gradient(135deg, rgba(8, 145, 178, 0.25) 0%, rgba(34, 211, 238, 0.15) 100%);
+            color: #22d3ee;
+            border: 1px solid rgba(34, 211, 238, 0.3);
+        }
+        .type-tension {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.25) 0%, rgba(248, 113, 113, 0.15) 100%);
+            color: #f87171;
+            border: 1px solid rgba(248, 113, 113, 0.3);
+        }
+        .type-tension_resolved {
+            background: linear-gradient(135deg, rgba(5, 150, 105, 0.25) 0%, rgba(52, 211, 153, 0.15) 100%);
+            color: #34d399;
+            border: 1px solid rgba(52, 211, 153, 0.3);
+        }
+        .type-commit {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.25) 0%, rgba(167, 139, 250, 0.15) 100%);
+            color: #a78bfa;
+            border: 1px solid rgba(167, 139, 250, 0.3);
+        }
+        .severity {
+            margin-left: 0.5rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+        .severity-high { background: rgba(239, 68, 68, 0.3); color: #fca5a5; }
+        .severity-medium { background: rgba(251, 191, 36, 0.3); color: #fcd34d; }
+        .severity-low { background: rgba(34, 197, 94, 0.3); color: #86efac; }
+        .filters {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            background: linear-gradient(135deg, rgba(22, 27, 34, 0.8) 0%, rgba(13, 17, 23, 0.8) 100%);
+            color: #c4b5fd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(124, 58, 237, 0.15) 100%);
+            border-color: #a78bfa;
+        }
+        .filter-btn.active {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(124, 58, 237, 0.2) 100%);
+            border-color: #a78bfa;
+            box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .stat {
+            text-align: center;
+            padding: 1rem;
+            background: linear-gradient(135deg, rgba(22, 27, 34, 0.9) 0%, rgba(13, 17, 23, 0.9) 100%);
+            border: 1px solid rgba(48, 54, 61, 0.6);
+            border-radius: 10px;
+            min-width: 100px;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #a78bfa;
+        }
+        .stat-label {
+            font-size: 0.8rem;
+            color: #71717a;
+        }
+    </style>
+</head>
+<body>
+    <h1>📊 DeltaCodeCube Timeline</h1>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="delta">Deltas</button>
+        <button class="filter-btn" data-filter="tension">Tensions</button>
+        <button class="filter-btn" data-filter="commit">Commits</button>
+    </div>
+
+    <div class="timeline" id="timeline"></div>
+
+    <script>
+        const events = [];
+        let currentFilter = 'all';
+
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        function renderStats() {
+            const stats = {
+                total: events.length,
+                deltas: events.filter(e => e.event_type === 'delta').length,
+                tensions: events.filter(e => e.event_type === 'tension' || e.event_type === 'tension_resolved').length,
+                commits: events.filter(e => e.event_type === 'commit').length,
+            };
+
+            document.getElementById('stats').innerHTML = `
+                <div class="stat"><div class="stat-value">${stats.total}</div><div class="stat-label">Total Events</div></div>
+                <div class="stat"><div class="stat-value">${stats.deltas}</div><div class="stat-label">Code Changes</div></div>
+                <div class="stat"><div class="stat-value">${stats.tensions}</div><div class="stat-label">Tensions</div></div>
+                <div class="stat"><div class="stat-value">${stats.commits}</div><div class="stat-label">Commits</div></div>
+            `;
+        }
+
+        function renderTimeline() {
+            const filtered = currentFilter === 'all'
+                ? events
+                : events.filter(e => e.event_type.startsWith(currentFilter));
+
+            const html = filtered.map(event => `
+                <div class="event ${event.event_type}">
+                    <div class="event-card">
+                        <div class="event-header">
+                            <span class="event-title">${event.title}</span>
+                            <span class="event-time">${formatDate(event.timestamp)}</span>
+                        </div>
+                        <div class="event-desc">${event.description}</div>
+                        <span class="event-type type-${event.event_type}">${event.event_type.replace('_', ' ')}</span>
+                        ${event.severity ? `<span class="severity severity-${event.severity}">${event.severity}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('timeline').innerHTML = html || '<p style="text-align:center;color:#71717a;">No events found</p>';
+        }
+
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderTimeline();
+            });
+        });
+
+        // Initial render
+        renderStats();
+        renderTimeline();
+    </script>
+</body>
+</html>
