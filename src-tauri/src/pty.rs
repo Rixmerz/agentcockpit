@@ -197,27 +197,28 @@ impl PtyManager {
             cmd_builder.env("SHELL", &shell);
         }
 
-        // Build comprehensive PATH including NVM, Homebrew, and common locations
+        // Build comprehensive PATH including NVM, Homebrew (macOS only), and common locations
         let home = std::env::var("HOME").unwrap_or_default();
         let current_path = std::env::var("PATH").unwrap_or_default();
 
-        // Build extended PATH with priority order:
-        // 1. NVM node bin (respects user's default alias)
-        // 2. Homebrew (Apple Silicon + Intel)
-        // 3. User local bin
-        // 4. System paths
-        // 5. Current PATH
-        let mut paths = vec![
-            "/opt/homebrew/bin".to_string(),      // Homebrew Apple Silicon
-            "/opt/homebrew/sbin".to_string(),
-            "/usr/local/bin".to_string(),         // Homebrew Intel / system
-            "/usr/local/sbin".to_string(),
-            format!("{}/.local/bin", home),       // User local
-            "/usr/bin".to_string(),
-            "/bin".to_string(),
-            "/usr/sbin".to_string(),
-            "/sbin".to_string(),
-        ];
+        let mut paths = vec![];
+
+        // macOS: Homebrew paths
+        #[cfg(target_os = "macos")]
+        {
+            paths.push("/opt/homebrew/bin".to_string());
+            paths.push("/opt/homebrew/sbin".to_string());
+        }
+
+        // Common Unix paths
+        paths.push("/usr/local/bin".to_string());
+        paths.push("/usr/local/sbin".to_string());
+        paths.push(format!("{}/.local/bin", home));
+        paths.push(format!("{}/.cargo/bin", home));
+        paths.push("/usr/bin".to_string());
+        paths.push("/bin".to_string());
+        paths.push("/usr/sbin".to_string());
+        paths.push("/sbin".to_string());
 
         // Add NVM node bin if available (respects user's default alias)
         if let Some(nvm_bin) = get_nvm_node_bin(&home) {

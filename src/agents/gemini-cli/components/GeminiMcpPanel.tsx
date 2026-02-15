@@ -10,6 +10,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { RefreshCw, Server, AlertCircle, Plus, X, FileEdit } from 'lucide-react';
+import { getOpenCommand } from '../../../core/utils/platform';
 
 // Timeout for file operations
 const INVOKE_TIMEOUT_MS = 5000;
@@ -266,8 +267,9 @@ export function GeminiMcpPanel({ projectPath: _projectPath }: GeminiMcpPanelProp
   const handleOpenInIDE = useCallback(async () => {
     try {
       const settingsPath = getSettingsPath();
+      const openCmd = await getOpenCommand();
       await invoke<string>('execute_command', {
-        cmd: `open "${settingsPath}"`,
+        cmd: `${openCmd} "${settingsPath}"`,
         cwd: '/',
       });
       showMessage('success', 'Opening settings...');

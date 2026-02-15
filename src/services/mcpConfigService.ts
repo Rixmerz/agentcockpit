@@ -12,6 +12,7 @@ import { readTextFile, writeTextFile, exists, mkdir } from '@tauri-apps/plugin-f
 import { invoke } from '@tauri-apps/api/core';
 import { withTimeout } from '../core/utils/promiseTimeout';
 import { addCodeMcp, removeCodeMcp } from './mcpService';
+import { getClaudeDesktopConfigPath, getOpenCommand } from '../core/utils/platform';
 
 const INVOKE_TIMEOUT_MS = 5000;
 const CONFIG_DIR = '.agentcockpit';
@@ -268,7 +269,7 @@ export async function toggleMcpDisabled(name: string): Promise<{ success: boolea
 export async function loadDesktopMcps(): Promise<Record<string, McpServerConfig>> {
   try {
     const home = await getHomePath();
-    const desktopPath = `${home}/Library/Application Support/Claude/claude_desktop_config.json`;
+    const desktopPath = await getClaudeDesktopConfigPath(home);
 
     const fileExists = await exists(desktopPath);
     if (!fileExists) return {};
@@ -564,9 +565,10 @@ export async function openConfigInEditor(): Promise<{ success: boolean; message:
       await saveMcpConfig(getDefaultConfig());
     }
 
+    const openCmd = await getOpenCommand();
     await withTimeout(
       invoke<string>('execute_command', {
-        cmd: `open "${configPath}"`,
+        cmd: `${openCmd} "${configPath}"`,
         cwd: '/'
       }),
       INVOKE_TIMEOUT_MS,

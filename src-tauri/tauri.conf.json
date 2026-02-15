@@ -42,6 +42,15 @@
       "infoPlist": "Info.plist",
       "signingIdentity": null,
       "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "rpm": {
+        "epoch": 0,
+        "release": "1"
+      }
     }
   }
 }
