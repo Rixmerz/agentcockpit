@@ -61,20 +61,27 @@ impl Drop for DccMcpClient {
 
 struct DccState {
     client: Option<DccMcpClient>,
+    current_data_dir: Option<String>,
 }
 
 impl DccState {
-    fn new() -> Self { Self { client: None } }
+    fn new() -> Self { Self { client: None, current_data_dir: None } }
 }
 
 #[tauri::command]
-async fn dcc_start(state: tauri::State<'_, Arc<Mutex<DccState>>>, dcc_path: String) -> Result<String, String> {
+async fn dcc_start(state: tauri::State<'_, Arc<Mutex<DccState>>>, dcc_path: String, data_dir: String) -> Result<String, String> {
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let mut st = state.lock();
 
-        if st.client.is_some() {
+        // If already running for this same data_dir, reuse
+        if st.client.is_some() && st.current_data_dir.as_deref() == Some(&data_dir) {
             return Ok(r#"{"status":"already_running"}"#.to_string());
+        }
+
+        // If running for different project, kill first (Drop kills child)
+        if st.client.is_some() {
+            st.client = None;
         }
 
         let mut cmd = Command::new("uv");
@@ -86,6 +93,7 @@ async fn dcc_start(state: tauri::State<'_, Arc<Mutex<DccState>>>, dcc_path: Stri
         if let Ok(home) = std::env::var("HOME") { cmd.env("HOME", &home); }
         if let Ok(user) = std::env::var("USER") { cmd.env("USER", &user); }
         cmd.env("PATH", build_extended_path());
+        cmd.env("DCC_DATA_DIR", &data_dir);
 
         let mut child = cmd.spawn().map_err(|e| format!("dcc spawn: {}", e))?;
 
@@ -121,6 +129,7 @@ async fn dcc_start(state: tauri::State<'_, Arc<Mutex<DccState>>>, dcc_path: Stri
         client.stdin.flush().map_err(|e| format!("dcc notify flush: {}", e))?;
 
         st.client = Some(client);
+        st.current_data_dir = Some(data_dir);
         Ok(r#"{"status":"started"}"#.to_string())
     })
     .await
@@ -147,6 +156,7 @@ async fn dcc_call(
 fn dcc_stop(state: tauri::State<'_, Arc<Mutex<DccState>>>) -> Result<String, String> {
     let mut st = state.lock();
     st.client = None; // Drop kills child process
+    st.current_data_dir = None;
     Ok(r#"{"status":"stopped"}"#.to_string())
 }
 
