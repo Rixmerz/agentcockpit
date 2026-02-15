@@ -1,5 +1,6 @@
 import { homeDir } from '@tauri-apps/api/path';
 import { readTextFile, exists } from '@tauri-apps/plugin-fs';
+import { getClaudeDesktopConfigPath } from '../../core/utils/platform';
 import {
   getGraph,
   getGlobalGraph,
@@ -217,7 +218,8 @@ export async function getAvailableMcps(): Promise<AvailableMcp[]> {
 
   try {
     const home = await homeDir();
-    const claudeDesktopPath = `${home}/Library/Application Support/Claude/claude_desktop_config.json`;
+    const normalizedHome = home ? (home.endsWith('/') ? home.slice(0, -1) : home) : '';
+    const claudeDesktopPath = await getClaudeDesktopConfigPath(normalizedHome);
 
     const desktopExists = await exists(claudeDesktopPath);
     if (desktopExists) {
