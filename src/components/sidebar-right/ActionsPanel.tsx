@@ -361,7 +361,7 @@ export function ActionsPanel({
         />
       )}
 
-      {/* Index Dashboard (DeltaCodeCube) */}
+      {/* IndexDashboardPanel */}
       <IndexDashboardPanel projectPath={projectPath} />
     </div>
   );

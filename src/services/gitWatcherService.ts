@@ -13,8 +13,8 @@
  * checkpoint where contracts, tensions, and debt analysis make sense.
  */
 
-import { getGitStatus, getSyncStatus, hasLocalGitRepo, getHeadCommitHash, getFilesBetweenCommits } from './gitService';
-import { isDeltaCodeCubeInstalled, incrementalReindex, indexProject } from './deltacodecubeService';
+import { getGitStatus, getSyncStatus, hasLocalGitRepo, getHeadCommitHash } from './gitService';
+// DCC auto-reindex disabled — indexing is manual via ControlBar
 import { gitWatcherEvents } from '../core/utils/gitWatcherEventBus';
 
 const POLL_INTERVAL_MS = 10_000;
@@ -152,37 +152,4 @@ function pollNow(): void {
 
 export const gitWatcherService = { start, stop, pollNow };
 
-// --- DCC consumer: incremental reindex on new commits ---
-gitWatcherEvents.on('commit', async (data) => {
-  console.log(`[GitWatcher] Commit ${data.commitHash.substring(0, 8)} → checking changed files`);
-  try {
-    // Static import at top — module is already in main bundle (statically imported elsewhere)
-    const installed = await isDeltaCodeCubeInstalled();
-    if (!installed) {
-      console.log('[GitWatcher] DCC not installed, skipping');
-      return;
-    }
-
-    // If no previous hash (first commit or fresh start), do full index
-    if (!data.previousHash) {
-      console.log('[GitWatcher] No previous hash, doing full index');
-      await indexProject(data.projectPath);
-      return;
-    }
-
-    // Get files changed between previous and current commit
-    const diff = await getFilesBetweenCommits(data.projectPath, data.previousHash, data.commitHash);
-    const totalChanged = diff.changed.length + diff.added.length;
-
-    if (totalChanged === 0) {
-      console.log('[GitWatcher] No files changed in commit, skipping');
-      return;
-    }
-
-    console.log(`[GitWatcher] Incremental reindex: ${diff.changed.length} modified, ${diff.added.length} new, ${diff.deleted.length} deleted`);
-    await incrementalReindex(data.projectPath, diff.changed, diff.added);
-    console.log('[GitWatcher] Incremental reindex completed');
-  } catch (err) {
-    console.warn('[GitWatcher] DCC auto-reindex failed:', err);
-  }
-});
+// DCC auto-reindex on commits removed — indexing is manual via ControlBar

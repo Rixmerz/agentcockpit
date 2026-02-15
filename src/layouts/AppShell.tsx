@@ -27,7 +27,7 @@ export function AppShell() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Auto git init when switching to a project without .git
+  // Auto git init
   useEffect(() => {
     if (!activeProject?.path) return;
     hasLocalGitRepo(activeProject.path).then(hasRepo => {
@@ -44,6 +44,7 @@ export function AppShell() {
     }
     return () => gitWatcherService.stop();
   }, [activeProject?.path]);
+
 
   // Idle mode
   const { isIdle, signalActivity } = useIdleMode({
