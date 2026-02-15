@@ -605,9 +605,8 @@ function parseDebtResultForProject(result: unknown, projectPath: string): IndexS
   const prefix = projectPath.endsWith('/') ? projectPath : projectPath + '/';
   const projectFiles = allFiles.filter(f => {
     const fp = String(f.file_path || '');
-    // Match absolute paths (fp starts with project prefix)
-    // OR relative paths (fp doesn't start with /, treat as relative to project)
-    return fp.startsWith(prefix) || (!fp.startsWith('/') && fp.length > 0);
+    // DCC stores absolute paths — match only files under this project's prefix
+    return fp.startsWith(prefix);
   });
 
   if (projectFiles.length === 0) {
