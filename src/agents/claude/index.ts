@@ -5,6 +5,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { homeDir } from '@tauri-apps/api/path';
 import type { AgentPlugin } from '../../plugins/types/plugin';
 import manifest from './manifest.json';
 import { ClaudeLauncher } from './components/ClaudeLauncher';
@@ -28,11 +29,24 @@ export const claudePlugin: AgentPlugin = {
   // Validate CLI installation
   validateInstallation: async () => {
     // Check specific paths where claude CLI is typically installed
+    let homePath = '';
+    try {
+      homePath = await homeDir();
+    } catch {
+      // Fallback - will be handled by which command
+    }
+
     const paths = [
       '/usr/local/bin/claude',
       '/opt/homebrew/bin/claude',
       '/usr/bin/claude',
     ];
+
+    // Add ~/.local/bin (common on Linux)
+    if (homePath) {
+      const normalized = homePath.endsWith('/') ? homePath.slice(0, -1) : homePath;
+      paths.push(`${normalized}/.local/bin/claude`);
+    }
 
     for (const path of paths) {
       try {

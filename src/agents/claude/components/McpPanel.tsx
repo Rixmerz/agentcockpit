@@ -5,6 +5,7 @@ import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { RefreshCw, Check, X, Import, Server, AlertCircle, Plus, Minus, FileEdit } from 'lucide-react';
 import type { McpPanelProps as PluginMcpPanelProps, McpServerConfig } from '../../../plugins/types/plugin';
 import { withTimeout } from '../../../core/utils/promiseTimeout';
+import { getClaudeDesktopConfigPath, getOpenCommand } from '../../../core/utils/platform';
 
 // Timeout for file operations (same as snapshotService)
 const INVOKE_TIMEOUT_MS = 5000;
@@ -158,7 +159,7 @@ export function McpPanel({
       const normalizedHome = home.endsWith('/') ? home.slice(0, -1) : home;
       setHomePath(normalizedHome);
 
-      const desktopPath = `${normalizedHome}/Library/Application Support/Claude/claude_desktop_config.json`;
+      const desktopPath = await getClaudeDesktopConfigPath(normalizedHome);
       const codePath = `${normalizedHome}/.claude.json`;
 
       // Load Desktop MCPs
@@ -209,7 +210,7 @@ export function McpPanel({
     const { name, config } = parsed;
 
     try {
-      const desktopPath = `${homePath}/Library/Application Support/Claude/claude_desktop_config.json`;
+      const desktopPath = await getClaudeDesktopConfigPath(homePath);
       const existingConfig = await readJsonFile(desktopPath) as { mcpServers?: Record<string, McpServerConfig> } | null;
 
       if (!existingConfig) {
@@ -296,7 +297,7 @@ export function McpPanel({
   // Remove Desktop MCP
   const handleRemoveDesktop = useCallback(async (name: string) => {
     try {
-      const desktopPath = `${homePath}/Library/Application Support/Claude/claude_desktop_config.json`;
+      const desktopPath = await getClaudeDesktopConfigPath(homePath);
       const config = await readJsonFile(desktopPath) as { mcpServers?: Record<string, McpServerConfig> } | null;
 
       if (!config?.mcpServers?.[name]) {
@@ -364,12 +365,12 @@ export function McpPanel({
   const handleOpenConfigInIDE = useCallback(async (configType: 'desktop' | 'code') => {
     try {
       const configPath = configType === 'desktop'
-        ? `${homePath}/Library/Application Support/Claude/claude_desktop_config.json`
+        ? await getClaudeDesktopConfigPath(homePath)
         : `${homePath}/.claude.json`;
 
-      // Use 'open' command which opens with default app, or specify IDE
+      const openCmd = await getOpenCommand();
       await invoke<string>('execute_command', {
-        cmd: `open "${configPath}"`,
+        cmd: `${openCmd} "${configPath}"`,
         cwd: '/',
       });
       showMessage('success', `Opening ${configType === 'desktop' ? 'Desktop' : 'Code'} config...`);

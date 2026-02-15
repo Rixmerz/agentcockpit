@@ -284,11 +284,15 @@ pub async fn browser_create(
     let app_handle = app.clone();
     let tab_id_for_nav = tab_id.clone();
 
-    // Use Safari User-Agent so sites like WhatsApp Web work correctly
-    let safari_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+    // Use platform-appropriate User-Agent so sites work correctly
+    let user_agent = if cfg!(target_os = "macos") {
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+    } else {
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    };
 
     let webview_builder = WebviewBuilder::new(&label, webview_url)
-        .user_agent(safari_user_agent)
+        .user_agent(user_agent)
         .devtools(true)  // Enable devtools for debugging
         .on_navigation(move |url| {
             let url_string = url.to_string();

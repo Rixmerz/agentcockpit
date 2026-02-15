@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
 import { readTextFile, writeTextFile, exists } from '@tauri-apps/plugin-fs';
 import { withTimeout } from '../core/utils/promiseTimeout';
+import { getClaudeDesktopConfigRelPath } from '../core/utils/platform';
 
 // Timeout for file operations
 const INVOKE_TIMEOUT_MS = 5000;
@@ -26,9 +27,6 @@ export interface McpConfigs {
   desktop: McpServer[];
   code: McpServer[];
 }
-
-// Path for Claude Desktop config (relative to home)
-const CLAUDE_DESKTOP_CONFIG_PATH = 'Library/Application Support/Claude/claude_desktop_config.json';
 
 // Read JSON file using Tauri FS plugin (avoids TCC cascade)
 async function readJsonFile(path: string): Promise<unknown | null> {
@@ -70,14 +68,14 @@ async function writeJsonFile(path: string, data: unknown): Promise<boolean> {
   }
 }
 
-// Get Claude Desktop config path
+// Get Claude Desktop config path (cross-platform)
 export async function getDesktopConfigPath(): Promise<string> {
   const home = await homeDir();
   if (!home) {
     throw new Error('Could not determine home directory');
   }
-  // IMPORTANTE: Agregar / entre home y el path relativo
-  return `${home}/${CLAUDE_DESKTOP_CONFIG_PATH}`;
+  const relPath = await getClaudeDesktopConfigRelPath();
+  return `${home}/${relPath}`;
 }
 
 // Load Claude Desktop MCPs from config file
