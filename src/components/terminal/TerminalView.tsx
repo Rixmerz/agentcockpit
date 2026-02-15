@@ -59,6 +59,25 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
     };
   }, [terminalId, clearTerminalActivity]);
 
+  // Debounced terminal activity sync to global state
+  // Avoids dispatching SET_TERMINAL_ACTIVITY on every PTY output chunk,
+  // which would re-render ALL AppContext consumers (ControlBar, IndexPanel, etc.)
+  const activitySyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncActivityToGlobal = useCallback((isFinished: boolean) => {
+    if (activitySyncRef.current) clearTimeout(activitySyncRef.current);
+    activitySyncRef.current = setTimeout(() => {
+      setTerminalActivity(terminalId, isFinished, Date.now());
+      activitySyncRef.current = null;
+    }, 500);
+  }, [terminalId, setTerminalActivity]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (activitySyncRef.current) clearTimeout(activitySyncRef.current);
+    };
+  }, []);
+
   // PTY hook - direct writes
   const { spawn, write, resize } = usePty({
     onData: (data: string) => {
@@ -67,9 +86,8 @@ export function TerminalView({ terminalId, workingDir, onClose, onActivity }: Te
       // This works because signalUserInput() is called when user types,
       // and signalOutput() ignores output that occurs within the grace period
       signalOutput();
-      // Clear finished state when new output arrives
-      console.log('[TerminalView] 📥 PTY output received, clearing finished state');
-      setTerminalActivity(terminalId, false, Date.now());
+      // Debounced sync to global state (at most once per 500ms)
+      syncActivityToGlobal(false);
     },
     onClose: () => {
       terminalRef.current?.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');

@@ -78,7 +78,25 @@ let _dccPathCache: string | null | undefined;
 let _dccPathPromise: Promise<string | null> | null = null;
 let _serverStartedForProject: string | null = null;
 let _serverStartPromise: Promise<void> | null = null;
+let _serverStartFailed = false; // Prevents retrying after fatal failure
 let _indexingInProgress = false;
+
+// Timeout helper for DCC operations
+const DCC_START_TIMEOUT_MS = 15_000; // 15s for server startup
+const DCC_CALL_TIMEOUT_MS = 30_000;  // 30s for tool calls
+const DCC_STOP_TIMEOUT_MS = 5_000;   // 5s for stopping
+
+function withDccTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`[DCC] ${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
 
 export async function isDeltaCodeCubeInstalled(): Promise<boolean> {
   if (_installedCache !== undefined) return _installedCache;
@@ -110,6 +128,7 @@ function invalidateDccCaches() {
   _dccPathPromise = null;
   _serverStartedForProject = null;
   _serverStartPromise = null;
+  _serverStartFailed = false; // Allow retry after reinstall
 }
 
 // =====================================================
@@ -253,6 +272,11 @@ async function getProjectDataDir(projectPath: string): Promise<string> {
 async function ensureDccServer(projectPath: string): Promise<void> {
   if (_serverStartedForProject === projectPath) return;
 
+  // Don't retry after fatal failure (prevents repeated hangs)
+  if (_serverStartFailed) {
+    throw new Error('[DCC] Server start previously failed — skipping to prevent hang');
+  }
+
   if (_serverStartPromise) {
     await _serverStartPromise;
     if (_serverStartedForProject === projectPath) return;
@@ -262,7 +286,9 @@ async function ensureDccServer(projectPath: string): Promise<void> {
     // Stop current instance if running for different project
     if (_serverStartedForProject !== null) {
       console.log(`[DCC] Switching project: ${_serverStartedForProject} -> ${projectPath}`);
-      try { await invoke('dcc_stop'); } catch (e) {
+      try {
+        await withDccTimeout(invoke('dcc_stop'), DCC_STOP_TIMEOUT_MS, 'dcc_stop');
+      } catch (e) {
         console.warn('[DCC] Stop failed during project switch:', e);
       }
       _serverStartedForProject = null;
@@ -272,14 +298,21 @@ async function ensureDccServer(projectPath: string): Promise<void> {
     if (!dccPath) throw new Error('DCC path not found');
 
     const dataDir = await getProjectDataDir(projectPath);
-    await invoke('dcc_start', { dccPath, dataDir });
+    await withDccTimeout(
+      invoke('dcc_start', { dccPath, dataDir }),
+      DCC_START_TIMEOUT_MS,
+      'dcc_start'
+    );
     _serverStartedForProject = projectPath;
     _serverStartPromise = null;
+    _serverStartFailed = false;
     console.log(`[DCC] MCP server started for project: ${projectPath}`);
   })();
 
-  _serverStartPromise.catch(() => {
+  _serverStartPromise.catch((err) => {
     _serverStartPromise = null;
+    _serverStartFailed = true;
+    console.error('[DCC] Server start failed (will not retry until reload):', err);
   });
   return _serverStartPromise;
 }
@@ -292,10 +325,14 @@ async function callDccTool(toolName: string, args: Record<string, unknown> = {},
     await ensureDccServer(projectPath);
   }
 
-  const response = await invoke<string>('dcc_call', {
-    toolName,
-    arguments: JSON.stringify(args),
-  });
+  const response = await withDccTimeout(
+    invoke<string>('dcc_call', {
+      toolName,
+      arguments: JSON.stringify(args),
+    }),
+    DCC_CALL_TIMEOUT_MS,
+    `dcc_call(${toolName})`
+  );
 
   // Parse JSON-RPC response: { jsonrpc, id, result: { content: [...] } }
   const parsed = JSON.parse(response);

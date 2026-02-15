@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+// Note: lastOutputAt is tracked via ref (not state) to avoid re-rendering on every PTY output chunk
 
 /** Time window after user input during which output is ignored (ms) */
 const USER_INPUT_GRACE_PERIOD = 1000;
@@ -53,7 +54,8 @@ export function useTerminalActivity(options: UseTerminalActivityOptions): UseTer
   } = options;
 
   const [isFinished, setIsFinished] = useState(false);
-  const [lastOutputAt, setLastOutputAt] = useState(0);
+  // Use ref instead of state to avoid re-rendering on every PTY output chunk
+  const lastOutputAtRef = useRef(0);
 
   // Phase 1: Cooldown timer
   const cooldownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -90,7 +92,7 @@ export function useTerminalActivity(options: UseTerminalActivityOptions): UseTer
   // Reset when terminal ID changes
   useEffect(() => {
     setIsFinished(false);
-    setLastOutputAt(0);
+    lastOutputAtRef.current = 0;
     isFinishedRef.current = false;
     hasHadOutputRef.current = false;
     lastUserInputAtRef.current = 0;
@@ -109,7 +111,7 @@ export function useTerminalActivity(options: UseTerminalActivityOptions): UseTer
     if (!enabled) return;
 
     const now = Date.now();
-    setLastOutputAt(now);
+    lastOutputAtRef.current = now;
     hasHadOutputRef.current = true;
 
     // If was finished, reset to active
@@ -170,12 +172,12 @@ export function useTerminalActivity(options: UseTerminalActivityOptions): UseTer
     setIsFinished(false);
     hasHadOutputRef.current = false;
     lastUserInputAtRef.current = 0;
-    setLastOutputAt(0);
+    lastOutputAtRef.current = 0;
   }, [clearAllTimeouts]);
 
   return {
     isFinished,
-    lastOutputAt,
+    lastOutputAt: lastOutputAtRef.current,
     signalOutput,
     signalUserInput,
     reset,
