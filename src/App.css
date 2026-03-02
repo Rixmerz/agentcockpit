@@ -8,11 +8,12 @@
 }
 
 /* Top Control Bars Container - Now inside main-content */
+/* z-index must be higher than .terminal-container so dropdowns render on top */
 .app-top-bars {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  z-index: 100;
+  z-index: 200;
   position: relative;
 }
 
