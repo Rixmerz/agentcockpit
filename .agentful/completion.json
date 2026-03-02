@@ -1,0 +1,11 @@
+{
+  "features": {},
+  "gates": {
+    "tests_passing": false,
+    "no_type_errors": false,
+    "no_dead_code": false,
+    "coverage_80": false,
+    "security_clean": false
+  },
+  "overall_progress": 0
+}

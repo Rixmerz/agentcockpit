@@ -76,29 +76,28 @@ Create your own custom pipelines following the YAML schema.
 
 ## Getting Started
 
-### Prerequisites
-- **Node.js** 18+
-- **pnpm**
-- **Rust** (for Tauri)
+### Download (Recommended)
 
-### Installation
+Grab the latest precompiled release from [GitHub Releases](https://github.com/Rixmerz/agentcockpit/releases/latest):
+
+| Format | Platform | Install |
+|--------|----------|---------|
+| **AppImage** | Any Linux distro | `chmod +x AgentCockpit-*.AppImage && ./AgentCockpit-*.AppImage` |
+| **RPM** | Fedora / RHEL / Bazzite | `sudo dnf install ./AgentCockpit-*.rpm` |
+| **DEB** | Ubuntu / Debian | `sudo dpkg -i AgentCockpit_*.deb` |
+
+See [Linux Installation Guide](docs/INSTALL_LINUX.md) for detailed instructions.
+
+### Build from Source
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/agentcockpit.git
-
-# Navigate to directory
+git clone https://github.com/Rixmerz/agentcockpit.git
 cd agentcockpit
-
-# Install dependencies
 pnpm install
-
-# Run in development mode
-pnpm tauri dev
-
-# Build for production
 pnpm tauri build
 ```
+
+Requires Node.js 18+, pnpm, and Rust. See [docs/INSTALL_LINUX.md](docs/INSTALL_LINUX.md) for prerequisites.
 
 ---
 

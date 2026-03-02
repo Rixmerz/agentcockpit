@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Github,
   Search,
@@ -175,7 +176,7 @@ export function GitHubCloneModal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={handleClose}>
       <div
         className="modal-container github-clone-modal"
@@ -298,6 +299,7 @@ export function GitHubCloneModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

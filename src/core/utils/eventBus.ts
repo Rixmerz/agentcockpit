@@ -141,3 +141,60 @@ export function useSnapshotEvent<T extends SnapshotEventType>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event, ...deps]);
 }
+
+// ==================== Session Events ====================
+
+export interface SessionResumeDetectedEvent {
+  uuid: string;
+  terminalId: string;
+}
+
+type SessionEventType = 'resume-detected';
+
+type SessionEventData<T extends SessionEventType> = T extends 'resume-detected'
+  ? SessionResumeDetectedEvent
+  : never;
+
+type SessionEventHandler<T extends SessionEventType> = (data: SessionEventData<T>) => void;
+
+function emitSessionEvent<T extends SessionEventType>(
+  event: T,
+  data: SessionEventData<T>
+): void {
+  const customEvent = new CustomEvent(`session:${event}`, {
+    detail: data,
+    bubbles: false,
+    cancelable: false,
+  });
+  window.dispatchEvent(customEvent);
+}
+
+function onSessionEvent<T extends SessionEventType>(
+  event: T,
+  handler: SessionEventHandler<T>
+): () => void {
+  const listener = (e: Event) => {
+    const customEvent = e as CustomEvent<SessionEventData<T>>;
+    handler(customEvent.detail);
+  };
+  window.addEventListener(`session:${event}`, listener);
+  return () => {
+    window.removeEventListener(`session:${event}`, listener);
+  };
+}
+
+export const sessionEvents = {
+  emit: emitSessionEvent,
+  on: onSessionEvent,
+};
+
+export function useSessionEvent<T extends SessionEventType>(
+  event: T,
+  handler: SessionEventHandler<T>,
+  deps: React.DependencyList = []
+): void {
+  useEffect(() => {
+    return sessionEvents.on(event, handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event, ...deps]);
+}

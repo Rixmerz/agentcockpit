@@ -126,20 +126,17 @@ export async function listClaudeSessions(): Promise<ClaudeSession[]> {
 
 /**
  * Build Claude CLI command with optional flags
- * Note: Session resume logic (--resume vs --session-id) is handled in ClaudeLauncher
- * based on whether the session was pre-selected from the list or newly created.
+ * Note: Only --resume is used for existing sessions. New sessions launch plain 'claude'
+ * and the UUID is captured from the resume output printed by Claude.
  */
 export function buildClaudeCommand(options: BuildCommandOptions): string {
   const args: string[] = ['claude'];
 
-  // Session handling
+  // Session handling: --resume for existing, nothing for new (Claude generates UUID)
   if (options.resume && options.sessionId) {
     args.push('--resume', options.sessionId);
-  } else if (options.sessionId) {
-    args.push('--session-id', options.sessionId);
-  } else {
-    args.push('--new-session');
   }
+  // If no sessionId, launch plain 'claude' — UUID captured from resume output
 
   if (options.model) {
     args.push('--model', options.model);

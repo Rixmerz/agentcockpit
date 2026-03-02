@@ -5,6 +5,38 @@ All notable changes to AgentCockpit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-03-01
+
+### Fixed
+- **Terminal performance regression**: Reverted PTY commands (`pty_spawn`, `pty_write`, `pty_resize`, `pty_close`) and `execute_command` from async/spawn_blocking back to synchronous. The async wrapping added per-keystroke overhead through tokio's blocking thread pool, causing severe terminal lag.
+- **DeltaCodeCube auto-execution causing UI freezes**: Removed all automatic DCC triggers that ran on app startup and project open:
+  - Removed `autoIndexOnProjectOpen()` from AppShell (was launching DCC server + full indexation on every project open)
+  - Removed automatic `reindexProject()` on git commit detection from AppShell
+  - Removed auto-loading of DCC stats in ControlBar on project change (now lazy-loads on dropdown open with 3s install-check delay)
+  - Removed auto-loading of 10 simultaneous DCC analysis calls in IndexDashboardPanel on project change (now manual via Load button)
+
+### Changed
+- DeltaCodeCube is now fully on-demand: server only starts when the user explicitly requests indexing or opens the Index dropdown
+- ControlBar Index dropdown uses `onOpen` callback for lazy data loading instead of eager `useEffect`
+
+## [1.2.0] - 2026-02-16
+
+### Added
+- **Linux Precompiled Releases**: AppImage, RPM, and DEB packages available for download
+- **Linux (Bazzite/Fedora) Cross-Platform Support**: Full Linux build pipeline
+- **Graph Enforcer Hook v1.2.0**: Major hook/TS/Rust/Vite fixes
+- **Debug Mode**: Console + HTTP bridge + MCP server for development
+- **Graph Builder Tools**: New pipeline-manager MCP tools for building graphs
+
+### Changed
+- Simplified Linux installation (download precompiled instead of building from source)
+- Major UI/architecture overhaul with targeted fixes
+- Updated documentation with quick-install section
+
+### Fixed
+- Multiple TS/Rust/Vite build issues
+- Hook enforcement stability improvements
+
 ## [1.0.0] - 2026-01-10
 
 ### Added
@@ -81,5 +113,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[1.0.0]: https://github.com/yourusername/agentcockpit/releases/tag/v1.0.0
-[0.1.0]: https://github.com/yourusername/agentcockpit/releases/tag/v0.1.0
+[1.2.0]: https://github.com/Rixmerz/agentcockpit/releases/tag/v1.2.0
+[1.0.0]: https://github.com/Rixmerz/agentcockpit/releases/tag/v1.0.0
+[0.1.0]: https://github.com/Rixmerz/agentcockpit/releases/tag/v0.1.0

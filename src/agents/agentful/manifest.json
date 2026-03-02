@@ -1,0 +1,71 @@
+{
+  "id": "agentful",
+  "name": "Agentful",
+  "version": "1.0.0",
+  "description": "Autonomous feature-driven development with quality gates",
+  "author": "AgentCockpit",
+  "icon": "🚀",
+  "color": "#00D4AA",
+  "cli": {
+    "command": "claude",
+    "installCheck": "which claude",
+    "installUrl": "https://github.com/itz4blitz/agentful"
+  },
+  "configPaths": {
+    "project": ".agentful/"
+  },
+  "quickActions": [
+    {
+      "id": "start",
+      "label": "Start",
+      "icon": "Play",
+      "command": "/agentful-start",
+      "type": "action",
+      "tooltip": "Start/resume the development loop"
+    },
+    {
+      "id": "status",
+      "label": "Status",
+      "icon": "BarChart3",
+      "command": "/agentful-status",
+      "type": "action",
+      "tooltip": "Show completion % and current work"
+    },
+    {
+      "id": "decide",
+      "label": "Decide",
+      "icon": "HelpCircle",
+      "command": "/agentful-decide",
+      "type": "action",
+      "tooltip": "Answer pending decisions"
+    },
+    {
+      "id": "validate",
+      "label": "Validate",
+      "icon": "ShieldCheck",
+      "command": "/agentful-validate",
+      "type": "action",
+      "tooltip": "Run 6 quality gates"
+    },
+    {
+      "id": "product",
+      "label": "Product",
+      "icon": "FileText",
+      "command": "/agentful-product",
+      "type": "action",
+      "tooltip": "Analyze and improve product spec"
+    },
+    {
+      "id": "generate",
+      "label": "Generate",
+      "icon": "Sparkles",
+      "command": "/agentful-generate",
+      "type": "action",
+      "tooltip": "Regenerate agents for tech stack"
+    }
+  ],
+  "components": {
+    "launcher": true,
+    "mcpPanel": false
+  }
+}

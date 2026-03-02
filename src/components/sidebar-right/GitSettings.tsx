@@ -84,6 +84,7 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
   const [isInitializing, setIsInitializing] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
   const [pushStatus, setPushStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [pushErrorMessage, setPushErrorMessage] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [copied, setCopied] = useState(false);
   const [confirmRemoveGit, setConfirmRemoveGit] = useState(false);
@@ -263,6 +264,7 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
 
     setIsPushing(true);
     setPushStatus('idle');
+    setPushErrorMessage(null);
 
     try {
       await gitPush(projectPath);
@@ -271,8 +273,20 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
       setTimeout(() => setPushStatus('idle'), 2000);
     } catch (error) {
       console.error('[GitSettings] Push failed:', error);
+      const errorStr = String(error);
+      const isSnapshotError = errorStr.includes('snapshot') || errorStr.includes('Auto-squashed');
       setPushStatus('error');
-      setTimeout(() => setPushStatus('idle'), 3000);
+      setPushErrorMessage(isSnapshotError ? errorStr.replace(/^Error:\s*/, '') : null);
+      // Snapshot errors need longer display time since the user needs to read and act
+      const displayTime = isSnapshotError ? 8000 : 3000;
+      setTimeout(() => {
+        setPushStatus('idle');
+        setPushErrorMessage(null);
+      }, displayTime);
+      // Refresh git info since soft reset may have changed state
+      if (isSnapshotError) {
+        await loadGitInfo();
+      }
     } finally {
       setIsPushing(false);
     }
@@ -540,6 +554,13 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
                       )}
                       <span>{isPushing ? 'Pushing...' : pushStatus === 'success' ? 'Pushed!' : pushStatus === 'error' ? 'Error' : 'Push'}</span>
                     </button>
+                  )}
+                  {/* Snapshot squash warning */}
+                  {pushErrorMessage && (
+                    <div className="git-snapshot-warning">
+                      <AlertTriangle size={12} />
+                      <span>{pushErrorMessage}</span>
+                    </div>
                   )}
                 </div>
               )}

@@ -12,7 +12,6 @@ import { DccAnalysisModal } from './DccAnalysisModal';
 import { useIndexEvent } from '../../core/utils/indexEventBus';
 import {
   isDeltaCodeCubeInstalled,
-  isDccServerRunningFor,
   getIndexStats,
   getTensions,
   getDebt,
@@ -179,11 +178,9 @@ export function IndexDashboardPanel({ projectPath }: IndexDashboardPanelProps) {
 
     isDeltaCodeCubeInstalled().then(isInstalled => {
       setInstalled(isInstalled);
-      if (isInstalled && !cached && isDccServerRunningFor(projectPath)) {
-        loadData();
-      }
+      // Data loaded on-demand via Load button, not automatically
     }).catch(() => {});
-  }, [projectPath, loadData]);
+  }, [projectPath]);
 
   // Auto-refresh on index events
   useIndexEvent('indexed', (data) => {

@@ -1,19 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, ArrowRight, RotateCw, X, Globe, Plus } from 'lucide-react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
-  createBrowserWebview,
   showBrowserWebview,
-  hideBrowserWebview,
-  hideAllBrowserWebviews,
   closeBrowserWebview,
   navigateTo,
   refresh,
-  updatePosition,
-  getTabState,
   onUrlChange,
-  switchTab,
 } from '../../services/browserService';
+import { useTauriBrowserView } from '../../hooks/useTauriBrowserView';
 
 interface BrowserTab {
   id: string;
@@ -35,7 +29,6 @@ interface BrowserPanelProps {
 const TOOLBAR_HEIGHT = 48;
 const TAB_BAR_HEIGHT = 32;
 const PANEL_HEIGHT = 432; // Increased to accommodate tab bar
-const IDLE_FADE_DURATION = 300;
 
 let tabIdCounter = 0;
 const generateTabId = () => `tab-${++tabIdCounter}`;
@@ -107,7 +100,6 @@ export function BrowserPanel({
   const [inputUrl, setInputUrl] = useState(initialUrl);
   const [isLoading, setIsLoading] = useState(false);
   const [webviewsHidden, setWebviewsHidden] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
   const previousActiveTabRef = useRef<string | null>(null);
 
   // Get active tab
@@ -144,42 +136,17 @@ export function BrowserPanel({
     }
   }, [activeTabId]);
 
-  // Hide all webviews when panel closes
+  // Track webviewsHidden state from the hook's enabled logic
   useEffect(() => {
-    if (!isOpen) {
-      hideAllBrowserWebviews();
-      setWebviewsHidden(true);
-    }
-  }, [isOpen]);
-
-  // Hide all webviews when idle or modal is open
-  useEffect(() => {
-    const shouldHide = isIdle || hideForModal;
-
-    if (shouldHide && isOpen) {
-      // Always hide when entering idle/modal state
-      console.log('[BrowserPanel] Hiding webviews - idle:', isIdle, 'modal:', hideForModal);
-      hideAllBrowserWebviews();
-      setWebviewsHidden(true);
-    } else if (!shouldHide && isOpen && webviewsHidden) {
-      // Only show when exiting idle/modal AND webviews were hidden
-      const timer = setTimeout(() => {
-        console.log('[BrowserPanel] Showing webview for active tab:', activeTabId);
-        if (activeTabId) {
-          showBrowserWebview(activeTabId);
-        }
-        setWebviewsHidden(false);
-      }, IDLE_FADE_DURATION);
-      return () => clearTimeout(timer);
-    }
-  }, [isIdle, hideForModal, isOpen, webviewsHidden, activeTabId]);
+    const shouldHide = !isOpen || isIdle || hideForModal;
+    setWebviewsHidden(shouldHide);
+  }, [isOpen, isIdle, hideForModal]);
 
   // Listen for dropdowns closing to restore webview visibility
   useEffect(() => {
     if (!isOpen) return;
 
     const handleDropdownsClosed = () => {
-      // Only restore if not idle and no modal
       if (!isIdle && !hideForModal && activeTabId) {
         console.log('[BrowserPanel] Dropdowns closed, restoring webview:', activeTabId);
         showBrowserWebview(activeTabId);
@@ -190,62 +157,20 @@ export function BrowserPanel({
     return () => window.removeEventListener('dropdowns-closed', handleDropdownsClosed);
   }, [isOpen, isIdle, hideForModal, activeTabId]);
 
-  const getPosition = useCallback(() => {
-    if (!containerRef.current) return null;
-    const rect = containerRef.current.getBoundingClientRect();
-    return {
-      x: rect.left,
-      y: rect.top + TOOLBAR_HEIGHT + TAB_BAR_HEIGHT,
-      width: rect.width,
-      height: PANEL_HEIGHT - TOOLBAR_HEIGHT - TAB_BAR_HEIGHT,
-    };
+  // TauriBrowserView hook — handles webview creation, positioning, and ResizeObserver
+  const handleWebviewCreated = useCallback((tabId: string) => {
+    setTabs(prev => prev.map(tab =>
+      tab.id === tabId ? { ...tab, webviewCreated: true } : tab
+    ));
+    setIsLoading(false);
   }, []);
 
-  // Initialize webview for active tab
-  useEffect(() => {
-    if (!isOpen || !activeTab) return;
-
-    let mounted = true;
-
-    const initWebview = async () => {
-      await new Promise(r => setTimeout(r, 100));
-      if (!mounted) return;
-
-      const position = getPosition();
-      if (!position) return;
-
-      const tabState = getTabState(activeTab.id);
-
-      if (activeTab.webviewCreated && tabState?.isOpen) {
-        // Webview exists, just show it and update position
-        if (!tabState.isVisible) {
-          await showBrowserWebview(activeTab.id);
-        }
-        await updatePosition(position, activeTab.id);
-      } else if (!activeTab.webviewCreated) {
-        // Create new webview for this tab
-        setIsLoading(true);
-        try {
-          await createBrowserWebview(activeTab.url, position, activeTab.id);
-          if (mounted) {
-            setTabs(prev => prev.map(tab =>
-              tab.id === activeTab.id ? { ...tab, webviewCreated: true } : tab
-            ));
-          }
-        } catch (err) {
-          console.error('[BrowserPanel] Error creating webview:', err);
-        } finally {
-          if (mounted) setIsLoading(false);
-        }
-      }
-    };
-
-    const timeoutId = setTimeout(initWebview, 50);
-    return () => {
-      mounted = false;
-      clearTimeout(timeoutId);
-    };
-  }, [isOpen, activeTab?.id, activeTab?.url, activeTab?.webviewCreated, getPosition]);
+  const { containerRef: webviewRef, isReady: _isReady } = useTauriBrowserView({
+    tabId: isOpen ? activeTabId : null,
+    url: activeTab?.url || 'https://google.com',
+    enabled: isOpen && !isIdle && !hideForModal,
+    onWebviewCreated: handleWebviewCreated,
+  });
 
   // Subscribe to URL changes
   useEffect(() => {
@@ -264,59 +189,15 @@ export function BrowserPanel({
     }
   }, [activeTabId, activeTab?.url]);
 
-  // Handle window resize/move - update position for active tab
-  useEffect(() => {
-    if (!isOpen || !activeTab?.webviewCreated) return;
-
-    let unlistenMove: (() => void) | null = null;
-    let unlistenResize: (() => void) | null = null;
-    let rafId: number;
-
-    const handlePositionUpdate = () => {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        const position = getPosition();
-        if (position && activeTabId) {
-          updatePosition(position, activeTabId);
-        }
-      });
-    };
-
-    window.addEventListener('resize', handlePositionUpdate);
-
-    const setupListeners = async () => {
-      try {
-        const mainWindow = getCurrentWindow();
-        unlistenMove = await mainWindow.onMoved(handlePositionUpdate);
-        unlistenResize = await mainWindow.onResized(handlePositionUpdate);
-      } catch (e) {
-        console.warn('[BrowserPanel] Could not setup listeners:', e);
-      }
-    };
-
-    setupListeners();
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      window.removeEventListener('resize', handlePositionUpdate);
-      unlistenMove?.();
-      unlistenResize?.();
-    };
-  }, [isOpen, activeTab?.webviewCreated, activeTabId, getPosition]);
-
   // Tab actions
   const handleNewTab = useCallback(async () => {
     const newTab = createNewTab();
     setTabs(prev => [...prev, newTab]);
-
-    // Hide current tab's webview
-    if (activeTabId) {
-      await hideBrowserWebview(activeTabId);
-    }
+    setIsLoading(true);
 
     previousActiveTabRef.current = activeTabId;
     setActiveTabId(newTab.id);
-    // The useEffect will handle creating the webview
+    // The hook will handle hiding the old tab and creating the new webview
   }, [activeTabId]);
 
   const handleCloseTab = useCallback(async (tabId: string, e: React.MouseEvent) => {
@@ -353,24 +234,17 @@ export function BrowserPanel({
 
     setIsLoading(true);
 
-    // Switch webviews (hide old, show new)
-    await switchTab(activeTabId, tabId);
-
     previousActiveTabRef.current = activeTabId;
     setActiveTabId(tabId);
     setInputUrl(tab.url);
 
-    // If the new tab's webview doesn't exist yet, it will be created by useEffect
+    // The hook will handle hiding the old webview and showing/creating the new one
+    // via the tabId change
     if (tab.webviewCreated) {
-      // Update position for the newly visible webview
-      const position = getPosition();
-      if (position) {
-        await updatePosition(position, tabId);
-      }
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
-  }, [activeTabId, tabs, getPosition]);
+    // If not created, onWebviewCreated callback will clear loading
+  }, [activeTabId, tabs]);
 
   // Navigation actions
   const handleNavigate = async (e: React.FormEvent) => {
@@ -429,9 +303,8 @@ export function BrowserPanel({
 
   return (
     <div
-      ref={containerRef}
       className="browser-panel"
-      style={{ height: PANEL_HEIGHT }}
+      style={{ height: PANEL_HEIGHT, maxHeight: PANEL_HEIGHT, flexShrink: 0 }}
     >
       {/* Tab Bar */}
       <div className="browser-tab-bar" style={{ height: TAB_BAR_HEIGHT }}>
@@ -516,8 +389,9 @@ export function BrowserPanel({
         </button>
       </div>
 
-      {/* Webview Container */}
+      {/* Webview Container — ref is here so TauriBrowserView positions to this exact area */}
       <div
+        ref={webviewRef}
         className="browser-webview-container"
         style={{ height: PANEL_HEIGHT - TOOLBAR_HEIGHT - TAB_BAR_HEIGHT }}
       >

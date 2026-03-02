@@ -34,3 +34,5 @@ src-tauri/target/
 .claude/memory.db
 .claude/knowledge_graph.db
 .claude/tasks/
+# agentful runtime state
+.agentful/

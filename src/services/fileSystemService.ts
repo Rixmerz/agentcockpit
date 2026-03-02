@@ -51,11 +51,11 @@ export async function getCurrentDirectory(): Promise<string> {
 }
 
 // Resolve path (handle ~, .., etc)
-export function resolvePath(currentPath: string, newPath: string): string {
+// Pass `home` parameter for proper tilde expansion. If omitted, ~ won't be expanded.
+export function resolvePath(currentPath: string, newPath: string, home?: string): string {
   // Handle home directory
-  if (newPath.startsWith('~')) {
-    const home = '/Users/' + (typeof window !== 'undefined' ? 'juanpablodiaz' : 'user');
-    newPath = newPath.replace('~', home);
+  if (newPath.startsWith('~') && home) {
+    newPath = home + newPath.slice(1);
   }
 
   // Handle absolute path
