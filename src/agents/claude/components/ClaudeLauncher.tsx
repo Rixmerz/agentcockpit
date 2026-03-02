@@ -9,7 +9,6 @@ import { useState, useCallback } from 'react';
 import { Rocket, ChevronRight, ChevronDown } from 'lucide-react';
 import type { LauncherProps } from '../../../plugins/types/plugin';
 import {
-  executeAction,
   escapeJsonForShell,
   joinCommandsSequential,
   wrapCommandSafe,
@@ -39,20 +38,11 @@ export function ClaudeLauncher({
   // Send /model command to switch model in running Claude instance
   const handleModelSwitch = useCallback(async (model: string) => {
     setActiveModel(model);
-    await executeAction(onWriteToTerminal, `/model ${model}`);
+    await onWriteToTerminal(`/model ${model}\n`);
   }, [onWriteToTerminal]);
 
   const handleLaunch = useCallback(async () => {
-    // Ensure session exists BEFORE building command
     const currentSession = await ensureSession();
-    if (!currentSession) {
-      console.error('[ClaudeLauncher] No session available - aborting launch');
-      return;
-    }
-
-    // Simple logic: if session was already selected (from list) → --resume
-    // If session was just created by ensureSession() → --session-id
-    const sessionWasPreSelected = session !== null && session.id === currentSession.id;
 
     const baseArgs = customArgs ? customArgs.split(' ').filter(Boolean) : [];
     const filteredArgs = baseArgs.filter(arg => arg !== '--dangerously-skip-permissions');
@@ -60,12 +50,10 @@ export function ClaudeLauncher({
       ? [...filteredArgs, '--dangerously-skip-permissions']
       : filteredArgs;
 
-    // Build command: --resume if pre-selected, --session-id if newly created
+    // Build command: --resume if existing session, plain 'claude' for new
     const args: string[] = ['claude'];
-    if (sessionWasPreSelected) {
+    if (currentSession) {
       args.push('--resume', currentSession.id);
-    } else {
-      args.push('--session-id', currentSession.id);
     }
     if (allArgs.length > 0) {
       args.push(...allArgs);
@@ -96,7 +84,7 @@ export function ClaudeLauncher({
 
     const fullCommand = joinCommandsSequential(allCommands);
     onLaunch(fullCommand);
-  }, [session, mcpsToInject, mcpsToRemove, ensureSession, customArgs, skipPermissions, onLaunch]);
+  }, [mcpsToInject, mcpsToRemove, ensureSession, customArgs, skipPermissions, onLaunch]);
 
   // Build preview command (synchronous version for display)
   const previewBaseArgs = customArgs ? customArgs.split(' ').filter(Boolean) : [];
@@ -105,9 +93,9 @@ export function ClaudeLauncher({
     ? [...previewFiltered, '--dangerously-skip-permissions']
     : previewFiltered;
 
-  // Simple preview: shows that command will use session detection
-  const sessionDisplay = session?.id ? `${session.id.slice(0, 8)}...` : '<auto-session>';
-  const claudeCmd = `claude [--resume|--session-id] ${sessionDisplay}${previewAllArgs.length > 0 ? ' ' + previewAllArgs.join(' ') : ''}`;
+  // Preview: --resume if session selected, plain 'claude' otherwise
+  const sessionDisplay = session?.id ? `--resume ${session.id.slice(0, 8)}...` : '';
+  const claudeCmd = `claude${sessionDisplay ? ' ' + sessionDisplay : ''}${previewAllArgs.length > 0 ? ' ' + previewAllArgs.join(' ') : ''}`;
 
   const previewParts: string[] = [];
   if (mcpsToRemove.length > 0) previewParts.push(`[-${mcpsToRemove.length}]`);

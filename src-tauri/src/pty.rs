@@ -240,6 +240,11 @@ impl PtyManager {
             }
         }
 
+        // Clear parent session markers so CLI tools (e.g. Claude Code) don't
+        // refuse to start thinking they're already inside a nested session.
+        cmd_builder.env("CLAUDECODE", "");
+        cmd_builder.env("CLAUDE_CODE_ENTRYPOINT", "");
+
         // Note: Process group setup (setsid) is handled automatically by portable_pty
         // when spawning the command. The slave PTY makes the child process a session
         // leader as part of standard PTY operation. This ensures kill(-pid) works
@@ -381,69 +386,47 @@ impl Drop for PtyManager {
     }
 }
 
-// Tauri commands — all async to avoid blocking main thread
-// On macOS, sync commands block IPC/main thread, preventing app.emit()
-// from delivering PTY output events via WebKit.
+// Tauri commands
 
 #[tauri::command]
-pub async fn pty_spawn(
+pub fn pty_spawn(
     cmd: String,
     cwd: String,
     cols: u16,
     rows: u16,
-    manager: State<'_, Arc<Mutex<PtyManager>>>,
+    manager: State<Arc<Mutex<PtyManager>>>,
     app: AppHandle,
 ) -> Result<u32, String> {
-    let manager = manager.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut mgr = manager.lock();
-        mgr.spawn(&cmd, &cwd, cols, rows, app)
-    })
-    .await
-    .map_err(|e| format!("pty_spawn task: {}", e))?
+    let mut manager = manager.lock();
+    manager.spawn(&cmd, &cwd, cols, rows, app)
 }
 
 #[tauri::command]
-pub async fn pty_write(
+pub fn pty_write(
     id: u32,
     data: String,
-    manager: State<'_, Arc<Mutex<PtyManager>>>,
+    manager: State<Arc<Mutex<PtyManager>>>,
 ) -> Result<(), String> {
-    let manager = manager.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut mgr = manager.lock();
-        mgr.write(id, &data)
-    })
-    .await
-    .map_err(|e| format!("pty_write task: {}", e))?
+    let mut manager = manager.lock();
+    manager.write(id, &data)
 }
 
 #[tauri::command]
-pub async fn pty_resize(
+pub fn pty_resize(
     id: u32,
     cols: u16,
     rows: u16,
-    manager: State<'_, Arc<Mutex<PtyManager>>>,
+    manager: State<Arc<Mutex<PtyManager>>>,
 ) -> Result<(), String> {
-    let manager = manager.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut mgr = manager.lock();
-        mgr.resize(id, cols, rows)
-    })
-    .await
-    .map_err(|e| format!("pty_resize task: {}", e))?
+    let mut manager = manager.lock();
+    manager.resize(id, cols, rows)
 }
 
 #[tauri::command]
-pub async fn pty_close(
+pub fn pty_close(
     id: u32,
-    manager: State<'_, Arc<Mutex<PtyManager>>>,
+    manager: State<Arc<Mutex<PtyManager>>>,
 ) -> Result<(), String> {
-    let manager = manager.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut mgr = manager.lock();
-        mgr.close(id)
-    })
-    .await
-    .map_err(|e| format!("pty_close task: {}", e))?
+    let mut manager = manager.lock();
+    manager.close(id)
 }

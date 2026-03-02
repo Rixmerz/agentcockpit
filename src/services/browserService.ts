@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { platform } from '@tauri-apps/plugin-os';
 
 interface TabState {
   isOpen: boolean;
@@ -74,9 +75,25 @@ async function setupUrlListener(): Promise<void> {
 }
 
 /**
- * Converts viewport-relative coordinates to screen coordinates
+ * Converts viewport-relative coordinates to the coordinate system expected
+ * by Tauri's child webview positioning.
+ *
+ * macOS (with macOSPrivateApi): child webviews use screen-absolute coordinates.
+ * Linux (GTK/WebKitGTK): child webviews use coordinates relative to the
+ *   window content area. On Wayland, outerPosition() returns (0,0) since
+ *   absolute window positions aren't exposed to clients.
  */
 async function toScreenCoordinates(position: BrowserPosition): Promise<BrowserPosition> {
+  const currentPlatform = platform();
+
+  if (currentPlatform === 'linux') {
+    // On Linux, child webview position is relative to the window content area.
+    // The position from the DOM is already in viewport coordinates, which maps
+    // directly to the content area. No screen coordinate conversion needed.
+    return position;
+  }
+
+  // macOS: with macOSPrivateApi, child webviews use screen-absolute coordinates
   try {
     const mainWindow = getCurrentWindow();
     const outerPos = await mainWindow.outerPosition();

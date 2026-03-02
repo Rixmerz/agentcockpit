@@ -5,6 +5,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Github, ExternalLink, Copy, Check, Loader2, X, AlertCircle } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
 import {
@@ -148,7 +149,7 @@ export function GitHubLoginModal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal-container github-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
@@ -262,6 +263,7 @@ export function GitHubLoginModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

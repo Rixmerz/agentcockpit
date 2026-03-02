@@ -1,17 +1,14 @@
 mod pty;
-mod browser;
 #[cfg(debug_assertions)]
 mod debug_server;
 
 use pty::PtyManager;
-use browser::BrowserState;
 use std::sync::Arc;
 use std::process::{Command, Stdio};
 use std::io::{BufRead, BufReader, Write};
 use std::thread;
 use parking_lot::Mutex;
 use tauri::RunEvent;
-#[cfg(debug_assertions)]
 use tauri::Manager;
 
 // =====================================================
@@ -317,49 +314,48 @@ fn build_extended_path() -> String {
 /// set HOME, USER, SHELL, PATH (with NVM/Homebrew) for all commands.
 /// This fixes git, mcp, and other CLI tools not working in bundled app.
 #[tauri::command]
-async fn execute_command(cmd: String, cwd: String) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut command = Command::new("sh");
-        command.arg("-c").arg(&cmd).current_dir(&cwd);
+fn execute_command(cmd: String, cwd: String) -> Result<String, String> {
+    let mut command = Command::new("sh");
+    command.arg("-c").arg(&cmd).current_dir(&cwd);
 
-        // Copy essential environment variables (learned from opcode project)
-        if let Ok(home) = std::env::var("HOME") {
-            command.env("HOME", &home);
-        }
-        if let Ok(user) = std::env::var("USER") {
-            command.env("USER", &user);
-        }
-        if let Ok(shell) = std::env::var("SHELL") {
-            command.env("SHELL", &shell);
-        }
+    // Copy essential environment variables (learned from opcode project)
+    if let Ok(home) = std::env::var("HOME") {
+        command.env("HOME", &home);
+    }
+    if let Ok(user) = std::env::var("USER") {
+        command.env("USER", &user);
+    }
+    if let Ok(shell) = std::env::var("SHELL") {
+        command.env("SHELL", &shell);
+    }
 
-        // Set extended PATH with NVM, Homebrew, etc.
-        command.env("PATH", build_extended_path());
+    // Set extended PATH with NVM, Homebrew, etc.
+    command.env("PATH", build_extended_path());
 
-        // Copy additional useful environment variables
-        for var in &["LANG", "LC_ALL", "EDITOR", "VISUAL", "XDG_CONFIG_HOME", "TERM"] {
-            if let Ok(value) = std::env::var(var) {
-                command.env(var, &value);
-            }
+    // Copy additional useful environment variables
+    for var in &["LANG", "LC_ALL", "EDITOR", "VISUAL", "XDG_CONFIG_HOME", "TERM"] {
+        if let Ok(value) = std::env::var(var) {
+            command.env(var, &value);
         }
+    }
 
-        let output = command.output().map_err(|e| e.to_string())?;
+    // Clear parent session markers so nested CLI tools work correctly
+    command.env_remove("CLAUDECODE");
+    command.env_remove("CLAUDE_CODE_ENTRYPOINT");
 
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    })
-    .await
-    .map_err(|e| format!("execute_command task: {}", e))?
+    let output = command.output().map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let pty_manager = Arc::new(Mutex::new(PtyManager::new()));
     let pty_manager_for_shutdown = pty_manager.clone();
-    let browser_state = Arc::new(Mutex::new(BrowserState::new()));
     let dcc_state = Arc::new(Mutex::new(DccState::new()));
 
     tauri::Builder::default()
@@ -368,7 +364,6 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_os::init())
         .manage(pty_manager)
-        .manage(browser_state)
         .manage(dcc_state)
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -377,6 +372,28 @@ pub fn run() {
                         .level(log::LevelFilter::Info)
                         .build(),
                 )?;
+            }
+
+            // Set window icon (Linux: not auto-set from bundle config)
+            #[cfg(target_os = "linux")]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    let png_bytes = include_bytes!("../icons/icon.png");
+                    let decoder = png::Decoder::new(std::io::Cursor::new(png_bytes.as_ref()));
+                    if let Ok(reader) = decoder.read_info() {
+                        let mut reader = reader;
+                        let mut buf = vec![0u8; reader.output_buffer_size()];
+                        if let Ok(info) = reader.next_frame(&mut buf) {
+                            buf.truncate(info.buffer_size());
+                            let icon = tauri::image::Image::new_owned(
+                                buf,
+                                info.width,
+                                info.height,
+                            );
+                            let _ = window.set_icon(icon);
+                        }
+                    }
+                }
             }
 
             // Start debug HTTP server (DEV only)
@@ -401,19 +418,6 @@ pub fn run() {
                     pty::pty_write,
                     pty::pty_resize,
                     pty::pty_close,
-                    browser::browser_create,
-                    browser::browser_close,
-                    browser::browser_close_all,
-                    browser::browser_navigate,
-                    browser::browser_set_position,
-                    browser::browser_show,
-                    browser::browser_hide,
-                    browser::browser_hide_all,
-                    browser::browser_exists,
-                    browser::browser_get_tabs,
-                    browser::browser_url_report,
-                    browser::media_state_report,
-                    browser::media_send_command,
                     debug_server::debug_callback,
                 ]
             }
@@ -428,19 +432,6 @@ pub fn run() {
                     pty::pty_write,
                     pty::pty_resize,
                     pty::pty_close,
-                    browser::browser_create,
-                    browser::browser_close,
-                    browser::browser_close_all,
-                    browser::browser_navigate,
-                    browser::browser_set_position,
-                    browser::browser_show,
-                    browser::browser_hide,
-                    browser::browser_hide_all,
-                    browser::browser_exists,
-                    browser::browser_get_tabs,
-                    browser::browser_url_report,
-                    browser::media_state_report,
-                    browser::media_send_command,
                 ]
             }
         })

@@ -8,6 +8,7 @@ import { usePty } from '../../hooks/usePty';
 import { useTerminalActivity } from '../../hooks/useTerminalActivity';
 import { useApp, useAppSettings, useTerminalActivityState } from '../../contexts/AppContext';
 import { playNotificationSound } from '../../services/soundService';
+import { sessionEvents } from '../../core/utils/eventBus';
 import '@xterm/xterm/css/xterm.css';
 
 interface TerminalViewProps {
@@ -78,6 +79,9 @@ export const TerminalView = memo(function TerminalView({ terminalId, workingDir,
     };
   }, []);
 
+  // Buffer for detecting resume UUID in PTY output
+  const resumeBufferRef = useRef<string>('');
+
   // PTY hook - direct writes
   const { spawn, write, resize } = usePty({
     onData: (data: string) => {
@@ -88,6 +92,20 @@ export const TerminalView = memo(function TerminalView({ terminalId, workingDir,
       signalOutput();
       // Debounced sync to global state (at most once per 500ms)
       syncActivityToGlobal(false);
+
+      // Detect resume UUID in output
+      const stripped = data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+      resumeBufferRef.current += stripped;
+      if (resumeBufferRef.current.length > 300) {
+        resumeBufferRef.current = resumeBufferRef.current.slice(-300);
+      }
+      const match = resumeBufferRef.current.match(
+        /claude\s+--resume\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/
+      );
+      if (match) {
+        sessionEvents.emit('resume-detected', { uuid: match[1], terminalId });
+        resumeBufferRef.current = '';
+      }
     },
     onClose: () => {
       terminalRef.current?.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
@@ -109,7 +127,7 @@ export const TerminalView = memo(function TerminalView({ terminalId, workingDir,
     const terminal = new Terminal({
       cursorBlink: true,
       fontSize: 14,
-      fontFamily: "'CaskaydiaMono Nerd Font', 'CaskaydiaMono NF', 'JetBrains Mono', 'Menlo', monospace",
+      fontFamily: "'JetBrainsMono Nerd Font', 'JetBrainsMono NF', 'CaskaydiaMono Nerd Font', 'Menlo', monospace",
       allowTransparency: true,
       scrollback: 10000,
       theme: {

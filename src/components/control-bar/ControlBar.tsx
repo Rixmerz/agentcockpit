@@ -25,7 +25,6 @@ import {
   Database,
 } from 'lucide-react';
 import { DropdownPanel, DropdownItem, DropdownSection } from './DropdownPanel';
-import { AudioVisualizer } from './AudioVisualizer';
 import { Modal } from '../common/Modal';
 import { GitSettings } from '../sidebar-right/GitSettings';
 
@@ -51,7 +50,6 @@ import { useSnapshotEvent, snapshotEvents } from '../../core/utils/eventBus';
 import { useIndexEvent } from '../../core/utils/indexEventBus';
 import {
   isDeltaCodeCubeInstalled,
-  isDccServerRunningFor,
   getIndexStats,
   reindexProject,
   type IndexStats,
@@ -152,7 +150,7 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
   const [indexError, setIndexError] = useState<string | null>(null);
   const indexCacheRef = useRef<Map<string, IndexStats>>(new Map());
 
-  // Check DCC install + restore cached stats or auto-load if server running
+  // Check DCC install only (lazy — stats loaded on-demand via dropdown)
   useEffect(() => {
     if (!projectPath) {
       setDccInstalled(false);
@@ -160,24 +158,11 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
       setIndexError(null);
       return;
     }
-
-    // Restore from cache immediately (no async wait)
-    const cached = indexCacheRef.current.get(projectPath);
-    setIndexStats(cached || null);
     setIndexError(null);
-
-    isDeltaCodeCubeInstalled().then(installed => {
-      setDccInstalled(installed);
-      if (installed && !cached && isDccServerRunningFor(projectPath)) {
-        // Server already running, safe to load stats without spawning subprocess
-        getIndexStats(projectPath).then(stats => {
-          if (stats) {
-            setIndexStats(stats);
-            indexCacheRef.current.set(projectPath, stats);
-          }
-        }).catch(() => {});
-      }
-    }).catch(() => setDccInstalled(false));
+    const delay = setTimeout(() => {
+      isDeltaCodeCubeInstalled().then(setDccInstalled).catch(() => setDccInstalled(false));
+    }, 3000);
+    return () => clearTimeout(delay);
   }, [projectPath]);
 
   // Listen for index events — update stats when indexing completes
@@ -191,6 +176,24 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
       }).catch(() => {});
     }
   }, [projectPath, dccInstalled]);
+
+  // Load index info on-demand (when dropdown opens)
+  const loadIndexInfo = useCallback(async () => {
+    if (!projectPath) return;
+    try {
+      const installed = await isDeltaCodeCubeInstalled();
+      setDccInstalled(installed);
+      if (installed) {
+        const stats = await getIndexStats(projectPath);
+        if (stats) {
+          setIndexStats(stats);
+          indexCacheRef.current.set(projectPath, stats);
+        }
+      }
+    } catch (err) {
+      console.warn('[ControlBar] Failed to load index info:', err);
+    }
+  }, [projectPath]);
 
   // Handle reindex (explicit user action — starts DCC server if needed)
   const handleReindex = useCallback(async () => {
@@ -828,6 +831,7 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
             triggerIcon={<Database size={12} />}
             label={`Codebase Index${projectPath ? ` — ${projectPath.split('/').pop()}` : ''}`}
             statusDot={indexError ? 'error' : indexStats ? 'active' : 'none'}
+            onOpen={loadIndexInfo}
           >
             {indexStats ? (
               <>
@@ -888,10 +892,6 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
           </DropdownPanel>
         )}
 
-        <div className="control-bar__divider" />
-
-        {/* Audio Visualizer - BF3 Style (at the right end) */}
-        <AudioVisualizer barCount={32} />
       </div>
 
       {/* MCP Manager Modal */}

@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useApp, useAppSettings } from '../contexts/AppContext';
 import { hasLocalGitRepo, initRepository } from '../services/gitService';
 import { gitWatcherService } from '../services/gitWatcherService';
+
 import { useIdleMode } from '../hooks/useIdleMode';
 import { useBackgroundImage } from '../hooks/useBackgroundImage';
 import { useIDEDetection } from '../hooks/useIDEDetection';
@@ -44,7 +45,6 @@ export function AppShell() {
     }
     return () => gitWatcherService.stop();
   }, [activeProject?.path]);
-
 
   // Idle mode
   const { isIdle, signalActivity } = useIdleMode({

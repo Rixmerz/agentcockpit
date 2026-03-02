@@ -12,8 +12,8 @@
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0a0a0f 0%, #0f1419 50%, #0d1117 100%);
-            color: #e6edf3;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e4e4e7;
             min-height: 100vh;
             padding: 2rem;
         }
@@ -49,36 +49,22 @@
             width: 18px;
             height: 18px;
             border-radius: 50%;
-            border: 3px solid #0a0a0f;
-            box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+            border: 3px solid #1a1a2e;
         }
-        .event.delta::before {
-            background: linear-gradient(135deg, #0891b2 0%, #22d3ee 100%);
-            box-shadow: 0 0 12px rgba(8, 145, 178, 0.6);
-        }
-        .event.tension::before {
-            background: linear-gradient(135deg, #dc2626 0%, #f87171 100%);
-            box-shadow: 0 0 12px rgba(220, 38, 38, 0.6);
-        }
-        .event.tension_resolved::before {
-            background: linear-gradient(135deg, #059669 0%, #34d399 100%);
-            box-shadow: 0 0 12px rgba(5, 150, 105, 0.6);
-        }
-        .event.commit::before {
-            background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%);
-            box-shadow: 0 0 12px rgba(124, 58, 237, 0.6);
-        }
+        .event.delta::before { background: #3b82f6; }
+        .event.tension::before { background: #ef4444; }
+        .event.tension_resolved::before { background: #22c55e; }
+        .event.commit::before { background: #a78bfa; }
         .event-card {
-            background: linear-gradient(135deg, rgba(22, 27, 34, 0.95) 0%, rgba(13, 17, 23, 0.95) 100%);
+            background: rgba(30, 30, 46, 0.8);
             border-radius: 12px;
             padding: 1rem 1.25rem;
-            border: 1px solid rgba(48, 54, 61, 0.8);
-            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            border: 1px solid rgba(167, 139, 250, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
         .event-card:hover {
             transform: translateX(5px);
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-            border-color: rgba(139, 92, 246, 0.5);
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
         }
         .event-header {
             display: flex;
@@ -106,26 +92,10 @@
             font-size: 0.75rem;
             font-weight: 500;
         }
-        .type-delta {
-            background: linear-gradient(135deg, rgba(8, 145, 178, 0.25) 0%, rgba(34, 211, 238, 0.15) 100%);
-            color: #22d3ee;
-            border: 1px solid rgba(34, 211, 238, 0.3);
-        }
-        .type-tension {
-            background: linear-gradient(135deg, rgba(220, 38, 38, 0.25) 0%, rgba(248, 113, 113, 0.15) 100%);
-            color: #f87171;
-            border: 1px solid rgba(248, 113, 113, 0.3);
-        }
-        .type-tension_resolved {
-            background: linear-gradient(135deg, rgba(5, 150, 105, 0.25) 0%, rgba(52, 211, 153, 0.15) 100%);
-            color: #34d399;
-            border: 1px solid rgba(52, 211, 153, 0.3);
-        }
-        .type-commit {
-            background: linear-gradient(135deg, rgba(124, 58, 237, 0.25) 0%, rgba(167, 139, 250, 0.15) 100%);
-            color: #a78bfa;
-            border: 1px solid rgba(167, 139, 250, 0.3);
-        }
+        .type-delta { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .type-tension { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .type-tension_resolved { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+        .type-commit { background: rgba(167, 139, 250, 0.2); color: #c4b5fd; }
         .severity {
             margin-left: 0.5rem;
             padding: 0.2rem 0.5rem;
@@ -145,21 +115,16 @@
         }
         .filter-btn {
             padding: 0.5rem 1rem;
-            border: 1px solid rgba(139, 92, 246, 0.4);
-            background: linear-gradient(135deg, rgba(22, 27, 34, 0.8) 0%, rgba(13, 17, 23, 0.8) 100%);
-            color: #c4b5fd;
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            background: transparent;
+            color: #a78bfa;
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s;
         }
-        .filter-btn:hover {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(124, 58, 237, 0.15) 100%);
+        .filter-btn:hover, .filter-btn.active {
+            background: rgba(167, 139, 250, 0.2);
             border-color: #a78bfa;
-        }
-        .filter-btn.active {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(124, 58, 237, 0.2) 100%);
-            border-color: #a78bfa;
-            box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
         }
         .stats {
             display: flex;
@@ -171,9 +136,8 @@
         .stat {
             text-align: center;
             padding: 1rem;
-            background: linear-gradient(135deg, rgba(22, 27, 34, 0.9) 0%, rgba(13, 17, 23, 0.9) 100%);
-            border: 1px solid rgba(48, 54, 61, 0.6);
-            border-radius: 10px;
+            background: rgba(30, 30, 46, 0.6);
+            border-radius: 8px;
             min-width: 100px;
         }
         .stat-value {

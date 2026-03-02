@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   getSessions,
-  createSession,
   deleteSession,
   type ProjectSession,
 } from '../../../services/projectSessionService';
@@ -10,14 +9,12 @@ interface SessionManagerProps {
   projectPath: string | null;
   selectedSession: ProjectSession | null;
   onSessionSelect: (session: ProjectSession | null) => void;
-  onSessionCreated: (session: ProjectSession) => void;
 }
 
 export function SessionManager({
   projectPath,
   selectedSession,
   onSessionSelect,
-  onSessionCreated,
 }: SessionManagerProps) {
   const [sessions, setSessions] = useState<ProjectSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,29 +42,15 @@ export function SessionManager({
     loadSessions();
   }, [loadSessions]);
 
-  // Detectar sesiones creadas externamente (auto-created por ensureSession)
+  // Detect sessions created externally (from resume UUID detection)
   useEffect(() => {
     if (selectedSession && projectPath) {
       const sessionExists = sessions.some(s => s.id === selectedSession.id);
       if (!sessionExists) {
-        console.log('[SessionManager] Auto-created session detected, adding to list:', selectedSession.id);
         setSessions(prev => [selectedSession, ...prev]);
       }
     }
   }, [selectedSession, projectPath, sessions]);
-
-  const handleCreateSession = async () => {
-    if (!projectPath) return;
-
-    try {
-      const session = await createSession(projectPath);
-      setSessions(prev => [session, ...prev]);
-      onSessionSelect(session);
-      onSessionCreated(session);
-    } catch (e) {
-      console.error('Failed to create session:', e);
-    }
-  };
 
   const handleDeleteSession = async (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
@@ -118,16 +101,6 @@ export function SessionManager({
         <span className="session-title">
           Sessions ({sessions.length})
         </span>
-        <button
-          className="session-new-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleCreateSession();
-          }}
-          title="New session"
-        >
-          +
-        </button>
         <span className="session-expand-icon">{expanded ? '▼' : '▶'}</span>
       </div>
 
@@ -138,9 +111,7 @@ export function SessionManager({
           ) : sessions.length === 0 ? (
             <div className="session-empty">
               No previous sessions
-              <button className="session-create-btn" onClick={handleCreateSession}>
-                Create first session
-              </button>
+              <span className="text-xs opacity-60">Start Claude to create one</span>
             </div>
           ) : (
             sessions.map(session => (

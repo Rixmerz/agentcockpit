@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { exists, readDir, mkdir } from '@tauri-apps/plugin-fs';
 import { openFolderDialog } from '../../services/fileSystemService';
+import { getHomeDir, shortenPath, expandTilde } from '../../services/homeDir';
 import { FolderOpen } from 'lucide-react';
 import { withTimeout } from '../../core/utils/promiseTimeout';
 
@@ -13,7 +14,6 @@ interface OutputLine {
   content: string;
 }
 
-const HOME = '/Users/juanpablodiaz';
 const FS_TIMEOUT_MS = 3000;
 
 // Check if path exists using Tauri FS plugin (avoids TCC cascade)
@@ -39,7 +39,8 @@ async function listDirectory(path: string): Promise<{ name: string; isDir: boole
 }
 
 export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
-  const [currentPath, setCurrentPath] = useState(HOME);
+  const [home, setHome] = useState<string>('/');
+  const [currentPath, setCurrentPath] = useState('/');
   const [input, setInput] = useState('');
   const [output, setOutput] = useState<OutputLine[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -47,6 +48,14 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const outputRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Load home directory on mount
+  useEffect(() => {
+    getHomeDir().then(h => {
+      setHome(h);
+      setCurrentPath(h);
+    });
+  }, []);
 
   // Auto-scroll output
   useEffect(() => {
@@ -62,7 +71,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
   // Resolve path helper
   const resolvePath = useCallback((basePath: string, newPath: string): string => {
     if (newPath.startsWith('~')) {
-      newPath = newPath.replace('~', HOME);
+      newPath = expandTilde(newPath, home);
     }
     if (newPath.startsWith('/')) {
       return newPath;
@@ -77,7 +86,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
       }
     }
     return '/' + parts.join('/');
-  }, []);
+  }, [home]);
 
   // Execute command
   const executeCommand = useCallback(async (cmd: string) => {
@@ -103,7 +112,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
           const exists = await checkPathExists(resolvedPath);
           if (exists) {
             setCurrentPath(resolvedPath);
-            addOutput('output', resolvedPath.replace(HOME, '~'));
+            addOutput('output', shortenPath(resolvedPath, home));
           } else {
             addOutput('error', `cd: does not exist: ${targetPath}`);
           }
@@ -168,7 +177,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
     } finally {
       setIsExecuting(false);
     }
-  }, [currentPath, addOutput, resolvePath]);
+  }, [currentPath, home, addOutput, resolvePath]);
 
   // Tab completion using Tauri FS (avoids TCC cascade)
   const handleTabCompletion = useCallback(async () => {
@@ -277,9 +286,9 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
     const path = await openFolderDialog();
     if (path) {
       setCurrentPath(path);
-      addOutput('output', `Navigated to: ${path.replace(HOME, '~')}`);
+      addOutput('output', `Navigated to: ${shortenPath(path, home)}`);
     }
-  }, [addOutput]);
+  }, [home, addOutput]);
 
   // Create project
   const handleCreateProject = useCallback(() => {
@@ -288,7 +297,7 @@ export function PathNavigator({ onCreateProject }: PathNavigatorProps) {
     addOutput('output', `Project created: ${folderName}`);
   }, [currentPath, onCreateProject, addOutput]);
 
-  const displayPath = currentPath.replace(HOME, '~');
+  const displayPath = shortenPath(currentPath, home);
 
   return (
     <div className="path-navigator">

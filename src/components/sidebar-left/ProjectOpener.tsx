@@ -10,6 +10,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { FolderOpen, Github, Search, Lock, Globe, Loader2, Download, AlertCircle, Check } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { PathNavigator } from './PathNavigator';
+import { getHomeDir } from '../../services/homeDir';
 import {
   listRepositories,
   searchRepositories,
@@ -33,10 +34,9 @@ type CloneState =
   | { status: 'success'; repo: GitHubRepo; path: string }
   | { status: 'error'; message: string };
 
-const HOME = '/Users/juanpablodiaz';
-
 export function ProjectOpener({ onCreateProject, onNeedLogin }: ProjectOpenerProps) {
   const [activeTab, setActiveTab] = useState<Tab>('local');
+  const [home, setHome] = useState<string>('');
 
   // GitHub state
   const [user, setUser] = useState<GitHubUser | null>(null);
@@ -45,8 +45,16 @@ export function ProjectOpener({ onCreateProject, onNeedLogin }: ProjectOpenerPro
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
-  const [clonePath, setClonePath] = useState(HOME);
+  const [clonePath, setClonePath] = useState('');
   const [cloneState, setCloneState] = useState<CloneState>({ status: 'idle' });
+
+  // Load home directory on mount
+  useEffect(() => {
+    getHomeDir().then(h => {
+      setHome(h);
+      setClonePath(h);
+    });
+  }, []);
 
   // Load GitHub data when tab switches
   useEffect(() => {
@@ -57,10 +65,10 @@ export function ProjectOpener({ onCreateProject, onNeedLogin }: ProjectOpenerPro
 
   // Update clone path when repo selected
   useEffect(() => {
-    if (selectedRepo) {
-      setClonePath(`${HOME}/${selectedRepo.name}`);
+    if (selectedRepo && home) {
+      setClonePath(`${home}/${selectedRepo.name}`);
     }
-  }, [selectedRepo]);
+  }, [selectedRepo, home]);
 
   const loadUserAndRepos = async () => {
     const currentUser = await getCurrentUser();

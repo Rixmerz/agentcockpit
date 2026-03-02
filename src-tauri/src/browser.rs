@@ -324,6 +324,13 @@ pub async fn browser_create(
         )
         .map_err(|e| format!("Failed to create webview: {}", e))?;
 
+    // Reinforce position/size after add_child — GTK may not properly apply
+    // the initial LogicalSize passed to add_child.
+    _webview.set_position(LogicalPosition::new(position.x, position.y))
+        .map_err(|e| format!("Failed to set initial position: {}", e))?;
+    _webview.set_size(LogicalSize::new(position.width, position.height))
+        .map_err(|e| format!("Failed to set initial size: {}", e))?;
+
     log::info!("[Browser] Created webview for tab {} at ({}, {}) size {}x{}",
         tab_id, position.x, position.y, position.width, position.height);
 
@@ -403,6 +410,12 @@ pub async fn browser_set_position(
     position: BrowserPosition,
     tab_id: String,
 ) -> Result<(), String> {
+    // Reject invalid dimensions to prevent GTK errors
+    if position.width <= 0.0 || position.height <= 0.0 {
+        log::warn!("[Browser] Rejected invalid dimensions: {}x{}", position.width, position.height);
+        return Ok(());
+    }
+
     let browser_state = state.lock();
 
     if let Some(label) = browser_state.webviews.get(&tab_id) {

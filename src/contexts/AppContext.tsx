@@ -12,7 +12,6 @@ import type { AppContextType, TerminalWriter } from './types';
 import { usePersistence } from '../hooks/usePersistence';
 import { debugStateRegistry } from '../core/debugStateRegistry';
 import { ptyClose } from '../services/tauriService';
-import { cleanStaleSessionsOnStartup } from '../services/projectSessionService';
 import { hasLocalGitRepo, initRepository } from '../services/gitService';
 // Domain reducers
 import { projectReducer } from './ProjectContext';
@@ -131,16 +130,6 @@ export function AppProvider({ children }: AppProviderProps) {
       customSoundPath: stateRef.current.customSoundPath,
     }), []),
   });
-
-  // Clean up stale sessions on startup
-  useEffect(() => {
-    if (!state.isLoading && state.projects.length > 0) {
-      state.projects.forEach(project => {
-        cleanStaleSessionsOnStartup(project.path)
-          .catch(err => console.error(`[SessionCleanup] Failed for ${project.name}:`, err));
-      });
-    }
-  }, [state.isLoading]);
 
   const generateId = () => crypto.randomUUID();
 

@@ -14,10 +14,10 @@
   --bg-active: #1e1e2a;
   --bg-input: #0a0a0f;
 
-  /* Text Colors - Better contrast */
+  /* Text Colors - WCAG AA compliant contrast on #0a0a0f */
   --text-primary: #e4e4e7;
-  --text-secondary: #8b8b9a;
-  --text-muted: #5a5a6a;
+  --text-secondary: #9898a8;
+  --text-muted: #71717f;
   --text-inverse: #0a0a0f;
   --text-accent: var(--theme-accent-primary, #00d4aa);
 

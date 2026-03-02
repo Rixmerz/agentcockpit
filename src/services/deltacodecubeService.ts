@@ -649,12 +649,10 @@ export async function reindexProject(projectPath: string): Promise<IndexStats | 
       return parseDebtResultForProject(debtResult, projectPath);
     }
 
-    // First time reindex (no last commit stored)? Use HEAD~1
-    const fromCommit = lastCommit || await gitCommand(projectPath, 'rev-parse HEAD~1').catch(() => '');
-
-    if (!fromCommit) {
-      // Single commit repo — do full index
-      console.log('[DCC] No previous commit — full directory reindex');
+    // No last commit = first time on this machine/DB. Do a full directory index
+    // before attempting commit-based diffs, since the DB is empty.
+    if (!lastCommit) {
+      console.log('[DCC] No previous index — full directory reindex first');
       await callDccTool('cube_index_directory', { path: projectPath }, projectPath);
       await saveLastIndexedCommit(projectPath, headCommit);
       const debtResult = await callDccTool('cube_get_debt', {}, projectPath);
@@ -664,6 +662,9 @@ export async function reindexProject(projectPath: string): Promise<IndexStats | 
       }
       return stats;
     }
+
+    // Incremental: diff from last indexed commit
+    const fromCommit = lastCommit;
 
     // Get changed files between last indexed commit and current HEAD
     const { modified, added } = await getChangedFiles(projectPath, fromCommit, headCommit);
@@ -806,6 +807,22 @@ export async function incrementalReindex(
 // =====================================================
 
 /**
+ * Check if a file path belongs to a project, handling /home <-> /var/home symlinks
+ * (Bazzite/Fedora Atomic: /home is a symlink to /var/home).
+ */
+function pathMatchesProject(filePath: string, prefix: string): boolean {
+  if (filePath.startsWith(prefix)) return true;
+  // Try alternate symlink form
+  if (prefix.startsWith('/home/')) {
+    return filePath.startsWith('/var' + prefix);
+  }
+  if (prefix.startsWith('/var/home/')) {
+    return filePath.startsWith(prefix.replace('/var/home/', '/home/'));
+  }
+  return false;
+}
+
+/**
  * DCC tools return GLOBAL data (all indexed projects).
  * We filter client-side by projectPath since file_path is stored as absolute.
  */
@@ -813,7 +830,7 @@ function filterFilesByProject(files: Record<string, unknown>[], projectPath: str
   const prefix = projectPath.endsWith('/') ? projectPath : projectPath + '/';
   return files.filter(f => {
     const fp = String(f.file_path || f.file || '');
-    return fp.startsWith(prefix);
+    return pathMatchesProject(fp, prefix);
   });
 }
 
@@ -857,7 +874,7 @@ export async function getTensions(projectPath: string): Promise<TensionInfo[]> {
           suggestedAction: item.suggested_action ? String(item.suggested_action) : null,
         };
       })
-      .filter(t => t.fileA.startsWith(prefix) || t.fileB.startsWith(prefix));
+      .filter(t => pathMatchesProject(t.fileA, prefix) || pathMatchesProject(t.fileB, prefix));
   } catch (e) {
     console.error('[DCC] Tensions error:', e);
     return [];
@@ -1016,7 +1033,7 @@ export async function detectSmells(projectPath: string): Promise<SmellsResult | 
 
     // Filter by project prefix — use file_path (absolute), not file_name (basename)
     const prefix = projectPath.endsWith('/') ? projectPath : projectPath + '/';
-    const projectSmells = smells.filter(s => s.filePath.startsWith(prefix));
+    const projectSmells = smells.filter(s => pathMatchesProject(s.filePath, prefix));
 
     // Recalculate severity counts from filtered smells
     const filteredBySev = { critical: 0, high: 0, medium: 0, low: 0 };
@@ -1051,7 +1068,7 @@ export async function detectClones(projectPath: string): Promise<ClonesResult | 
     })) : [];
 
     const prefix = projectPath.endsWith('/') ? projectPath : projectPath + '/';
-    const projectClones = clones.filter(c => c.fileA.startsWith(prefix) || c.fileB.startsWith(prefix));
+    const projectClones = clones.filter(c => pathMatchesProject(c.fileA, prefix) || pathMatchesProject(c.fileB, prefix));
 
     return {
       totalClones: projectClones.length,
@@ -1313,7 +1330,7 @@ export async function getSuggestions(projectPath: string): Promise<SuggestionsRe
     const prefix = projectPath.endsWith('/') ? projectPath : projectPath + '/';
     const projectSuggestions = suggestions.filter(s => {
       const targets = (Array.isArray(s.target_files) ? s.target_files : []) as string[];
-      return targets.some(f => f.startsWith(prefix));
+      return targets.some(f => pathMatchesProject(f, prefix));
     });
     return {
       totalSuggestions: projectSuggestions.length,
@@ -1350,7 +1367,7 @@ export async function detectDrift(projectPath: string): Promise<DriftResult | nu
     const projectDrifts = drifts.filter(d => {
       const fA = String(d.file_a || d.fileA || '');
       const fB = String(d.file_b || d.fileB || '');
-      return fA.startsWith(prefix) || fB.startsWith(prefix);
+      return pathMatchesProject(fA, prefix) || pathMatchesProject(fB, prefix);
     });
     return {
       totalDrifts: projectDrifts.length,
@@ -1495,13 +1512,17 @@ export async function clusterFiles(projectPath: string, k?: number): Promise<Clu
         name: String(c.name || c.label || `Cluster ${c.id || 0}`),
         size: Number(c.size || 0),
         characteristics: (Array.isArray(c.characteristics) ? c.characteristics : []) as string[],
-        files: (Array.isArray(c.files) ? c.files : []) as string[],
+        files: (Array.isArray(c.files) ? c.files : []).map((f: unknown) =>
+          typeof f === 'string' ? f : String((f as Record<string, unknown>).path || (f as Record<string, unknown>).name || f)
+        ),
       })),
-      outliers: (Array.isArray(data.outliers) ? data.outliers : []) as string[],
+      outliers: (Array.isArray(data.outliers) ? data.outliers : []).map((o: unknown) =>
+        typeof o === 'string' ? o : String((o as Record<string, unknown>).path || (o as Record<string, unknown>).name || o)
+      ),
       misclassified: (Array.isArray(data.misclassified) ? data.misclassified : []).map((m: unknown) => {
         const mc = m as Record<string, unknown>;
         return {
-          file: String(mc.file || ''),
+          file: String(mc.path || mc.name || mc.file || ''),
           currentCluster: Number(mc.current_cluster || 0),
           suggestedCluster: Number(mc.suggested_cluster || 0),
         };
@@ -1524,7 +1545,7 @@ export async function analyzeSurface(projectPath: string): Promise<SurfaceResult
     const data = result as Record<string, unknown>;
     const modules = (Array.isArray(data.modules) ? data.modules : []) as Record<string, unknown>[];
     const prefix = projectPath.endsWith('/') ? projectPath : projectPath + '/';
-    const projectModules = modules.filter(m => String(m.file || m.path || '').startsWith(prefix));
+    const projectModules = modules.filter(m => pathMatchesProject(String(m.file || m.path || ''), prefix));
     return {
       totalModules: projectModules.length,
       totalExports: Number(data.total_exports || 0),
@@ -1673,8 +1694,7 @@ function parseDebtResultForProject(result: unknown, projectPath: string): IndexS
   const prefix = projectPath.endsWith('/') ? projectPath : projectPath + '/';
   const projectFiles = allFiles.filter(f => {
     const fp = String(f.file_path || '');
-    // DCC stores absolute paths — match only files under this project's prefix
-    return fp.startsWith(prefix);
+    return pathMatchesProject(fp, prefix);
   });
 
   if (projectFiles.length === 0) {

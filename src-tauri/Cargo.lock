@@ -15,6 +15,7 @@ dependencies = [
  "libc",
  "log",
  "parking_lot",
+ "png",
  "portable-pty",
  "serde",
  "serde_json",

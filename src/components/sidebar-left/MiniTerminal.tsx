@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { executeCommand, resolvePath, pathExists } from '../../services/fileSystemService';
+import { getHomeDir, shortenPath } from '../../services/homeDir';
 
 interface MiniTerminalProps {
   onDirectorySelect?: (path: string) => void;
@@ -12,6 +13,7 @@ interface OutputLine {
 }
 
 export function MiniTerminal({ onDirectorySelect, initialPath = '~' }: MiniTerminalProps) {
+  const [home, setHome] = useState<string>('/');
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [input, setInput] = useState('');
   const [output, setOutput] = useState<OutputLine[]>([]);
@@ -21,10 +23,12 @@ export function MiniTerminal({ onDirectorySelect, initialPath = '~' }: MiniTermi
 
   // Resolve initial path
   useEffect(() => {
-    const home = '/Users/juanpablodiaz';
-    if (initialPath === '~') {
-      setCurrentPath(home);
-    }
+    getHomeDir().then(h => {
+      setHome(h);
+      if (initialPath === '~') {
+        setCurrentPath(h);
+      }
+    });
   }, [initialPath]);
 
   // Auto-scroll output
@@ -106,7 +110,7 @@ export function MiniTerminal({ onDirectorySelect, initialPath = '~' }: MiniTermi
   }, [input, isExecuting, handleCommand]);
 
   // Shorten path for display
-  const displayPath = currentPath.replace('/Users/juanpablodiaz', '~');
+  const displayPath = shortenPath(currentPath, home);
 
   return (
     <div className="mini-terminal">

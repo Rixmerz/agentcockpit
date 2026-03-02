@@ -12,10 +12,9 @@ import { AgentTabs } from '../../core/components/AgentTabs';
 import { SessionManager } from '../../agents/claude/components/SessionManager';
 import { SettingsModal } from '../settings/SettingsModal';
 import { GitHubLoginModal } from '../sidebar-left/GitHubLoginModal';
-import { createSession, updateSessionLastUsed, getSessions, markSessionAsPreExisting, type ProjectSession } from '../../services/projectSessionService';
-import { buildClaudeCommand } from '../../agents/claude/services/claudeService';
-import { executeAction } from '../../core/utils/terminalCommands';
+import { updateSessionLastUsed, getSessions, createSessionFromResume, type ProjectSession } from '../../services/projectSessionService';
 import { getCurrentUser, type GitHubUser } from '../../services/githubService';
+import { sessionEvents } from '../../core/utils/eventBus';
 import { ErrorBanner } from '../common/ErrorBanner';
 import { IndexDashboardPanel } from '../index-panel/IndexDashboardPanel';
 import type { McpServerInfo } from '../../plugins/types/plugin';
@@ -78,39 +77,25 @@ export function ActionsPanel({
     return () => { cancelled = true; };
   }, []);
 
-  // Ensure session exists BEFORE building command
+  // Return selected session or try to load most recent. Returns null for new sessions.
   const ensureSession = useCallback(async (): Promise<ProjectSession | null> => {
-    console.log('[ActionsPanel] ensureSession called', {
-      projectPath,
-      hasSession: !!selectedSession
-    });
+    if (!projectPath) return null;
 
-    if (!projectPath) {
-      console.log('[ActionsPanel] No projectPath, returning null');
-      return null;
-    }
-
-    // Return existing session if available
+    // Return existing selected session
     if (selectedSession) {
-      console.log('[ActionsPanel] Using existing session:', selectedSession.id);
       try {
         await updateSessionLastUsed(projectPath, selectedSession.id, terminalId || undefined);
       } catch (error) {
         console.warn('[ActionsPanel] Failed to update session lastUsed:', error);
-        // Non-fatal, continue with session
       }
       return selectedSession;
     }
 
-    // Try to load existing sessions from JSON file
-    console.log('[ActionsPanel] No session selected, checking for existing sessions');
+    // Try to load most recent session from config
     try {
       const existingSessions = await getSessions(projectPath);
-
       if (existingSessions.length > 0) {
-        // Use most recent existing session (already marked as wasPreExisting: true from JSON)
         const mostRecent = existingSessions[0];
-        console.log('[ActionsPanel] Found existing session in JSON, using:', mostRecent.id);
         setSelectedSession(mostRecent);
         setSessionError(null);
         try {
@@ -122,28 +107,10 @@ export function ActionsPanel({
       }
     } catch (error) {
       console.warn('[ActionsPanel] Failed to load existing sessions:', error);
-      // Continue to create new session if loading fails
     }
 
-    // No existing sessions found - create new one (wasPreExisting=false → uses --session-id)
-    console.log('[ActionsPanel] No existing sessions, creating new one for project:', projectPath);
-    try {
-      const newSession = await createSession(projectPath);
-      console.log('[ActionsPanel] New session created:', newSession.id);
-      setSelectedSession(newSession);
-      setSessionError(null);
-      try {
-        await updateSessionLastUsed(projectPath, newSession.id, terminalId || undefined);
-      } catch (error) {
-        console.warn('[ActionsPanel] Failed to update new session lastUsed:', error);
-      }
-      return newSession;
-    } catch (error) {
-      console.error('[ActionsPanel] Failed to create session:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error creating session';
-      setSessionError(errorMsg);
-      return null;
-    }
+    // No session → Claude will launch fresh, UUID captured from resume output
+    return null;
   }, [selectedSession, projectPath, terminalId]);
 
   // Handle launch command from plugin
@@ -151,65 +118,20 @@ export function ActionsPanel({
     await onWriteToTerminal(command + '\n');
   }, [onWriteToTerminal]);
 
-  // Handle session creation - auto-launch Claude to persist session
-  const handleSessionCreated = useCallback(async (session: ProjectSession) => {
-    setSelectedSession(session);
-
-    // Auto-launch only if we have an active terminal and project
-    if (!hasActiveTerminal || !projectPath) {
-      console.log('[ActionsPanel] Cannot auto-launch: no terminal or project');
-      return;
-    }
-
-    console.log('[ActionsPanel] Auto-launching Claude for new session:', session.id);
-
-    // Build command with --session-id (new session) and skipPermissions if enabled
-    const claudeCommand = buildClaudeCommand({
-      sessionId: session.id,
-      resume: false, // New session, use --session-id
-      skipPermissions, // Pass skipPermissions flag
+  // Listen for resume UUID detected in terminal output
+  useEffect(() => {
+    return sessionEvents.on('resume-detected', async ({ uuid, terminalId: tid }) => {
+      if (!projectPath) return;
+      console.log('[ActionsPanel] Resume UUID detected:', uuid, 'terminal:', tid);
+      try {
+        const session = await createSessionFromResume(projectPath, uuid, tid);
+        setSelectedSession(session);
+        setSessionError(null);
+      } catch (error) {
+        console.error('[ActionsPanel] Failed to create session from resume:', error);
+      }
     });
-
-    // Build full command with MCP operations
-    const allCommands: string[] = [];
-    if (mcpsToRemove.length > 0) {
-      allCommands.push(...mcpsToRemove.map(name =>
-        `claude mcp remove "${name}" 2>/dev/null || true`
-      ));
-    }
-    if (mcpsToInject.length > 0) {
-      allCommands.push(...mcpsToInject.map(mcp => {
-        const jsonConfig = JSON.stringify(mcp.config);
-        const escapedJson = jsonConfig.replace(/'/g, "'\"'\"'");
-        return `claude mcp add-json "${mcp.name}" '${escapedJson}' -s user 2>/dev/null || true`;
-      }));
-    }
-    allCommands.push(claudeCommand);
-
-    const fullCommand = allCommands.join(' ; ');
-
-    // Launch Claude
-    await onWriteToTerminal(fullCommand + '\n');
-
-    // Wait for Claude to initialize (2 seconds)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Send "hi" to persist the session (using executeAction for proper PTY interaction)
-    await executeAction(onWriteToTerminal, 'hi');
-
-    // Wait a bit for the message to be processed
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Mark session as pre-existing so future launches use --resume
-    try {
-      await markSessionAsPreExisting(projectPath, session.id);
-      // Update local state to reflect the change
-      setSelectedSession(prev => prev ? { ...prev, wasPreExisting: true } : prev);
-      console.log('[ActionsPanel] Session persisted and marked as pre-existing');
-    } catch (error) {
-      console.error('[ActionsPanel] Failed to mark session as pre-existing:', error);
-    }
-  }, [hasActiveTerminal, projectPath, mcpsToRemove, mcpsToInject, onWriteToTerminal, skipPermissions]);
+  }, [projectPath]);
 
   // Handle MCP changes from plugin
   const handleMcpsChange = useCallback((toInject: McpServerInfo[], toRemove: string[]) => {
@@ -357,7 +279,6 @@ export function ActionsPanel({
           projectPath={projectPath}
           selectedSession={selectedSession}
           onSessionSelect={setSelectedSession}
-          onSessionCreated={handleSessionCreated}
         />
       )}
 
