@@ -35,6 +35,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     terminalFinishedSound,
     terminalFinishedThreshold,
     customSoundPath,
+    dccAutoReindex,
     setDefaultIDE,
     setTheme,
     setBackgroundImage,
@@ -44,6 +45,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     setTerminalFinishedSound,
     setTerminalFinishedThreshold,
     setCustomSoundPath,
+    setDccAutoReindex,
   } = useAppSettings();
 
   const [localTheme, setLocalTheme] = useState<ThemeId>(theme);
@@ -54,6 +56,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
   const [localFinishedSound, setLocalFinishedSound] = useState(terminalFinishedSound);
   const [localFinishedThreshold, setLocalFinishedThreshold] = useState(terminalFinishedThreshold);
   const [localCustomSoundPath, setLocalCustomSoundPath] = useState<string | null>(customSoundPath || null);
+  const [localDccAutoReindex, setLocalDccAutoReindex] = useState(dccAutoReindex);
 
   // Sync local state when modal opens
   useEffect(() => {
@@ -66,8 +69,9 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
       setLocalFinishedSound(terminalFinishedSound);
       setLocalFinishedThreshold(terminalFinishedThreshold);
       setLocalCustomSoundPath(customSoundPath || null);
+      setLocalDccAutoReindex(dccAutoReindex);
     }
-  }, [isOpen, theme, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout, terminalFinishedSound, terminalFinishedThreshold, customSoundPath]);
+  }, [isOpen, theme, backgroundImage, backgroundOpacity, terminalOpacity, idleTimeout, terminalFinishedSound, terminalFinishedThreshold, customSoundPath, dccAutoReindex]);
 
   const handleSave = () => {
     setTheme(localTheme);
@@ -78,6 +82,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     setTerminalFinishedSound(localFinishedSound);
     setTerminalFinishedThreshold(localFinishedThreshold);
     setCustomSoundPath(localCustomSoundPath);
+    setDccAutoReindex(localDccAutoReindex);
     onClose();
   };
 
@@ -90,6 +95,7 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
     setLocalFinishedSound(terminalFinishedSound);
     setLocalFinishedThreshold(terminalFinishedThreshold);
     setLocalCustomSoundPath(customSoundPath || null);
+    setLocalDccAutoReindex(dccAutoReindex);
     onClose();
   };
 
@@ -330,6 +336,25 @@ export function SettingsModal({ isOpen, onClose, availableIDEs }: SettingsModalP
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="settings-section">
+        <h3 className="settings-section-title">DeltaCodeCube</h3>
+        <p className="settings-section-desc">
+          Automatic code analysis on git commits
+        </p>
+
+        <label className="settings-checkbox-item">
+          <input
+            type="checkbox"
+            checked={localDccAutoReindex}
+            onChange={(e) => setLocalDccAutoReindex(e.target.checked)}
+          />
+          <span>Auto-reindex on commits</span>
+        </label>
+        <p className="settings-section-desc" style={{ fontSize: '11px', marginTop: '4px' }}>
+          When enabled, DCC automatically re-indexes the project after each git commit (5s debounce). Requires DCC to be installed.
+        </p>
       </div>
 
       <div className="settings-actions">

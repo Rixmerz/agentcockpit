@@ -50,7 +50,7 @@ export function ActionsPanel({
   const [gitHubUser, setGitHubUser] = useState<GitHubUser | null>(null);
   const [skipPermissions, setSkipPermissions] = useState(false);
 
-  // Notify parent when any modal is open (for browser panel z-index)
+  // Notify parent when any modal is open
   useEffect(() => {
     const anyModalOpen = showSettings || showGitHubLogin;
     onModalStateChange?.(anyModalOpen);

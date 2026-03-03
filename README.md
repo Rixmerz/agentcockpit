@@ -1,7 +1,7 @@
 # AgentCockpit V2
 
 <p align="center">
-  <strong>Modern Terminal Manager with AI Pipeline Control</strong>
+  <strong>Modern Terminal Manager with AI Workflow Control</strong>
 </p>
 
 <p align="center">
@@ -12,28 +12,28 @@
 
 ## What's New in V2
 
-### Pipeline Control System
-- **Real-Time UI Sync**: Pipeline state updates automatically every 2 seconds
+### Workflow Control System
+- **Real-Time UI Sync**: Workflow state updates automatically every 2 seconds
 - **Visual Progress Tracking**: Step progress bar shows current position
-- **Pipeline Selector**: Dropdown with scroll to switch between pipelines
-- **Enable/Disable Switch**: Toggle pipeline enforcement on/off
-- **MCP Integration**: Control pipelines via Claude Code or any MCP client
+- **Workflow Selector**: Dropdown with scroll to switch between workflows
+- **Enable/Disable Switch**: Toggle workflow enforcement on/off
+- **MCP Integration**: Control workflows via Claude Code or any MCP client
 
-### Pipeline Manager MCP
-- `pipeline_status` - Get current pipeline state
-- `pipeline_advance` - Move to next step
-- `pipeline_reset` - Reset to step 0
-- `pipeline_set_step` - Jump to specific step
-- `pipeline_set_enabled` - Enable/disable enforcer
-- `pipeline_get_enabled` - Check enforcer state
+### Workflow Manager MCP
+- `workflow_status` - Get current workflow state
+- `workflow_advance` - Move to next step
+- `workflow_reset` - Reset to step 0
+- `workflow_set_step` - Jump to specific step
+- `workflow_set_enabled` - Enable/disable enforcer
+- `workflow_get_enabled` - Check enforcer state
 
-### Global Pipeline Library
-Pre-built pipelines stored in `.claude/pipelines/`:
-- **testing-demo** - Pipeline testing and demonstration
+### Global Workflow Library
+Pre-built workflows stored in `.claude/workflows/`:
+- **testing-demo** - Workflow testing and demonstration
 
-Create your own custom pipelines following the YAML schema.
+Create your own custom workflows following the YAML schema.
 
-### Pipeline Hooks
+### Workflow Hooks
 - **Enforcer Hook**: Validates tool usage per step
 - **Auto-Advance Hook**: Automatic step progression on gate triggers
 
@@ -55,7 +55,7 @@ Create your own custom pipelines following the YAML schema.
 
 ### Integrations
 - **MCP Support**: Model Context Protocol integration
-- **Pipeline Manager**: Control AI agent workflows
+- **Workflow Manager**: Control AI agent workflows
 - **Claude Code**: Built-in Claude integration
 - **Cursor Agent**: AI-powered development assistance
 - **GitHub Integration**: Connect your repositories
@@ -101,19 +101,19 @@ Requires Node.js 18+, pnpm, and Rust. See [docs/INSTALL_LINUX.md](docs/INSTALL_L
 
 ---
 
-## Pipeline Control
+## Workflow Control
 
-### Activating a Pipeline
-1. Open the **Pipeline Panel** in the sidebar
-2. Select a pipeline from the dropdown
+### Activating a Workflow
+1. Open the **Workflow Panel** in the sidebar
+2. Select a workflow from the dropdown
 3. Toggle the switch to enable enforcement
 
-### Creating Custom Pipelines
-Create a YAML file in `.claude/pipelines/`:
+### Creating Custom Workflows
+Create a YAML file in `.claude/workflows/`:
 
 ```yaml
 metadata:
-  name: "My Pipeline"
+  name: "My Workflow"
   description: "Custom workflow"
   version: "1.0.0"
 
@@ -134,16 +134,16 @@ steps:
     gate_type: "any"
 ```
 
-### Pipeline via MCP
+### Workflow via MCP
 ```bash
 # Check status
-mcp__pipeline-manager__pipeline_status(project_dir="/path/to/project")
+mcp__workflow-manager__workflow_status(project_dir="/path/to/project")
 
-# Enable pipeline
-mcp__pipeline-manager__pipeline_set_enabled(project_dir="/path", enabled=true)
+# Enable workflow
+mcp__workflow-manager__workflow_set_enabled(project_dir="/path", enabled=true)
 
 # Advance to next step
-mcp__pipeline-manager__pipeline_advance(project_dir="/path")
+mcp__workflow-manager__workflow_advance(project_dir="/path")
 ```
 
 ---
@@ -178,7 +178,7 @@ mcp__pipeline-manager__pipeline_advance(project_dir="/path")
 - **Audio**: Web Audio API
 - **Styling**: CSS with glass-morphism
 - **Icons**: Lucide React
-- **MCP**: Pipeline Manager integration
+- **MCP**: Workflow Manager integration
 
 ---
 
@@ -188,19 +188,19 @@ mcp__pipeline-manager__pipeline_advance(project_dir="/path")
 agentcockpit/
 ├── src/
 │   ├── components/
-│   │   ├── pipeline/        # Pipeline UI components
+│   │   ├── workflow/        # Workflow UI components
 │   │   ├── terminal/        # Terminal components
 │   │   └── settings/        # Settings components
 │   ├── services/
-│   │   ├── pipelineService.ts  # Pipeline state management
+│   │   ├── workflowService.ts  # Workflow state management
 │   │   └── projectSessionService.ts
 │   ├── hooks/
 │   └── contexts/
 ├── src-tauri/               # Tauri backend (Rust)
 ├── .claude/
-│   ├── pipeline/            # Active pipeline state
-│   ├── pipelines/           # Global pipeline library
-│   └── hooks/               # Pipeline hooks
+│   ├── workflow/            # Active workflow state
+│   ├── workflows/           # Global workflow library
+│   └── hooks/               # Workflow hooks
 └── public/
     └── sounds/              # Notification sounds
 ```

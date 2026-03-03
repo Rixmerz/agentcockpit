@@ -513,103 +513,6 @@
   gap: 8px;
 }
 
-/* Media Control Bar */
-.media-control-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  max-width: 400px;
-}
-
-.media-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.media-btn:hover {
-  background: rgba(var(--accent-rgb), 0.15);
-  color: var(--accent);
-}
-
-.media-btn-play {
-  width: 32px;
-  height: 32px;
-  background: rgba(var(--accent-rgb), 0.1);
-  color: var(--accent);
-}
-
-.media-btn-play:hover {
-  background: rgba(var(--accent-rgb), 0.25);
-  transform: scale(1.05);
-}
-
-.media-title-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
-  cursor: pointer;
-}
-
-.media-platform-badge {
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(255, 0, 0, 0.15);
-  color: #ff4444;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.media-title-wrapper {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.media-title {
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.media-title.marquee {
-  display: flex;
-  gap: 40px;
-  animation: marquee 15s linear infinite;
-}
-
-.media-title.marquee span {
-  flex-shrink: 0;
-}
-
-@keyframes marquee {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(calc(-50% - 20px));
-  }
-}
-
 /* Open in IDE Button - Cyber Style */
 .btn-ide-open {
   display: flex;
@@ -662,312 +565,6 @@
 
 .btn-ide-open span {
   text-shadow: 0 0 8px var(--accent-glow-subtle);
-}
-
-/* Browser Toggle Button */
-.btn-browser-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: var(--radius-sm);
-  color: rgba(59, 130, 246, 0.8);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.btn-browser-toggle:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.4);
-  color: rgb(59, 130, 246);
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
-}
-
-.btn-browser-toggle.active {
-  background: rgba(59, 130, 246, 0.25);
-  border-color: rgb(59, 130, 246);
-  color: rgb(59, 130, 246);
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3), inset 0 0 8px rgba(59, 130, 246, 0.1);
-}
-
-/* Browser Panel */
-.browser-panel {
-  background: rgba(9, 9, 11, 0.95);
-  border-bottom: 1px solid var(--glass-border);
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  z-index: 10;
-  overflow: hidden;
-  max-width: 100%;
-  flex-shrink: 0;
-}
-
-/* Browser Tab Bar */
-.browser-tab-bar {
-  display: flex;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid var(--glass-border);
-  padding: 0 4px;
-  gap: 2px;
-}
-
-.browser-tabs {
-  display: flex;
-  overflow-x: auto;
-  gap: 2px;
-}
-
-.browser-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.browser-tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  color: var(--text-muted);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  max-width: 180px;
-  min-width: 80px;
-  flex-shrink: 0;
-}
-
-.browser-tab:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
-}
-
-.browser-tab.active {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--glass-border);
-  border-bottom-color: transparent;
-  color: var(--text-primary);
-}
-
-.browser-tab-icon {
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.browser-tab-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-}
-
-.browser-tab-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  opacity: 0;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.browser-tab:hover .browser-tab-close {
-  opacity: 1;
-}
-
-.browser-tab-close:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: rgb(239, 68, 68);
-}
-
-.browser-new-tab-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.browser-new-tab-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--glass-border);
-  color: var(--text-primary);
-}
-
-.browser-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  min-height: 48px;
-  box-sizing: border-box;
-  background: rgb(24, 24, 27);
-  border-bottom: 1px solid var(--glass-border);
-  position: relative;
-  z-index: 100;
-  overflow: hidden;
-  min-width: 0;
-}
-
-.browser-nav-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-.browser-nav-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.browser-nav-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--glass-border);
-  color: var(--text-primary);
-}
-
-.browser-nav-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.browser-nav-btn.loading svg {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.browser-url-form {
-  flex: 1;
-  min-width: 0;
-}
-
-.browser-url-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(9, 9, 11, 0.6);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  padding: 0 12px;
-  height: 28px;
-  transition: all var(--transition-fast);
-  overflow: hidden;
-}
-
-.browser-url-container:focus-within {
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
-.browser-url-icon {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.browser-url-input {
-  flex: 1;
-  background: transparent !important;
-  border: none !important;
-  color: var(--text-primary);
-  font-size: 12px;
-  font-family: var(--font-mono);
-  padding: 0 !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-.browser-url-input::placeholder {
-  color: var(--text-muted);
-}
-
-.browser-close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.browser-close-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: rgb(239, 68, 68);
-}
-
-.browser-webview-container {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.02);
-  position: relative;
-  overflow: hidden;
-  max-width: 100%;
-}
-
-.browser-loading {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(9, 9, 11, 0.8);
-}
-
-.browser-loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 2px solid var(--glass-border);
-  border-top-color: rgb(59, 130, 246);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.browser-placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  background: var(--bg-primary);
-  color: var(--text-muted);
-  font-size: 13px;
 }
 
 /* Buttons & Interactives Generic */
@@ -3108,7 +2705,7 @@ input[type="checkbox"] {
    ============================================ */
 
 /* Generic modal button - BF3 Angular */
-.modal-content button:not(.modal-close-btn):not([class*="mcp-"]):not([class*="settings-"]):not([class*="pipeline-"]) {
+.modal-content button:not(.modal-close-btn):not([class*="mcp-"]):not([class*="settings-"]):not([class*="workflow-"]) {
   border-radius: 0;
 }
 
@@ -4198,7 +3795,7 @@ input[type="checkbox"] {
 .session-manager,
 .mcp-manager,
 .port-manager,
-.pipeline-panel {
+.workflow-panel {
   contain: layout;
 }
 
@@ -5613,15 +5210,15 @@ input[type="checkbox"] {
 }
 
 /* ==========================================================================
-   PIPELINE CONTROL STYLES
+   WORKFLOW CONTROL STYLES
    ========================================================================== */
 
-/* Pipeline Panel (Sidebar) */
-.pipeline-panel {
+/* Workflow Panel (Sidebar) */
+.workflow-panel {
   padding: 0;
 }
 
-.pipeline-panel-header {
+.workflow-panel-header {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -5637,19 +5234,23 @@ input[type="checkbox"] {
   color: var(--text-secondary);
 }
 
-.pipeline-panel-header .btn-icon-sm {
+.workflow-panel-header .btn-icon-sm {
   margin-left: auto;
   opacity: 1;
 }
 
-.pipeline-panel-content {
+.workflow-panel-header .btn-icon-sm.spinning svg {
+  animation: spin 0.8s linear infinite;
+}
+
+.workflow-panel-content {
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.pipeline-panel-loading {
+.workflow-panel-loading {
   padding: 20px;
   text-align: center;
   color: var(--text-muted);
@@ -5657,14 +5258,14 @@ input[type="checkbox"] {
 }
 
 /* Progress bar */
-.pipeline-progress {
+.workflow-progress {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
 }
 
-.pipeline-progress-bar {
+.workflow-progress-bar {
   flex: 1;
   height: 4px;
   background: rgba(255, 255, 255, 0.1);
@@ -5672,21 +5273,21 @@ input[type="checkbox"] {
   overflow: hidden;
 }
 
-.pipeline-progress-fill {
+.workflow-progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
   border-radius: 2px;
   transition: width 0.3s ease;
 }
 
-.pipeline-progress-text {
+.workflow-progress-text {
   font-size: 10px;
   color: var(--text-muted);
   white-space: nowrap;
 }
 
 /* Current step display */
-.pipeline-current-step {
+.workflow-current-step {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -5697,55 +5298,55 @@ input[type="checkbox"] {
   margin-bottom: 12px;
 }
 
-.pipeline-current-icon {
+.workflow-current-icon {
   color: var(--accent);
 }
 
-.pipeline-current-info {
+.workflow-current-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.pipeline-current-name {
+.workflow-current-name {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.pipeline-current-mcps {
+.workflow-current-mcps {
   font-size: 10px;
   color: var(--text-muted);
 }
 
 /* Quick steps indicators */
-.pipeline-quick-steps {
+.workflow-quick-steps {
   display: flex;
   align-items: center;
   gap: 4px;
   margin-bottom: 12px;
 }
 
-.pipeline-quick-step {
+.workflow-quick-step {
   color: var(--text-muted);
   opacity: 0.5;
 }
 
-.pipeline-quick-step.completed {
+.workflow-quick-step.completed {
   color: var(--success);
   opacity: 1;
 }
 
-.pipeline-quick-step.current {
+.workflow-quick-step.current {
   color: var(--accent);
   opacity: 1;
 }
 
-.pipeline-quick-step {
+.workflow-quick-step {
   position: relative;
 }
 
-.pipeline-quick-step .visit-badge {
+.workflow-quick-step .visit-badge {
   position: absolute;
   top: -4px;
   right: -4px;
@@ -5762,7 +5363,7 @@ input[type="checkbox"] {
 }
 
 /* Node visit count in current step */
-.pipeline-node-visits {
+.workflow-node-visits {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -5775,11 +5376,11 @@ input[type="checkbox"] {
 }
 
 /* Graph edges section */
-.pipeline-edges-section {
+.workflow-edges-section {
   margin-bottom: 12px;
 }
 
-.pipeline-edges-toggle {
+.workflow-edges-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -5795,29 +5396,29 @@ input[type="checkbox"] {
   transition: all 0.2s ease;
 }
 
-.pipeline-edges-toggle:hover {
+.workflow-edges-toggle:hover {
   background: rgba(99, 102, 241, 0.15);
   border-color: rgba(99, 102, 241, 0.4);
   color: var(--text-primary);
 }
 
-.pipeline-edges-toggle svg:last-child {
+.workflow-edges-toggle svg:last-child {
   margin-left: auto;
   transition: transform 0.2s ease;
 }
 
-.pipeline-edges-toggle svg:last-child.open {
+.workflow-edges-toggle svg:last-child.open {
   transform: rotate(180deg);
 }
 
-.pipeline-edges-list {
+.workflow-edges-list {
   margin-top: 6px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
-.pipeline-edge-item {
+.workflow-edge-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -5829,20 +5430,20 @@ input[type="checkbox"] {
   transition: all 0.15s ease;
 }
 
-.pipeline-edge-item:last-child {
+.workflow-edge-item:last-child {
   border-bottom: none;
 }
 
-.pipeline-edge-item:hover {
+.workflow-edge-item:hover {
   background: rgba(99, 102, 241, 0.1);
 }
 
-.pipeline-edge-item svg:first-child {
+.workflow-edge-item svg:first-child {
   color: var(--accent);
   flex-shrink: 0;
 }
 
-.pipeline-edge-item .edge-info {
+.workflow-edge-item .edge-info {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -5850,19 +5451,19 @@ input[type="checkbox"] {
   min-width: 0;
 }
 
-.pipeline-edge-item .edge-target {
+.workflow-edge-item .edge-target {
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.pipeline-edge-item .edge-condition {
+.workflow-edge-item .edge-condition {
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.pipeline-edge-item .edge-priority {
+.workflow-edge-item .edge-priority {
   font-size: 9px;
   font-weight: 600;
   color: var(--text-muted);
@@ -5873,12 +5474,12 @@ input[type="checkbox"] {
 }
 
 /* Panel actions */
-.pipeline-panel-actions {
+.workflow-panel-actions {
   display: flex;
   gap: 8px;
 }
 
-.pipeline-action-btn {
+.workflow-action-btn {
   flex: 1;
   display: flex;
   align-items: center;
@@ -5895,25 +5496,25 @@ input[type="checkbox"] {
   transition: all 0.2s ease;
 }
 
-.pipeline-action-btn:hover:not(:disabled) {
+.workflow-action-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
   border-color: var(--accent);
 }
 
-.pipeline-action-btn:disabled {
+.workflow-action-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-/* Pipeline Selector (Global Pipelines) */
-.pipeline-selector {
+/* Workflow Selector (Global Workflows) */
+.workflow-selector {
   position: relative;
   padding: 0 8px;
   margin-bottom: 4px;
 }
 
-.pipeline-selector-trigger {
+.workflow-selector-trigger {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -5927,30 +5528,30 @@ input[type="checkbox"] {
   color: var(--text-secondary);
 }
 
-.pipeline-selector-trigger:hover {
+.workflow-selector-trigger:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--accent);
 }
 
-.pipeline-selector-trigger.open {
+.workflow-selector-trigger.open {
   border-color: var(--accent);
   background: var(--theme-accent-10);
 }
 
-.pipeline-selector-label {
+.workflow-selector-label {
   flex: 1;
   font-weight: 500;
 }
 
-.pipeline-selector-arrow {
+.workflow-selector-arrow {
   transition: transform 0.2s ease;
 }
 
-.pipeline-selector-arrow.open {
+.workflow-selector-arrow.open {
   transform: rotate(180deg);
 }
 
-.pipeline-selector-dropdown {
+.workflow-selector-dropdown {
   position: absolute;
   top: 100%;
   left: 8px;
@@ -5969,25 +5570,25 @@ input[type="checkbox"] {
   animation: dropdownFadeIn 0.15s ease-out;
 }
 
-/* Custom scrollbar for pipeline dropdown */
-.pipeline-selector-dropdown::-webkit-scrollbar {
+/* Custom scrollbar for workflow dropdown */
+.workflow-selector-dropdown::-webkit-scrollbar {
   width: 6px;
 }
 
-.pipeline-selector-dropdown::-webkit-scrollbar-track {
+.workflow-selector-dropdown::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.pipeline-selector-dropdown::-webkit-scrollbar-thumb {
+.workflow-selector-dropdown::-webkit-scrollbar-thumb {
   background: rgba(113, 113, 122, 0.5);
   border-radius: 3px;
 }
 
-.pipeline-selector-dropdown::-webkit-scrollbar-thumb:hover {
+.workflow-selector-dropdown::-webkit-scrollbar-thumb:hover {
   background: rgba(113, 113, 122, 0.8);
 }
 
-.pipeline-selector-option {
+.workflow-selector-option {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -5997,36 +5598,36 @@ input[type="checkbox"] {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.pipeline-selector-option:hover {
+.workflow-selector-option:hover {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.pipeline-selector-option.active {
+.workflow-selector-option.active {
   background: var(--theme-accent-10);
 }
 
-.pipeline-selector-option.active svg {
+.workflow-selector-option.active svg {
   color: var(--accent);
 }
 
-.pipeline-option-info {
+.workflow-option-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.pipeline-option-name {
+.workflow-option-name {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-primary);
 }
 
-.pipeline-option-desc {
+.workflow-option-desc {
   font-size: 10px;
   color: var(--text-muted);
 }
 
-.pipeline-selector-close {
+.workflow-selector-close {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6038,20 +5639,20 @@ input[type="checkbox"] {
   transition: all 0.15s ease;
 }
 
-.pipeline-selector-close:hover {
+.workflow-selector-close:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
 }
 
 /* ==========================================================================
-   PIPELINE MODAL STYLES
+   WORKFLOW MODAL STYLES
    ========================================================================== */
 
-.pipeline-modal {
+.workflow-modal {
   min-width: 500px;
 }
 
-.pipeline-warning {
+.workflow-warning {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -6064,41 +5665,41 @@ input[type="checkbox"] {
   font-size: 12px;
 }
 
-.pipeline-loading {
+.workflow-loading {
   padding: 40px;
   text-align: center;
   color: var(--text-muted);
 }
 
 /* Status View */
-.pipeline-status-header {
+.workflow-status-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
 }
 
-.pipeline-status-header h3 {
+.workflow-status-header h3 {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
 }
 
-.pipeline-actions {
+.workflow-actions {
   display: flex;
   gap: 8px;
 }
 
 /* Steps status list */
-.pipeline-steps-status {
+.workflow-steps-status {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-bottom: 16px;
 }
 
-.pipeline-step-status {
+.workflow-step-status {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -6109,51 +5710,51 @@ input[type="checkbox"] {
   position: relative;
 }
 
-.pipeline-step-status.pipeline-step-completed {
+.workflow-step-status.workflow-step-completed {
   border-color: rgba(16, 185, 129, 0.3);
 }
 
-.pipeline-step-status.pipeline-step-completed .pipeline-step-icon {
+.workflow-step-status.workflow-step-completed .workflow-step-icon {
   color: var(--success);
 }
 
-.pipeline-step-status.pipeline-step-current {
+.workflow-step-status.workflow-step-current {
   border-color: var(--theme-accent-primary-glow);
   background: var(--theme-accent-8);
 }
 
-.pipeline-step-status.pipeline-step-current .pipeline-step-icon {
+.workflow-step-status.workflow-step-current .workflow-step-icon {
   color: var(--accent);
 }
 
-.pipeline-step-status.pipeline-step-pending .pipeline-step-icon {
+.workflow-step-status.workflow-step-pending .workflow-step-icon {
   color: var(--text-muted);
   opacity: 0.5;
 }
 
-.pipeline-step-icon {
+.workflow-step-icon {
   flex-shrink: 0;
 }
 
-.pipeline-step-info {
+.workflow-step-info {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.pipeline-step-name {
+.workflow-step-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.pipeline-step-desc {
+.workflow-step-desc {
   font-size: 11px;
   color: var(--text-muted);
 }
 
-.pipeline-step-visits {
+.workflow-step-visits {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -6166,7 +5767,7 @@ input[type="checkbox"] {
 }
 
 /* Available edges in modal */
-.pipeline-edges-modal {
+.workflow-edges-modal {
   margin-top: 16px;
   padding: 12px;
   background: rgba(99, 102, 241, 0.05);
@@ -6174,7 +5775,7 @@ input[type="checkbox"] {
   border-radius: var(--radius-md);
 }
 
-.pipeline-edges-modal h4 {
+.workflow-edges-modal h4 {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -6184,13 +5785,13 @@ input[type="checkbox"] {
   color: var(--text-secondary);
 }
 
-.pipeline-edges-grid {
+.workflow-edges-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.pipeline-edge-card {
+.workflow-edge-card {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -6201,29 +5802,29 @@ input[type="checkbox"] {
   font-size: 11px;
 }
 
-.pipeline-edge-card .edge-target {
+.workflow-edge-card .edge-target {
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.pipeline-edge-card .edge-condition-type {
+.workflow-edge-card .edge-condition-type {
   font-size: 10px;
   color: var(--text-muted);
   text-transform: uppercase;
 }
 
-.pipeline-step-arrow {
+.workflow-step-arrow {
   color: var(--text-muted);
   opacity: 0.3;
 }
 
-.pipeline-info {
+.workflow-info {
   font-size: 11px;
   color: var(--text-muted);
   margin-bottom: 16px;
 }
 
-.pipeline-mode-switch {
+.workflow-mode-switch {
   display: flex;
   justify-content: center;
   gap: 8px;
@@ -6231,7 +5832,7 @@ input[type="checkbox"] {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.pipeline-mode-switch .btn-secondary {
+.workflow-mode-switch .btn-secondary {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -6241,14 +5842,14 @@ input[type="checkbox"] {
    GRAPH VIEW STYLES
    ========================================================================== */
 
-.pipeline-graph-header {
+.workflow-graph-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
 }
 
-.pipeline-graph-header h3 {
+.workflow-graph-header h3 {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -6258,7 +5859,7 @@ input[type="checkbox"] {
   margin: 0;
 }
 
-.pipeline-graph-header .graph-name {
+.workflow-graph-header .graph-name {
   font-size: 12px;
   font-weight: 400;
   color: var(--text-muted);
@@ -6267,7 +5868,7 @@ input[type="checkbox"] {
   border-radius: 10px;
 }
 
-.pipeline-graph-container {
+.workflow-graph-container {
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-md);
@@ -6333,7 +5934,7 @@ input[type="checkbox"] {
 }
 
 /* Current Node Info */
-.pipeline-current-node-info {
+.workflow-current-node-info {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -6366,24 +5967,24 @@ input[type="checkbox"] {
 }
 
 /* Edges Section in Graph View */
-.pipeline-edges-section {
+.workflow-edges-section {
   margin-bottom: 16px;
 }
 
-.pipeline-edges-section h4 {
+.workflow-edges-section h4 {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
   margin: 0 0 10px 0;
 }
 
-.pipeline-edges-list {
+.workflow-edges-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.pipeline-edge-item {
+.workflow-edge-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -6394,12 +5995,12 @@ input[type="checkbox"] {
   font-size: 12px;
 }
 
-.pipeline-edge-item .edge-target {
+.workflow-edge-item .edge-target {
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.pipeline-edge-item .edge-condition {
+.workflow-edge-item .edge-condition {
   margin-left: auto;
   display: flex;
   align-items: center;
@@ -6410,7 +6011,7 @@ input[type="checkbox"] {
   text-transform: uppercase;
 }
 
-.pipeline-edge-item .edge-condition small {
+.workflow-edge-item .edge-condition small {
   font-size: 10px;
   text-transform: none;
   opacity: 0.7;
@@ -6437,21 +6038,21 @@ input[type="checkbox"] {
 }
 
 /* Steps List View */
-.pipeline-steps-header {
+.workflow-steps-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
 }
 
-.pipeline-steps-header h3 {
+.workflow-steps-header h3 {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
 }
 
-.pipeline-steps-list {
+.workflow-steps-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -6460,7 +6061,7 @@ input[type="checkbox"] {
   overflow-y: auto;
 }
 
-.pipeline-step-item {
+.workflow-step-item {
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -6480,7 +6081,7 @@ input[type="checkbox"] {
   );
 }
 
-.pipeline-step-item::after {
+.workflow-step-item::after {
   content: '';
   position: absolute;
   inset: 2px;
@@ -6496,12 +6097,12 @@ input[type="checkbox"] {
   z-index: -1;
 }
 
-.pipeline-step-item > * {
+.workflow-step-item > * {
   position: relative;
   z-index: 1;
 }
 
-.pipeline-step-order {
+.workflow-step-order {
   width: 24px;
   height: 24px;
   display: flex;
@@ -6525,7 +6126,7 @@ input[type="checkbox"] {
   );
 }
 
-.pipeline-step-order::after {
+.workflow-step-order::after {
   content: '';
   position: absolute;
   inset: 2px;
@@ -6541,19 +6142,19 @@ input[type="checkbox"] {
   z-index: -1;
 }
 
-.pipeline-step-content {
+.workflow-step-content {
   flex: 1;
   min-width: 0;
 }
 
-.pipeline-step-header {
+.workflow-step-header {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
 }
 
-.pipeline-step-gate {
+.workflow-step-gate {
   font-size: 9px;
   padding: 2px 6px;
   border-radius: 0;
@@ -6569,59 +6170,59 @@ input[type="checkbox"] {
   );
 }
 
-.pipeline-step-gate.gate-any {
+.workflow-step-gate.gate-any {
   background: rgba(168, 85, 247, 0.4);
   color: var(--accent-secondary);
 }
 
-.pipeline-step-gate.gate-always {
+.workflow-step-gate.gate-always {
   background: rgba(16, 185, 129, 0.4);
   color: var(--success);
 }
 
-.pipeline-step-details {
+.workflow-step-details {
   display: flex;
   gap: 8px;
   font-size: 10px;
   margin-top: 4px;
 }
 
-.pipeline-step-details .detail-label {
+.workflow-step-details .detail-label {
   color: var(--text-muted);
   min-width: 50px;
 }
 
-.pipeline-step-details .detail-value {
+.workflow-step-details .detail-value {
   color: var(--text-secondary);
   word-break: break-all;
 }
 
-.pipeline-step-actions {
+.workflow-step-actions {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
 }
 
-.pipeline-step-actions .btn-icon-sm {
+.workflow-step-actions .btn-icon-sm {
   opacity: 0.5;
   margin-left: 0;
 }
 
-.pipeline-step-item:hover .pipeline-step-actions .btn-icon-sm {
+.workflow-step-item:hover .workflow-step-actions .btn-icon-sm {
   opacity: 1;
 }
 
-.pipeline-step-actions .btn-icon-sm:disabled {
+.workflow-step-actions .btn-icon-sm:disabled {
   opacity: 0.2;
   cursor: not-allowed;
 }
 
 /* Edit Step View */
-.pipeline-edit-header {
+.workflow-edit-header {
   margin-bottom: 16px;
 }
 
-.pipeline-edit-header h3 {
+.workflow-edit-header h3 {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
@@ -6671,18 +6272,18 @@ input[type="checkbox"] {
 }
 
 /* ==========================================================================
-   PIPELINE UI IMPROVEMENTS
+   WORKFLOW UI IMPROVEMENTS
    ========================================================================== */
 
 /* Checkbox grid for MCPs and Tools */
-.pipeline-checkbox-grid {
+.workflow-checkbox-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 8px;
   margin-top: 8px;
 }
 
-.pipeline-checkbox-item {
+.workflow-checkbox-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -6706,7 +6307,7 @@ input[type="checkbox"] {
   );
 }
 
-.pipeline-checkbox-item::after {
+.workflow-checkbox-item::after {
   content: '';
   position: absolute;
   inset: 1px;
@@ -6722,34 +6323,34 @@ input[type="checkbox"] {
   z-index: -1;
 }
 
-.pipeline-checkbox-item > * {
+.workflow-checkbox-item > * {
   position: relative;
   z-index: 1;
 }
 
-.pipeline-checkbox-item:hover {
+.workflow-checkbox-item:hover {
   background: var(--color-border-default, #333338);
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-.pipeline-checkbox-item input[type="checkbox"] {
+.workflow-checkbox-item input[type="checkbox"] {
   accent-color: var(--accent);
   width: 14px;
   height: 14px;
   cursor: pointer;
 }
 
-.pipeline-checkbox-item input[type="checkbox"]:checked + span {
+.workflow-checkbox-item input[type="checkbox"]:checked + span {
   color: var(--text-primary);
 }
 
-.pipeline-checkbox-item .mcp-wildcard {
+.workflow-checkbox-item .mcp-wildcard {
   color: var(--accent);
   font-weight: 600;
 }
 
 /* Config badges */
-.pipeline-config-summary {
+.workflow-config-summary {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -6793,30 +6394,30 @@ input[type="checkbox"] {
   z-index: -1;
 }
 
-/* Pipeline Header Actions */
-.pipeline-header-actions {
+/* Workflow Header Actions */
+.workflow-header-actions {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-left: auto;
 }
 
-/* Pipeline Toggle Switch */
-.pipeline-toggle {
+/* Workflow Toggle Switch */
+.workflow-toggle {
   position: relative;
   display: inline-flex;
   align-items: center;
   cursor: pointer;
 }
 
-.pipeline-toggle input {
+.workflow-toggle input {
   position: absolute;
   opacity: 0;
   width: 0;
   height: 0;
 }
 
-.pipeline-toggle .toggle-slider {
+.workflow-toggle .toggle-slider {
   position: relative;
   width: 32px;
   height: 18px;
@@ -6830,33 +6431,33 @@ input[type="checkbox"] {
   padding: 0 3px;
 }
 
-.pipeline-toggle .toggle-slider svg {
+.workflow-toggle .toggle-slider svg {
   color: var(--text-muted);
   transition: all 0.2s ease;
 }
 
-.pipeline-toggle input:checked + .toggle-slider {
+.workflow-toggle input:checked + .toggle-slider {
   background: var(--theme-accent-30);
   border-color: var(--accent);
 }
 
-.pipeline-toggle input:checked + .toggle-slider svg {
+.workflow-toggle input:checked + .toggle-slider svg {
   color: var(--accent);
   transform: translateX(14px);
 }
 
-.pipeline-toggle:hover .toggle-slider {
+.workflow-toggle:hover .toggle-slider {
   border-color: var(--accent);
 }
 
-/* Pipeline Install Section */
-.pipeline-install-section {
+/* Workflow Install Section */
+.workflow-install-section {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.pipeline-install-btn {
+.workflow-install-btn {
   width: 100%;
   display: flex;
   align-items: center;
@@ -6873,18 +6474,18 @@ input[type="checkbox"] {
   transition: all 0.2s ease;
 }
 
-.pipeline-install-btn:hover:not(:disabled) {
+.workflow-install-btn:hover:not(:disabled) {
   background: var(--theme-accent-25);
   border-color: var(--accent);
 }
 
-.pipeline-install-btn:disabled {
+.workflow-install-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* Pipeline Installed Badge */
-.pipeline-installed-badge {
+/* Workflow Installed Badge */
+.workflow-installed-badge {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -6897,11 +6498,11 @@ input[type="checkbox"] {
   font-weight: 500;
 }
 
-.pipeline-installed-badge span {
+.workflow-installed-badge span {
   flex: 1;
 }
 
-.pipeline-uninstall-btn {
+.workflow-uninstall-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6914,12 +6515,12 @@ input[type="checkbox"] {
   transition: all 0.2s ease;
 }
 
-.pipeline-uninstall-btn:hover:not(:disabled) {
+.workflow-uninstall-btn:hover:not(:disabled) {
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
 }
 
-.pipeline-uninstall-btn:disabled {
+.workflow-uninstall-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -7644,8 +7245,8 @@ select.settings-input {
   color: var(--accent);
 }
 
-/* Pipeline Manager Section */
-.mcp-pipeline-section {
+/* Workflow Manager Section */
+.mcp-workflow-section {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -7656,37 +7257,37 @@ select.settings-input {
   gap: 16px;
 }
 
-.mcp-pipeline-info {
+.mcp-workflow-info {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   flex: 1;
 }
 
-.mcp-pipeline-info > svg {
+.mcp-workflow-info > svg {
   flex-shrink: 0;
   margin-top: 2px;
 }
 
-.mcp-pipeline-details {
+.mcp-workflow-details {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.mcp-pipeline-title {
+.mcp-workflow-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.mcp-pipeline-description {
+.mcp-workflow-description {
   font-size: 11px;
   color: var(--text-muted);
   line-height: 1.4;
 }
 
-.mcp-pipeline-status {
+.mcp-workflow-status {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -7695,19 +7296,19 @@ select.settings-input {
   margin-top: 4px;
 }
 
-.mcp-pipeline-status.installed {
+.mcp-workflow-status.installed {
   color: var(--success);
 }
 
-.mcp-pipeline-status.not-installed {
+.mcp-workflow-status.not-installed {
   color: var(--warning);
 }
 
-.mcp-pipeline-actions {
+.mcp-workflow-actions {
   flex-shrink: 0;
 }
 
-.mcp-pipeline-actions button {
+.mcp-workflow-actions button {
   display: flex;
   align-items: center;
   gap: 6px;

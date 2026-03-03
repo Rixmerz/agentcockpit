@@ -1,6 +1,6 @@
 /**
  * ControlBar - Main top bar with dropdown controls
- * Contains: Pipeline, MCPs, Ports, Git
+ * Contains: Workflow, MCPs, Ports, Git
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -29,12 +29,12 @@ import { Modal } from '../common/Modal';
 import { GitSettings } from '../sidebar-right/GitSettings';
 
 // Import services
-import { pipelineService, copyAllAssetsToProject } from '../../services/pipelineService';
+import { workflowService, copyAllAssetsToProject } from '../../services/workflowService';
 import { loadMcpConfig } from '../../services/mcpConfigService';
 import {
-  isPipelineHooksInstalled,
-  installPipelineHooks,
-  uninstallPipelineHooks,
+  isWorkflowHooksInstalled,
+  installWorkflowHooks,
+  uninstallWorkflowHooks,
 } from '../../services/hookService';
 import { McpManagerModal } from '../mcp/McpManagerModal';
 import { gitPush, type SyncStatus } from '../../services/gitService';
@@ -71,10 +71,10 @@ function formatRelativeTime(timestamp: number): string {
 
 interface ControlBarProps {
   projectPath: string | null;
-  onPipelineChange?: (pipelineName: string | null) => void;
+  onWorkflowChange?: (workflowName: string | null) => void;
 }
 
-interface PipelineInfo {
+interface WorkflowInfo {
   name: string;
   currentNode: string | null;
   isActive: boolean;
@@ -107,13 +107,13 @@ const PORTS_TO_CHECK = [
   8000, 8080, 8888, 5432, 6379, 27017
 ];
 
-export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
-  // Pipeline state
-  const [availablePipelines, setAvailablePipelines] = useState<string[]>([]);
-  const [activePipeline, setActivePipeline] = useState<PipelineInfo | null>(null);
-  const [, setPipelineLoading] = useState(false);
-  const [isPipelineInstalled, setIsPipelineInstalled] = useState(false);
-  const [isInstallingPipeline, setIsInstallingPipeline] = useState(false);
+export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
+  // Workflow state
+  const [availableWorkflows, setAvailableWorkflows] = useState<string[]>([]);
+  const [activeWorkflow, setActiveWorkflow] = useState<WorkflowInfo | null>(null);
+  const [, setWorkflowLoading] = useState(false);
+  const [isWorkflowInstalled, setIsWorkflowInstalled] = useState(false);
+  const [isInstallingWorkflow, setIsInstallingWorkflow] = useState(false);
 
   // MCP state
   const [mcpServers, setMcpServers] = useState<McpStatus[]>([]);
@@ -217,39 +217,39 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     }
   }, [projectPath]);
 
-  // Load pipelines
+  // Load workflows
   useEffect(() => {
     if (!projectPath) {
-      setAvailablePipelines([]);
-      setActivePipeline(null);
-      setIsPipelineInstalled(false);
+      setAvailableWorkflows([]);
+      setActiveWorkflow(null);
+      setIsWorkflowInstalled(false);
       return;
     }
 
-    setActivePipeline(null);
+    setActiveWorkflow(null);
 
-    const loadPipelines = async () => {
+    const loadWorkflows = async () => {
       try {
-        const pipelines = await pipelineService.listAvailablePipelines(projectPath);
-        setAvailablePipelines(pipelines);
+        const workflows = await workflowService.listAvailableWorkflows(projectPath);
+        setAvailableWorkflows(workflows);
 
-        const status = await pipelineService.getStatus(projectPath);
+        const status = await workflowService.getStatus(projectPath);
         if (status) {
-          setActivePipeline({
+          setActiveWorkflow({
             name: status.graphName || 'Unknown',
             currentNode: status.currentNode,
             isActive: true,
           });
         }
 
-        const installed = await isPipelineHooksInstalled(projectPath);
-        setIsPipelineInstalled(installed);
+        const installed = await isWorkflowHooksInstalled(projectPath);
+        setIsWorkflowInstalled(installed);
       } catch (err) {
-        console.warn('[ControlBar] Failed to load pipelines:', err);
+        console.warn('[ControlBar] Failed to load workflows:', err);
       }
     };
 
-    loadPipelines();
+    loadWorkflows();
   }, [projectPath]);
 
   // Load MCPs
@@ -447,140 +447,140 @@ export function ControlBar({ projectPath, onPipelineChange }: ControlBarProps) {
     loadSnapshots();
   }, [loadSnapshots]);
 
-  // Handle pipeline selection
-  const handleSelectPipeline = useCallback(async (pipelineName: string) => {
+  // Handle workflow selection
+  const handleSelectWorkflow = useCallback(async (workflowName: string) => {
     if (!projectPath) return;
 
-    setPipelineLoading(true);
+    setWorkflowLoading(true);
     try {
-      await pipelineService.activatePipeline(projectPath, pipelineName);
-      const status = await pipelineService.getStatus(projectPath);
-      setActivePipeline({
-        name: pipelineName,
+      await workflowService.activateWorkflow(projectPath, workflowName);
+      const status = await workflowService.getStatus(projectPath);
+      setActiveWorkflow({
+        name: workflowName,
         currentNode: status?.currentNode || null,
         isActive: true,
       });
-      onPipelineChange?.(pipelineName);
+      onWorkflowChange?.(workflowName);
     } catch (err) {
-      console.error('[ControlBar] Failed to activate pipeline:', err);
+      console.error('[ControlBar] Failed to activate workflow:', err);
     } finally {
-      setPipelineLoading(false);
+      setWorkflowLoading(false);
     }
-  }, [projectPath, onPipelineChange]);
+  }, [projectPath, onWorkflowChange]);
 
-  // Handle pipeline reset
-  const handleResetPipeline = useCallback(async () => {
+  // Handle workflow reset
+  const handleResetWorkflow = useCallback(async () => {
     if (!projectPath) return;
 
     try {
-      await pipelineService.resetPipeline(projectPath);
-      const status = await pipelineService.getStatus(projectPath);
-      if (activePipeline) {
-        setActivePipeline({
-          ...activePipeline,
+      await workflowService.resetWorkflow(projectPath);
+      const status = await workflowService.getStatus(projectPath);
+      if (activeWorkflow) {
+        setActiveWorkflow({
+          ...activeWorkflow,
           currentNode: status?.currentNode || null,
         });
       }
     } catch (err) {
-      console.error('[ControlBar] Failed to reset pipeline:', err);
+      console.error('[ControlBar] Failed to reset workflow:', err);
     }
-  }, [projectPath, activePipeline]);
+  }, [projectPath, activeWorkflow]);
 
-  // Handle pipeline install
-  const handleInstallPipeline = useCallback(async () => {
+  // Handle workflow install
+  const handleInstallWorkflow = useCallback(async () => {
     if (!projectPath) return;
 
-    setIsInstallingPipeline(true);
+    setIsInstallingWorkflow(true);
     try {
-      const result = await installPipelineHooks(projectPath, []);
+      const result = await installWorkflowHooks(projectPath, []);
       if (result.success) {
         // Copy all assets to project
         await copyAllAssetsToProject(projectPath);
-        setIsPipelineInstalled(true);
+        setIsWorkflowInstalled(true);
       } else {
         console.error('[ControlBar] Install failed:', result.error);
       }
     } catch (err) {
-      console.error('[ControlBar] Failed to install pipeline:', err);
+      console.error('[ControlBar] Failed to install workflow:', err);
     } finally {
-      setIsInstallingPipeline(false);
+      setIsInstallingWorkflow(false);
     }
   }, [projectPath]);
 
-  // Handle pipeline uninstall
-  const handleUninstallPipeline = useCallback(async () => {
+  // Handle workflow uninstall
+  const handleUninstallWorkflow = useCallback(async () => {
     if (!projectPath) return;
 
-    setIsInstallingPipeline(true);
+    setIsInstallingWorkflow(true);
     try {
-      const result = await uninstallPipelineHooks(projectPath);
+      const result = await uninstallWorkflowHooks(projectPath);
       if (result.success) {
-        setIsPipelineInstalled(false);
+        setIsWorkflowInstalled(false);
       } else {
         console.error('[ControlBar] Uninstall failed:', result.error);
       }
     } catch (err) {
-      console.error('[ControlBar] Failed to uninstall pipeline:', err);
+      console.error('[ControlBar] Failed to uninstall workflow:', err);
     } finally {
-      setIsInstallingPipeline(false);
+      setIsInstallingWorkflow(false);
     }
   }, [projectPath]);
 
   return (
     <div className="control-bar">
       <div className="control-bar__section control-bar__section--left">
-        {/* Pipeline Dropdown */}
+        {/* Workflow Dropdown */}
         <DropdownPanel
-          trigger={activePipeline?.name || 'Pipeline'}
+          trigger={activeWorkflow?.name || 'Workflow'}
           triggerIcon={<Workflow size={12} />}
-          label="Pipeline"
-          statusDot={activePipeline?.isActive ? 'active' : 'none'}
+          label="Workflow"
+          statusDot={activeWorkflow?.isActive ? 'active' : 'none'}
           width="wide"
         >
-          <DropdownSection title="Available Pipelines">
-            {availablePipelines.length === 0 ? (
-              <div className="dropdown__empty">No pipelines found</div>
+          <DropdownSection title="Available Workflows">
+            {availableWorkflows.length === 0 ? (
+              <div className="dropdown__empty">No workflows found</div>
             ) : (
-              availablePipelines.map(name => (
+              availableWorkflows.map(name => (
                 <DropdownItem
                   key={name}
                   icon={<Workflow size={14} />}
                   label={name}
-                  active={activePipeline?.name === name}
-                  onClick={() => handleSelectPipeline(name)}
+                  active={activeWorkflow?.name === name}
+                  onClick={() => handleSelectWorkflow(name)}
                 />
               ))
             )}
           </DropdownSection>
 
-          {activePipeline && (
+          {activeWorkflow && (
             <DropdownSection title="Actions">
               <DropdownItem
                 icon={<RefreshCw size={14} />}
-                label="Reset Pipeline"
+                label="Reset Workflow"
                 description="Return to start node"
-                onClick={handleResetPipeline}
+                onClick={handleResetWorkflow}
               />
             </DropdownSection>
           )}
 
           {projectPath && (
             <DropdownSection title="Installation">
-              {!isPipelineInstalled ? (
+              {!isWorkflowInstalled ? (
                 <DropdownItem
-                  icon={isInstallingPipeline ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                  label={isInstallingPipeline ? "Installing..." : "Install Controller"}
-                  description="Install pipeline hooks to project"
-                  onClick={handleInstallPipeline}
-                  disabled={isInstallingPipeline}
+                  icon={isInstallingWorkflow ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  label={isInstallingWorkflow ? "Installing..." : "Install Controller"}
+                  description="Install workflow hooks to project"
+                  onClick={handleInstallWorkflow}
+                  disabled={isInstallingWorkflow}
                 />
               ) : (
                 <DropdownItem
-                  icon={isInstallingPipeline ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                  label={isInstallingPipeline ? "Removing..." : "Uninstall Controller"}
-                  description="Remove pipeline hooks from project"
-                  onClick={handleUninstallPipeline}
-                  disabled={isInstallingPipeline}
+                  icon={isInstallingWorkflow ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  label={isInstallingWorkflow ? "Removing..." : "Uninstall Controller"}
+                  description="Remove workflow hooks from project"
+                  onClick={handleUninstallWorkflow}
+                  disabled={isInstallingWorkflow}
                 />
               )}
             </DropdownSection>
