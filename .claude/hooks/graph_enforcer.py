@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Graph Enforcer Hook — hard-blocks tools listed in current node's tools_blocked.
 
-PreToolUse hook for Claude Code. Reads the active graph pipeline state
+PreToolUse hook for Claude Code. Reads the active graph workflow state
 (graph_state.json) and graph definition (graph.yaml) to enforce tool
 restrictions per node. Fail-safe: approves on any error.
 
-Replaces legacy pipeline_enforcer.py which read steps.yaml/state.json.
+Replaces legacy workflow_enforcer.py which read steps.yaml/state.json.
 """
 
 import json
@@ -67,7 +67,7 @@ def get_state_path(project_dir):
     """Resolve graph_state.json path (hub-centralized or local fallback).
 
     Hub pattern: {hub_dir}/{states_dir}/{project_name}/graph_state.json
-    Local fallback: {project}/.claude/pipeline/graph_state.json
+    Local fallback: {project}/.claude/workflow/graph_state.json
     """
     config_file = Path.home() / ".agentcockpit" / "config.json"
     if config_file.exists():
@@ -80,7 +80,7 @@ def get_state_path(project_dir):
                 return Path(hub_dir) / states_dir / project_name / "graph_state.json"
         except Exception:
             pass
-    return Path(project_dir) / ".claude" / "pipeline" / "graph_state.json"
+    return Path(project_dir) / ".claude" / "workflow" / "graph_state.json"
 
 
 def main():
@@ -114,7 +114,7 @@ def main():
         current_node = current_nodes[0]
 
         # 2. Read graph YAML (always local to project)
-        graph_file = Path(project_dir) / ".claude" / "pipeline" / "graph.yaml"
+        graph_file = Path(project_dir) / ".claude" / "workflow" / "graph.yaml"
         if not graph_file.exists():
             print(json.dumps({"decision": "approve"}))
             return
@@ -128,8 +128,8 @@ def main():
                 "decision": "block",
                 "message": (
                     f"[Graph Enforcer] Tool '{tool_name}' is blocked at node "
-                    f"'{current_node}' (pipeline: {active_graph}). "
-                    f"Advance the pipeline to use this tool."
+                    f"'{current_node}' (workflow: {active_graph}). "
+                    f"Advance the workflow to use this tool."
                 )
             }))
             return
