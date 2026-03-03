@@ -1,0 +1,435 @@
+metadata:
+  name: "xpteam-erp-full"
+  description: "Workflow completo del ERP XPTeam — fases 4 a 9: frontend funcional, backend endpoints, integration service, observabilidad, infraestructura AWS y hardening final."
+  version: "1.0.0"
+  type: "graph"
+
+nodes:
+  - id: "auth"
+    name: "Auth y Sesión"
+    is_start: true
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo AUTH Y SESIÓN (Fase 4.1).
+      
+      Tareas a completar:
+      - Formulario de login conectado al backend con manejo de errores 401
+      - Refresh automático de token antes de expirar (interceptor en lib/api.ts)
+      - Redirección a /login cuando el token expira y el refresh falla
+      - Persistencia correcta del tenant activo en localStorage
+      - Pantalla de selección de tenant si el usuario tiene múltiples membresías
+      
+      Archivos clave:
+      - frontend/src/features/auth/components/login-form.tsx
+      - frontend/src/features/auth/hooks/use-auth.ts
+      - frontend/src/lib/api.ts (interceptor de refresh ya existe — verificar)
+      - frontend/src/services/auth.ts
+      
+      Criterio de salida: login funciona end-to-end, el refresh token opera correctamente, y la sesión persiste al recargar.
+      Di "node completo" para avanzar al siguiente nodo.
+
+  - id: "backend-filtros"
+    name: "Backend: Filtros, Paginación y Seed Contable"
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo BACKEND FILTROS (Fases 5.1 y 5.2).
+      
+      Tareas a completar:
+      
+      FASE 5.1 — Endpoints GET con filtros y paginación:
+      - GET /v1/sales/orders — filtros status, customer_id, date_from, date_to + paginación
+      - GET /v1/sales/customers — búsqueda name, tax_id + paginación
+      - GET /v1/invoicing/invoices — filtros status, customer_id, date_from + paginación
+      - GET /v1/treasury/payments — filtros status, invoice_id, date_from
+      - GET /v1/inventory/products — búsqueda name, sku, filtro is_active
+      
+      FASE 5.2 — Seed catálogo contable MX:
+      - Catálogo estándar de cuentas mexicanas al crear tenant (activos, pasivos, capital, ingresos, gastos con códigos 4 dígitos)
+      - Cuentas por defecto mapeadas: 1105=CxC, 4001=Ingresos por Ventas, 1101=Caja
+      
+      Patrón de implementación: todos los handlers ya existen — agregar query params + paginación en los repos.
+      Seed: agregar al provisioner de schema o a la migration 000002.
+      
+      Di "node completo" para avanzar.
+
+  - id: "ventas-frontend"
+    name: "Módulo Ventas Frontend"
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo VENTAS FRONTEND (Fase 4.3).
+      
+      Tareas a completar:
+      - Listado de clientes con búsqueda por nombre/RFC
+      - Formulario crear cliente (validación: RFC formato, email)
+      - Listado de órdenes con filtros por status y fecha
+      - Formulario crear orden (selector de cliente, moneda)
+      - Agregar ítems a orden (selector de producto, qty, precio)
+      - Acción confirmar orden con feedback visual (loading + error)
+      - Detalle de orden (ítems, total, historial de estado)
+      - Cancelar orden con motivo
+      
+      Archivos clave:
+      - frontend/src/features/sales/pages/customers-page.tsx
+      - frontend/src/features/sales/pages/orders-page.tsx
+      - frontend/src/features/sales/hooks/use-sales.ts
+      - frontend/src/services/sales.ts
+      
+      Backend ya implementado — solo conectar UI al API.
+      Di "node completo" para avanzar.
+
+  - id: "inventario-frontend"
+    name: "Módulo Inventario Frontend"
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo INVENTARIO FRONTEND (Fase 4.4).
+      
+      Tareas a completar:
+      - Listado de productos con búsqueda por SKU/nombre
+      - Formulario crear producto (SKU único, nombre, descripción, precio)
+      - Listado de almacenes
+      - Formulario crear almacén
+      - Consulta de stock por producto/almacén
+      - Formulario ajuste de stock manual (motivo obligatorio)
+      - Historial de movimientos de stock por producto
+      
+      Archivos clave:
+      - frontend/src/features/inventory/pages/products-page.tsx
+      - frontend/src/features/inventory/pages/warehouses-page.tsx
+      - frontend/src/features/inventory/pages/stock-page.tsx
+      - frontend/src/features/inventory/hooks/use-inventory.ts
+      - frontend/src/services/inventory.ts
+      
+      Di "node completo" para avanzar.
+
+  - id: "facturacion-frontend"
+    name: "Módulo Facturación Frontend"
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo FACTURACIÓN FRONTEND (Fase 4.5).
+      
+      Tareas a completar:
+      - Listado de facturas con filtros por status y fecha
+      - Crear factura desde orden confirmada (selector de orden)
+      - Acción emitir factura (genera folio) con confirmación modal
+      - Acción cancelar factura con motivo → muestra nota de crédito generada
+      - Detalle de factura con líneas y totales
+      - Listado de notas de crédito
+      
+      Archivos clave:
+      - frontend/src/features/invoicing/pages/invoices-page.tsx
+      - frontend/src/features/invoicing/pages/credit-notes-page.tsx
+      - frontend/src/features/invoicing/hooks/use-invoicing.ts
+      - frontend/src/services/invoicing.ts
+      
+      Di "node completo" para avanzar.
+
+  - id: "tesoreria-frontend"
+    name: "Módulo Tesorería Frontend"
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo TESORERÍA FRONTEND (Fase 4.6).
+      
+      Tareas a completar:
+      - Listado de pagos con filtros por status
+      - Formulario registrar pago (selector de factura, método, monto)
+      - Listado de cuentas bancarias
+      - Formulario crear cuenta bancaria
+      - Detalle de pago con historial de estado
+      
+      Archivos clave:
+      - frontend/src/features/treasury/pages/payments-page.tsx
+      - frontend/src/features/treasury/pages/bank-accounts-page.tsx
+      - frontend/src/features/treasury/hooks/use-treasury.ts
+      - frontend/src/services/treasury.ts
+      
+      Di "node completo" para avanzar.
+
+  - id: "contabilidad-frontend"
+    name: "Módulo Contabilidad Frontend"
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo CONTABILIDAD FRONTEND (Fase 4.7).
+      
+      Tareas a completar:
+      - Catálogo de cuentas con árbol jerárquico (código → nombre → tipo)
+      - Listado de asientos contables con filtros por período
+      - Formulario nuevo asiento manual (múltiples líneas, validación de balance)
+      - Balance de comprobación por período
+      - Gestión de períodos (crear, cerrar con confirmación modal)
+      
+      Archivos clave:
+      - frontend/src/features/accounting/pages/chart-of-accounts-page.tsx
+      - frontend/src/features/accounting/pages/journal-entries-page.tsx
+      - frontend/src/features/accounting/pages/trial-balance-page.tsx
+      - frontend/src/features/accounting/pages/periods-page.tsx
+      - frontend/src/features/accounting/hooks/use-accounting.ts
+      
+      Di "node completo" para avanzar.
+
+  - id: "ux-global"
+    name: "UX Global y Pulido"
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo UX GLOBAL (Fase 4.9).
+      
+      Tareas a completar:
+      - Manejo global de errores HTTP (toast para 4xx/5xx) — interceptor en api.ts
+      - Loading states en todas las operaciones async (skeleton / spinner)
+      - Mensajes de confirmación en acciones destructivas (cancelar orden, emitir factura, cerrar período)
+      - Paginación server-side en todos los listados
+      - Búsqueda/filtros con debounce (300ms) en listados
+      - Toast de éxito tras acciones exitosas
+      - Gestión de tenants y usuarios: listado de miembros, invitar miembro, cambiar rol
+      
+      Archivos clave:
+      - frontend/src/lib/api.ts (interceptor global de errores)
+      - frontend/src/features/toast/useToast.ts
+      - Todos los *-page.tsx de cada módulo
+      
+      Di "node completo" para avanzar.
+
+  - id: "dashboard-reportes"
+    name: "Dashboard Completo y Reportes Financieros"
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo DASHBOARD Y REPORTES (Fases 4.2 + 5.4).
+      
+      Tareas a completar:
+      
+      FASE 4.2 — Dashboard frontend:
+      - Gráfica de ingresos por mes (últimos 6 meses)
+      - Los StatCards ya están conectados al backend (fase 4 anterior)
+      
+      FASE 5.4 — Reportes financieros backend:
+      - GET /v1/accounting/reports/balance-sheet — balance general
+      - GET /v1/accounting/reports/income-statement — estado de resultados
+      - GET /v1/accounting/reports/ledger/{accountCode} — libro mayor por cuenta
+      - Conectar estos reportes al frontend (páginas de contabilidad)
+      
+      FASE 5.3 — Endpoints faltantes pendientes:
+      - GET /v1/sales/customers/{id}
+      - GET /v1/invoicing/invoices/{id} con líneas
+      - DELETE /v1/sales/orders/{id}/items/{itemId}
+      - POST /v1/sales/orders/{id}/cancel
+      
+      Di "node completo" para avanzar.
+
+  - id: "integration-service"
+    name: "Integration Service"
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo INTEGRATION SERVICE (Fase 6).
+      
+      Servicio separado del core financiero. Maneja IO externo con retries y DLQ.
+      
+      Tareas a completar:
+      - Event bus externo: publicación a SQS/SNS post-commit (outbox pattern ya existe en DB)
+      - Facturación electrónica CFDI 4.0 (SAT México):
+        * Generar XML CFDI desde Invoice emitida
+        * Sellar con certificado SAT (CSD)
+        * Timbrar con PAC (Finkok o SW Sapien)
+        * Guardar timbre fiscal en Invoice
+        * Cancelación CFDI ante el SAT
+      - Notificaciones email (factura emitida, pago recibido)
+      - Webhook outbound para eventos clave
+      
+      Arquitectura: repo separado o módulo /internal/integration/ con worker process.
+      La tabla outbox_events ya existe en el schema del tenant.
+      
+      Di "node completo" para avanzar.
+
+  - id: "observabilidad"
+    name: "Observabilidad"
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo OBSERVABILIDAD (Fase 7).
+      
+      Tareas a completar:
+      - Métricas Prometheus por bounded context:
+        * erp_invoices_created_total (counter, label tenant_id)
+        * erp_orders_confirmed_total
+        * erp_payments_registered_total
+        * erp_ledger_entries_posted_total
+        * erp_http_request_duration_seconds (histogram)
+      - Endpoint GET /metrics (Prometheus scrape)
+      - Alertas por SLA: error rate > 1%, latencia p99 > 500ms, ledger balance drift
+      - Tracing distribuido OpenTelemetry — request_id propagado hasta PostgreSQL
+      - Health check detallado: /health con checks de DB connection pool
+      
+      Librería recomendada: prometheus/client_golang
+      
+      Di "node completo" para avanzar.
+
+  - id: "infra-aws"
+    name: "Infraestructura AWS y Hardening Final"
+    is_end: true
+    mcps_enabled:
+      - "*"
+    max_visits: 20
+    prompt_injection: |
+      Estás en el nodo INFRA AWS Y HARDENING FINAL (Fases 8 y 9).
+      
+      FASE 8 — Infraestructura AWS (Terraform):
+      - VPC + subnets públicas/privadas + NAT Gateway
+      - Security Groups (ECS → RDS, LB → ECS)
+      - RDS PostgreSQL Multi-AZ con automated backups
+      - ECS Fargate con auto-scaling (CPU > 70%) y rolling deployment
+      - S3 para documentos (PDFs facturas) y backups DB
+      - CloudFront + Route 53 para erp.xpteam.io
+      - Secrets Manager para DB password y JWT secret
+      
+      FASE 9 — Hardening Final:
+      - Tests de permisos (roles viewer/sales_rep no acceden a rutas admin)
+      - Tests de concurrencia (ConfirmOrder simultáneo)
+      - Headers de seguridad HTTP: X-Content-Type-Options, X-Frame-Options, HSTS
+      - Auditoría SQL injection en todos los fmt.Sprintf de queries
+      - Load testing con k6 (objetivo: 1000 req/s, p99 < 200ms)
+      - Cobertura backend ≥ 70%, frontend ≥ 60%
+      - Runbook de disaster recovery
+      
+      Este es el nodo final del workflow.
+      Di "workflow completo" cuando todo esté listo.
+
+edges:
+  - id: "auth-to-backend-filtros"
+    from: "auth"
+    to: "backend-filtros"
+    condition:
+      type: "phrase"
+      phrases:
+        - "node completo"
+        - "completado"
+        - "siguiente nodo"
+        - "avanzar"
+
+  - id: "backend-filtros-to-ventas"
+    from: "backend-filtros"
+    to: "ventas-frontend"
+    condition:
+      type: "phrase"
+      phrases:
+        - "node completo"
+        - "completado"
+        - "siguiente nodo"
+        - "avanzar"
+
+  - id: "ventas-to-inventario"
+    from: "ventas-frontend"
+    to: "inventario-frontend"
+    condition:
+      type: "phrase"
+      phrases:
+        - "node completo"
+        - "completado"
+        - "siguiente nodo"
+        - "avanzar"
+
+  - id: "inventario-to-facturacion"
+    from: "inventario-frontend"
+    to: "facturacion-frontend"
+    condition:
+      type: "phrase"
+      phrases:
+        - "node completo"
+        - "completado"
+        - "siguiente nodo"
+        - "avanzar"
+
+  - id: "facturacion-to-tesoreria"
+    from: "facturacion-frontend"
+    to: "tesoreria-frontend"
+    condition:
+      type: "phrase"
+      phrases:
+        - "node completo"
+        - "completado"
+        - "siguiente nodo"
+        - "avanzar"
+
+  - id: "tesoreria-to-contabilidad"
+    from: "tesoreria-frontend"
+    to: "contabilidad-frontend"
+    condition:
+      type: "phrase"
+      phrases:
+        - "node completo"
+        - "completado"
+        - "siguiente nodo"
+        - "avanzar"
+
+  - id: "contabilidad-to-ux"
+    from: "contabilidad-frontend"
+    to: "ux-global"
+    condition:
+      type: "phrase"
+      phrases:
+        - "node completo"
+        - "completado"
+        - "siguiente nodo"
+        - "avanzar"
+
+  - id: "ux-to-dashboard"
+    from: "ux-global"
+    to: "dashboard-reportes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "node completo"
+        - "completado"
+        - "siguiente nodo"
+        - "avanzar"
+
+  - id: "dashboard-to-integration"
+    from: "dashboard-reportes"
+    to: "integration-service"
+    condition:
+      type: "phrase"
+      phrases:
+        - "node completo"
+        - "completado"
+        - "siguiente nodo"
+        - "avanzar"
+
+  - id: "integration-to-observabilidad"
+    from: "integration-service"
+    to: "observabilidad"
+    condition:
+      type: "phrase"
+      phrases:
+        - "node completo"
+        - "completado"
+        - "siguiente nodo"
+        - "avanzar"
+
+  - id: "observabilidad-to-infra"
+    from: "observabilidad"
+    to: "infra-aws"
+    condition:
+      type: "phrase"
+      phrases:
+        - "node completo"
+        - "completado"
+        - "siguiente nodo"
+        - "avanzar"

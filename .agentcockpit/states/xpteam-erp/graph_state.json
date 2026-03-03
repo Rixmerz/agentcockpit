@@ -1,0 +1,21 @@
+{
+  "current_nodes": [
+    "index-codebase"
+  ],
+  "node_visits": {
+    "index-codebase": 1
+  },
+  "execution_path": [
+    {
+      "from_node": null,
+      "to_node": "index-codebase",
+      "edge_id": null,
+      "timestamp": "2026-03-03T22:31:49.730Z",
+      "reason": "Graph reset"
+    }
+  ],
+  "active_graph": "dcc-code-quality",
+  "max_visits_default": 10,
+  "total_transitions": 0,
+  "last_activity": "2026-03-03T22:31:49.743Z"
+}

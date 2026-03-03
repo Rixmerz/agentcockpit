@@ -1,29 +1,45 @@
 {
   "current_nodes": [
-    "done"
+    "plan-changes"
   ],
   "node_visits": {
-    "classify-task": 1,
-    "done": 1
+    "index-codebase": 1,
+    "explore-codebase": 1,
+    "detect-issues": 1,
+    "plan-changes": 1
   },
   "execution_path": [
     {
       "from_node": null,
-      "to_node": "classify-task",
+      "to_node": "index-codebase",
       "edge_id": null,
-      "timestamp": "2026-02-13T16:57:00.862840",
+      "timestamp": "2026-03-03T19:58:54.052503",
       "reason": "Graph reset"
     },
     {
-      "from_node": "classify-task",
-      "to_node": "done",
-      "edge_id": null,
-      "timestamp": "2026-02-13T16:57:15.271216",
-      "reason": "Admin jump to done"
+      "from_node": "index-codebase",
+      "to_node": "explore-codebase",
+      "edge_id": "index-to-explore",
+      "timestamp": "2026-03-03T19:58:58.720186",
+      "reason": "BASELINE con prune \u2014 deber\u00eda limpiar archivos eliminados del \u00edndice"
+    },
+    {
+      "from_node": "explore-codebase",
+      "to_node": "detect-issues",
+      "edge_id": "explore-to-detect",
+      "timestamp": "2026-03-03T19:59:18.886834",
+      "reason": "testPollution2.ts CREADO \u2014 auto-reindex debe detectarlo sin intervenci\u00f3n manual"
+    },
+    {
+      "from_node": "detect-issues",
+      "to_node": "plan-changes",
+      "edge_id": "detect-to-plan",
+      "timestamp": "2026-03-03T19:59:37.231107",
+      "reason": "testPollution2.ts ELIMINADO \u2014 prune autom\u00e1tico debe removerlo del \u00edndice"
     }
   ],
-  "active_graph": "macro-orchestrator",
+  "active_graph": "dcc-code-quality",
   "max_visits_default": 10,
-  "total_transitions": 1,
-  "last_activity": "2026-02-13T16:57:15.271240"
+  "total_transitions": 3,
+  "last_activity": "2026-03-03T19:59:37.231233"
 }

@@ -1,19 +1,19 @@
 # AgentCockpit Architecture
 
-Documento viviente del ecosistema completo: MCPs, tools, pipelines, agents, skills, y patrones de orquestacion.
+Documento viviente del ecosistema completo: MCPs, tools, workflows, agents, skills, y patrones de orquestacion.
 
 ---
 
 ## 1. MCP Servers
 
-### 1.1 Pipeline-Manager (26 tools)
+### 1.1 Workflow-Manager (26 tools)
 
-Servidor central de orquestacion. Gestiona sesiones, pipelines de grafos, proxy de tools, y busqueda semantica.
+Servidor central de orquestacion. Gestiona sesiones, workflows de grafos, proxy de tools, y busqueda semantica.
 
 | Categoria | Tool | Descripcion |
 |-----------|------|-------------|
 | **Session** | `set_session` | Establece el proyecto activo para la sesion |
-| | `pipeline_set_enabled` | Activa/desactiva el enforcer del pipeline |
+| | `workflow_set_enabled` | Activa/desactiva el enforcer del workflow |
 | | `close_mcp_connections` | Cierra conexiones MCP activas |
 | **Graph Nav** | `graph_status` | Estado actual: nodo, edges disponibles, visitas |
 | | `graph_traverse` | Moverse por un edge al siguiente nodo |
@@ -24,7 +24,7 @@ Servidor central de orquestacion. Gestiona sesiones, pipelines de grafos, proxy 
 | **Graph Viz** | `graph_visualize` | Generar diagrama Mermaid del grafo |
 | | `graph_validate` | Validar estructura del grafo |
 | **Graph Mgmt** | `graph_override_max_visits` | Override max_visits de un nodo |
-| | `graph_list_available` | Listar grafos disponibles en pipelines library |
+| | `graph_list_available` | Listar grafos disponibles en workflows library |
 | | `graph_activate` | Activar un grafo desde la library |
 | **Proxy** | `execute_mcp_tool` | Ejecutar cualquier MCP tool via proxy |
 | **Search** | `search_tools` | Buscar tools por objetivo con similitud semantica |
@@ -39,7 +39,7 @@ Servidor central de orquestacion. Gestiona sesiones, pipelines de grafos, proxy 
 | | `graph_builder_list` | Listar builders activos |
 | | `graph_builder_delete` | Eliminar builder sin guardar |
 
-**Arquitectura:** Centralized Hub. Pipelines globales en `{hub}/.claude/pipelines/`. Estados centralizados en `{hub}/.agentcockpit/states/{project}/`. Config en `~/.agentcockpit/config.json`.
+**Arquitectura:** Centralized Hub. Workflows globales en `{hub}/.claude/workflows/`. Estados centralizados en `{hub}/.agentcockpit/states/{project}/`. Config en `~/.agentcockpit/config.json`.
 
 ### 1.2 DeltaCodeCube (35 tools)
 
@@ -87,7 +87,7 @@ Indexacion multidimensional de codigo. Representa archivos como puntos en espaci
 
 ### 1.3 Otros MCPs en el Ecosistema
 
-| MCP | Proposito | Usado en pipelines |
+| MCP | Proposito | Usado en workflows |
 |-----|-----------|-------------------|
 | `sequential-thinking` | Razonamiento paso a paso forzado | haiku-orchestrator, denofresh-analyzer, testing-demo |
 | `cfa4` | Context-First Architecture — memoria, knowledge graph | cfa-remember, cfa-recall, testing-demo |
@@ -97,13 +97,13 @@ Indexacion multidimensional de codigo. Representa archivos como puntos en espaci
 
 ---
 
-## 2. Graph Pipelines
+## 2. Graph Workflows
 
-Todos los pipelines residen en `.claude/pipelines/`. Son grafos YAML con nodos, edges, y condiciones de transicion.
+Todos los workflows residen en `.claude/workflows/`. Son grafos YAML con nodos, edges, y condiciones de transicion.
 
 ### 2.1 Inventario
 
-| Pipeline | Archivo | Nodos | Patron | MCPs |
+| Workflow | Archivo | Nodos | Patron | MCPs |
 |----------|---------|-------|--------|------|
 | CFA Remember | `cfa-remember-graph.yaml` | 3 | Linear (2 + end) | cfa4 |
 | CFA Recall | `cfa-recall-graph.yaml` | 3 | Linear (2 + end) | cfa4 |
@@ -115,9 +115,9 @@ Todos los pipelines residen en `.claude/pipelines/`. Son grafos YAML con nodos, 
 | Landing from Materials | `landing-from-materials-graph.yaml` | 38 | Material-based generation | denofreshmcp |
 | Testing Demo | `testing-demo.yaml` | 4 | Simple demo | sequential-thinking, cfa4, Context7, deltacodecube |
 | **DCC Code Quality** | `dcc-code-quality-graph.yaml` | 7 | Quality lifecycle | deltacodecube |
-| **Macro Orchestrator** | `macro-orchestrator-graph.yaml` | 5 | Pipeline-of-pipelines | pipeline-manager |
+| **Macro Orchestrator** | `macro-orchestrator-graph.yaml` | 5 | Workflow-of-workflows | workflow-manager |
 
-### 2.2 Patrones de Diseno de Pipelines
+### 2.2 Patrones de Diseno de Workflows
 
 **Linear:** Nodos secuenciales sin branches. Ejemplo: cfa-remember (capture → complete).
 
@@ -127,7 +127,7 @@ Todos los pipelines residen en `.claude/pipelines/`. Son grafos YAML con nodos, 
 
 **Hybrid Multi-agent:** Nodos delegan a sub-agents especificos via Task tool. Ejemplo: denofresh-analyzer.
 
-**Pipeline-of-Pipelines (Macro):** Un grafo que activa otros grafos via `graph_activate` y delega a agents. Ver `macro-orchestrator-graph.yaml`.
+**Workflow-of-Workflows (Macro):** Un grafo que activa otros grafos via `graph_activate` y delega a agents. Ver `macro-orchestrator-graph.yaml`.
 
 ### 2.3 Anatomia de un Nodo
 
@@ -182,7 +182,7 @@ Todos los agents residen en `.claude/agents/`. Son archivos `.md` con frontmatte
 | layout-architect | `layout-architect.md` | Layouts + responsive design | inherit |
 | animation-designer | `animation-designer.md` | Animaciones + transitions | inherit |
 | **codebase-analyst** | `codebase-analyst.md` | Analisis DCC de codebase | haiku |
-| **pipeline-executor** | `pipeline-executor.md` | Ejecutor autonomo de pipelines | inherit |
+| **workflow-executor** | `workflow-executor.md` | Ejecutor autonomo de workflows | inherit |
 
 ### Patron de Agent
 
@@ -213,7 +213,7 @@ Todas las skills residen en `.claude/skills/`. Son directorios con `SKILL.md`.
 |-------|-----------|------------|------|
 | fresh-ui-components | `skills/fresh-ui-components/` | cargada automaticamente | 40+ componentes UI |
 | fresh-ui-animation | `skills/fresh-ui-animation/` | cargada automaticamente | 20+ presets animacion |
-| pipeline | `skills/pipeline/` | `/pipeline [status|advance|reset|set N]` | Control de pipeline |
+| workflow | `skills/workflow/` | `/workflow [status|advance|reset|set N]` | Control de workflow |
 | **dcc-analysis** | `skills/dcc-analysis/` | `/dcc-analysis` | Catalogo DCC + flujos |
 
 ---
@@ -266,14 +266,14 @@ Para tareas que generan mucho output (test suites, analisis completo), delegar a
 - Costo: ~duplicar tokens de contexto por instancia paralela
 - Patron: lanzar N explorers en paralelo, consolidar en main
 
-### 5.6 Pipeline-of-Pipelines (Macro)
+### 5.6 Workflow-of-Workflows (Macro)
 
 Limitacion: solo un graph activo por proyecto. Workaround:
-1. Macro-pipeline clasifica la tarea
-2. Activa el pipeline apropiado via `graph_activate`
-3. Delega a agent configurado con ese pipeline
+1. Macro-workflow clasifica la tarea
+2. Activa el workflow apropiado via `graph_activate`
+3. Delega a agent configurado con ese workflow
 4. Agent ejecuta el micro-flujo completo
-5. Al volver, macro-pipeline avanza
+5. Al volver, macro-workflow avanza
 
 ---
 
@@ -299,7 +299,7 @@ Mapeo de cuales tools de DCC usar en cada fase del ciclo de desarrollo:
 agentcockpit/
   .claude/
     agents/              # Agent definitions (.md)
-    pipelines/           # Graph pipeline YAMLs
+    workflows/           # Graph workflow YAMLs
     skills/              # Skill definitions (dirs with SKILL.md)
     hooks/               # Hook scripts (Python)
       graph_enforcer.py  # PreToolUse: hard-blocks tools per graph node
@@ -313,13 +313,13 @@ agentcockpit/
     memories.json        # CFA memories
     knowledge_graph.db   # CFA knowledge graph
     ARCHITECTURE.md      # This file
-  .pipeline-manager/
-    src/pipeline_manager/
+  .workflow-manager/
+    src/workflow_manager/
       server.py          # 26 tools (FastMCP)
       graph_engine.py    # Graph execution engine
       graph_parser.py    # YAML parsing
       graph_state.py     # State management
-    steps.yaml           # Legacy steps
+
     data/                # DBs
   .deltacodecube/
     src/deltacodecube/
@@ -329,7 +329,7 @@ agentcockpit/
       db/                # SQLite persistence
       visualization/     # HTML export
   .agentcockpit/
-    states/              # Centralized pipeline states per project
+    states/              # Centralized workflow states per project
     snapshots.json       # Snapshots
   src/                   # AgentCockpit app source (TypeScript/React)
 ```

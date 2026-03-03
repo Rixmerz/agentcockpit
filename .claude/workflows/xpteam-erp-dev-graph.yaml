@@ -1,0 +1,536 @@
+metadata:
+  name: "XPTeam ERP Development Workflow"
+  description: "Workflow de desarrollo para SaaS multi-tenant ERP (plataforma financiera-operacional). Flujo: arquitectura DDD → scaffold backend Go → modelado de dominio → scaffold frontend React/shadcn → componentes UI → integración → quality check → validación → deploy ready. Incluye loops de corrección y cubre las 13 áreas de ingeniería."
+  version: "1.1.0"
+  type: "graph"
+
+nodes:
+  - id: "architecture-planning"
+    name: "Architecture Planning"
+    is_start: true
+    mcps_enabled:
+      - "sequentialthinking"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+    max_visits: 3
+    prompt_injection: |
+      Fase de PLANIFICACIÓN ARQUITECTÓNICA. Usa sequential thinking para definir:
+
+      1. BOUNDED CONTEXTS: Identificar contextos del ERP — Accounting (ledger, journal entries), Invoicing (facturas, cobros), Inventory (stock, movimientos), Treasury (flujo de caja), Identity (tenants, users, roles), Sales (pedidos, cotizaciones), Production (si aplica).
+
+      2. MODELO CONTABLE: Ledger inmutable (append-only, NO update/delete). Double-entry bookkeeping obligatorio — cada transacción debe balancear débitos = créditos. Tabla ledger_entries con: id, tenant_id, debit_account, credit_account, amount (DECIMAL), currency, timestamp.
+
+      3. MULTI-TENANT: Schema-per-tenant en PostgreSQL. Middleware extrae Tenant-ID del JWT → inyecta en context → Repository filtra por schema. NO usar tenant_id compartido en tablas gigantes.
+
+      4. EVENTOS DE DOMINIO: Domain Events síncronos dentro del core. Eventos asíncronos solo al salir del core. Evento interno NO hace IO externo. Publicación externa solo después de commit exitoso.
+
+      5. ARQUITECTURA HEXAGONAL: Ports & Adapters para cada bounded context. Domain NO importa SQL/HTTP/AWS/JSON. Interfaces (ports) en domain/, implementaciones en infrastructure/.
+
+      6. INTEGRATION SERVICE: Servicio separado del core. Escucha eventos, llama APIs externas, maneja retries/DLQ/idempotencia. Prohibido llamadas HTTP externas dentro del core financiero.
+
+      7. SEGURIDAD: Roles por tenant (admin, accountant, viewer). Permisos granulares. JWT + refresh token rotation. Rate limiting por tenant. WAF en producción.
+
+      8. OBSERVABILIDAD: Logs estructurados JSON con tenant_id/request_id. Métricas por dominio. Trazabilidad request→ledger. Alarmas por SLA.
+
+      9. DISEÑO EVOLUTIVO: Core arranca como modular monolith. Solo extraer como microservicio cuando hay evidencia real (escala diferente, cambia más rápido, alta carga independiente). No antes.
+
+      Reglas: DDD táctico + estratégico. NO escribir código aún — solo análisis y diseño.
+      Output esperado: documento de arquitectura con bounded contexts, agregados, modelo contable, estrategia multi-tenant, eventos, y decisiones de seguridad/observabilidad.
+      Consultar CLAUDE.md para reglas detalladas.
+
+  - id: "backend-scaffold"
+    name: "Backend Scaffold"
+    mcps_enabled:
+      - "*"
+    max_visits: 5
+    prompt_injection: |
+      Fase de SCAFFOLD BACKEND. Crear estructura Go siguiendo Clean Architecture + DDD + Hexagonal.
+
+      ESTRUCTURA OBLIGATORIA:
+      /cmd/erp-server/main.go — Entry point con graceful shutdown
+      /internal/<bounded-context>/
+        domain/         — Entidades, Value Objects, interfaces Repository, Domain Events
+        application/    — Use Cases (ConfirmOrderUseCase, RegisterPaymentUseCase, etc.)
+        infrastructure/ — Implementaciones repos (PostgreSQL/pgx), adapters externos
+        interfaces/     — HTTP handlers, DTOs entrada/salida (solo: validar, llamar use case, responder)
+      /shared/ — Money, Currency, TenantID, middleware (multi-tenant, auth, logging), errors
+      /migrations/ — SQL migrations versionadas
+      /deployments/ — Dockerfile (multi-stage), docker-compose.yaml
+
+      ARCHIVOS BASE:
+      - go.mod (módulo: github.com/xpteam/erp)
+      - Makefile (build, test, lint, migrate, docker)
+      - .golangci.yml (linters configurados)
+      - Dockerfile (multi-stage: builder + runtime)
+      - .github/workflows/ci.yml (test → lint → build)
+
+      DEPENDENCIAS INICIALES: chi router, pgx, zerolog, testify, golang-migrate, decimal
+
+      REGLAS BACKEND (ver CLAUDE.md para detalle completo):
+      - Domain NO importa SQL/HTTP/AWS/JSON
+      - Repository Pattern obligatorio (interface en domain/, impl en infrastructure/)
+      - No lógica en handlers HTTP
+      - Casos de uso explícitos por operación
+      - No modelo anémico — entidades con comportamiento
+      - No floats para dinero — usar decimal/Money VO
+      - No variables globales, no shared mutable state
+      - Dependency Injection manual (no frameworks)
+
+      OBSERVABILIDAD BASE:
+      - zerolog con structured JSON logging
+      - request_id middleware que propaga por context
+      - Health check endpoint /health
+
+      SEGURIDAD BASE:
+      - Middleware JWT extraction
+      - Middleware Tenant-ID injection
+      - Rate limiting middleware placeholder
+
+  - id: "domain-modeling"
+    name: "Domain Modeling"
+    mcps_enabled:
+      - "sequentialthinking"
+      - "*"
+    max_visits: 8
+    prompt_injection: |
+      Fase de MODELADO DE DOMINIO. Implementar el corazón del ERP con DDD táctico.
+
+      ENTIDADES CON COMPORTAMIENTO (NO anémicas):
+      - Account: Open(), Close(), Debit(money), Credit(money)
+      - JournalEntry: Post(), Validate() — verifica balance débitos=créditos
+      - Invoice: Create(), Send(), MarkPaid(), Void() — estados: draft→sent→paid→void
+      - Product: UpdateStock(), Reserve(), Release()
+      - Tenant: Activate(), Suspend(), configure settings
+
+      VALUE OBJECTS INMUTABLES (obligatorios):
+      - Money(amount decimal.Decimal, currency Currency) — NUNCA float64
+      - Tax(rate decimal.Decimal, type TaxType)
+      - TenantID(value uuid.UUID)
+      - AccountCode(value string) — con validación de formato
+      - Currency(code string) — ISO 4217
+      - Percentage(value decimal.Decimal) — con validación 0-100
+
+      AGREGADOS CON INVARIANTES:
+      - Ledger: inmutable, append-only. Solo método Post(entry) que valida balance.
+      - Invoice: máquina de estados con transiciones válidas.
+      - Order: Confirm() valida stock, crea movimiento inventario + asiento contable.
+
+      REPOSITORY INTERFACES (en domain/, sin dependencia de infra):
+      - AccountRepository, InvoiceRepository, LedgerRepository, etc.
+      - Métodos: Save, FindByID, FindByTenant, etc.
+
+      DOMAIN EVENTS:
+      - InvoiceCreated, InvoiceVoided, PaymentReceived, JournalEntryPosted
+      - OrderConfirmed, StockReserved, StockReleased
+      - Eventos síncronos dentro del core, asíncronos al salir
+
+      DOUBLE-ENTRY BOOKKEEPING:
+      - Cada transacción DEBE balancear: sum(débitos) == sum(créditos)
+      - Validación en el agregado Ledger, NO en infraestructura
+      - Ledger entries son append-only, NUNCA se modifican o eliminan
+
+      TRANSACCIONES COORDINADAS (Unit of Work):
+      - Confirmación de venta: validar stock → crear movimiento inventario → crear asiento contable → persistir orden
+      - Todo dentro de tx := db.Begin(). Si algo falla → rollback total.
+
+      FACTORY PATTERN:
+      - Constructores que validan invariantes al crear entidades
+      - NewInvoice(), NewJournalEntry(), NewOrder() — no structs públicos sin constructor
+
+      Usa sequential thinking para razonar sobre invariantes complejos antes de implementar.
+      Consultar CLAUDE.md secciones 2, 3, 4, 7 para reglas detalladas.
+
+  - id: "frontend-scaffold"
+    name: "Frontend Scaffold"
+    mcps_enabled:
+      - "shadcn"
+      - "*"
+    max_visits: 5
+    prompt_injection: |
+      Fase de SCAFFOLD FRONTEND. Crear proyecto React + TypeScript + shadcn/ui.
+
+      ESTRUCTURA OBLIGATORIA:
+      /src/components/ — Componentes UI puros (presentacionales), shadcn/ui base
+      /src/features/   — Feature modules con lógica de negocio (hooks, state, containers)
+      /src/services/   — API clients, HTTP calls, types compartidos con backend
+      /src/lib/        — Utilidades, helpers, configuración (cn(), api client setup)
+      /src/types/      — TypeScript types/interfaces globales
+
+      SETUP:
+      - Vite + React 18+ + TypeScript strict mode
+      - shadcn/ui como sistema de componentes base
+      - TanStack Query para server state management
+      - React Router para navegación
+      - Zod para validación de schemas (mirroring backend DTOs)
+      - Tailwind CSS configurado
+      - Vitest + Testing Library para tests
+
+      REGLAS FRONTEND (ver CLAUDE.md sección 8):
+      - strict TypeScript (no any, nunca)
+      - Componentes puramente funcionales (const Component = () => {})
+      - Nada de class components
+      - Separar UI de lógica: components/ vs features/ vs services/
+      - NUNCA calcular impuestos o validar estados contables en frontend
+      - El frontend solo muestra y envía datos — toda lógica en backend
+      - shadcn como base — no reinventar componentes, no CSS custom innecesario
+      - Barrel exports por feature module
+      - Interfaces claras para props, API responses, state
+
+      SEGURIDAD FRONTEND:
+      - JWT storage en httpOnly cookie (NO localStorage)
+      - Refresh token rotation
+      - Interceptor para 401 → refresh → retry
+      - Sanitizar inputs antes de enviar al backend
+
+  - id: "ui-components"
+    name: "UI Components"
+    mcps_enabled:
+      - "shadcn"
+      - "*"
+    max_visits: 8
+    prompt_injection: |
+      Fase de COMPONENTES UI. Instalar y configurar componentes shadcn/ui para ERP.
+
+      COMPONENTES ESENCIALES:
+      - DataTable: sorting, filtering, pagination (listados de facturas, productos, cuentas)
+      - Form: Input, Select, DatePicker, Combobox (formularios de entrada)
+      - Dialog/Sheet: modales de creación/edición
+      - Tabs: navegación dentro de features
+      - Card: dashboards y resúmenes financieros
+      - Charts (recharts): reportes financieros, balance, P&L
+      - Toast/Sonner: notificaciones de acciones
+      - Command palette: navegación rápida (Cmd+K)
+      - Badge: estados de facturas (draft, sent, paid, void)
+      - Sidebar: navegación principal entre bounded contexts
+      - Skeleton: loading states
+
+      USAR SHADCN MCP:
+      - search_items: buscar componentes disponibles
+      - get_add_command: obtener comando de instalación
+      - get_audit_checklist: verificar accesibilidad de componentes instalados
+
+      ACCESIBILIDAD:
+      - Todos los componentes deben ser accesibles (ARIA labels, keyboard nav)
+      - Responsive design (mobile-first)
+      - Soporte para screen readers en tablas de datos y formularios
+
+      REGLA: No reinventar lo que shadcn ya provee. No CSS custom innecesario.
+
+  - id: "integration"
+    name: "Integration"
+    mcps_enabled:
+      - "*"
+    max_visits: 5
+    prompt_injection: |
+      Fase de INTEGRACIÓN. Dos responsabilidades: (A) conectar frontend↔backend, (B) diseñar Integration Service externo.
+
+      A) CONTRATOS FRONTEND↔BACKEND:
+      1. OpenAPI spec o types compartidos (DTOs) — frontend types deben matchear exactamente con backend
+      2. API Client tipado en frontend con interceptors (auth, errors, retry)
+      3. API versioning: /api/v1/ prefix
+      4. Error handling unificado: error types compartidos (ErrorCode, message, details)
+      5. CORS configurado por tenant/dominio
+
+      B) MIDDLEWARE MULTI-TENANT (Go):
+      1. JWT middleware: extrae token → valida → extrae Tenant-ID + User-ID + Roles
+      2. Tenant context middleware: inyecta TenantID en context.Context
+      3. Repository tenant filter: automáticamente filtra por schema del tenant
+      4. Todos los endpoints requieren auth excepto /auth/login, /auth/refresh, /health
+
+      C) SEGURIDAD Y RATE LIMITING:
+      1. Rate limiting por tenant (token bucket o sliding window)
+      2. Rate limiting por endpoint (más estricto en /auth)
+      3. Roles por tenant: admin, accountant, viewer, etc.
+      4. Permisos granulares por recurso (RBAC)
+      5. Validación SIEMPRE en backend — frontend es convenience
+      6. JWT expiración corta (15min) + refresh token rotation
+
+      D) INTEGRATION SERVICE (externo al core):
+      1. Servicio separado que escucha Domain Events del core
+      2. Llama APIs externas: facturación electrónica, bancos, notificaciones
+      3. Retry con backoff exponencial
+      4. Dead Letter Queue (DLQ) para mensajes fallidos
+      5. Idempotencia obligatoria (idempotency key en cada operación)
+      6. PROHIBIDO: llamadas HTTP externas dentro del core financiero
+
+      Consultar CLAUDE.md secciones 5, 6, 10 para reglas detalladas.
+
+  - id: "quality-check"
+    name: "Quality Check"
+    mcps_enabled:
+      - "deltacodecube"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+    max_visits: 5
+    prompt_injection: |
+      Fase de QUALITY CHECK. Análisis de calidad con DeltaCodeCube (solo lectura, NO modificar código).
+
+      ANÁLISIS ESTRUCTURAL:
+      1. Indexar codebase completo (backend Go + frontend React/TS)
+      2. Analizar dependencias entre módulos — detectar dependencias circulares
+      3. Medir complejidad ciclomática por función
+      4. Detectar código muerto, imports no usados
+
+      VERIFICACIÓN DDD (crítico):
+      5. Domain NO importa infrastructure (no SQL, no HTTP, no AWS en domain/)
+      6. No lógica de negocio en handlers HTTP (interfaces/ solo valida, llama use case, responde)
+      7. Entidades tienen comportamiento (no modelo anémico — métodos con lógica, no solo getters)
+      8. Value Objects son inmutables (Money, Tax, Currency sin setters)
+      9. Repository interfaces definidas en domain/, implementaciones en infrastructure/
+      10. Constructores con validación (NewInvoice, NewOrder — no structs públicos sin factory)
+
+      VERIFICACIÓN CONTABLE (crítico):
+      11. Money NUNCA usa float64 — siempre decimal
+      12. Ledger entries son append-only (no UPDATE/DELETE en migrations o repos)
+      13. Double-entry: toda transacción balancea débitos = créditos
+      14. Transacciones coordinadas usan Unit of Work (tx begin/commit/rollback)
+
+      VERIFICACIÓN SEGURIDAD:
+      15. JWT validation en middleware, no en handlers individuales
+      16. Tenant isolation: queries filtran por tenant schema
+      17. No secrets hardcodeados, no logging de tokens/passwords
+      18. Rate limiting implementado
+
+      VERIFICACIÓN OBSERVABILIDAD:
+      19. Logs estructurados JSON (no fmt.Println)
+      20. request_id propagado en context
+      21. Health check endpoint existe y verifica dependencias
+
+      CODE SMELLS:
+      22. Funciones > 50 líneas
+      23. God classes / god packages
+      24. Feature envy (lógica que debería estar en otra entidad)
+      25. Duplicación de lógica contable
+
+      DECISIÓN DE TRANSICIÓN:
+      - Issues GRAVES (violaciones DDD, money como float, ledger mutable, dependencias circulares en domain) → loop a domain-modeling ("issues backend") o ui-components ("issues frontend")
+      - Calidad aceptable → proceder a validation ("calidad aprobada")
+
+      NO corregir código — solo diagnosticar y reportar con evidencia.
+
+  - id: "validation"
+    name: "Validation"
+    mcps_enabled:
+      - "*"
+    max_visits: 5
+    prompt_injection: |
+      Fase de VALIDACIÓN. Ejecutar todas las verificaciones automatizadas.
+
+      BACKEND (Go):
+      - go build ./...                    — compilación exitosa, zero errors
+      - go vet ./...                      — sin issues estáticos
+      - golangci-lint run                 — sin errores de lint
+      - go test ./... -race -cover        — tests pasan, race detector clean
+      - go test -coverprofile=coverage.out — coverage >= 60%
+
+      FRONTEND (React/TS):
+      - tsc --noEmit                      — type-check sin errores, NO any residual
+      - eslint .                          — sin errores de lint
+      - vitest run                        — tests pasan
+      - vite build                        — build de producción exitoso, sin warnings críticos
+
+      INFRAESTRUCTURA:
+      - docker build .                    — Dockerfile multi-stage válido
+      - docker-compose config             — docker-compose.yaml válido
+      - Migraciones SQL válidas y versionadas (sin UPDATE/DELETE en ledger)
+
+      CI/CD VALIDATION:
+      - .github/workflows/ci.yml existe y es válido
+      - Workflow: test → lint → build → push (al menos en definición)
+      - No merge sin tests (branch protection definida o documentada)
+
+      SEGURIDAD VALIDATION:
+      - No secrets en código (grep por API_KEY, password, secret en archivos .go y .ts)
+      - No any en TypeScript
+      - No fmt.Println para logging (debe usar zerolog)
+
+      COVERAGE MÍNIMA:
+      - Backend: >= 60%
+      - Frontend: >= 50%
+
+      Si algo falla → loop a quality-check ("tests fallaron" / "validation failed" / "build failed" / "lint errors")
+      Si todo pasa → proceder a deploy-ready ("validación exitosa")
+
+  - id: "deploy-ready"
+    name: "Deploy Ready"
+    is_end: true
+    mcps_enabled:
+      - "*"
+    max_visits: 3
+    prompt_injection: |
+      Fase DEPLOY READY — Checklist final de producción completa.
+
+      INFRAESTRUCTURA:
+      - [ ] Dockerfile multi-stage build (builder Go + runtime alpine)
+      - [ ] docker-compose.yaml (PostgreSQL + app + migrations runner)
+      - [ ] Terraform base: VPC, subnets, security groups, ECS cluster (Fargate), RDS Multi-AZ, S3
+      - [ ] .env.example con todas las variables documentadas
+
+      CI/CD:
+      - [ ] GitHub Actions CI pipeline (test → lint → build → push)
+      - [ ] Deploy staging automático post-merge a main
+      - [ ] Aprobación manual requerida para producción
+      - [ ] Branch protection: no merge sin tests + review
+
+      APLICACIÓN:
+      - [ ] Health check endpoint /health (verifica DB, cache, dependencias)
+      - [ ] Graceful shutdown implementado (signal handling)
+      - [ ] Migraciones SQL versionadas y ejecutables
+      - [ ] Schema-per-tenant migration runner
+
+      OBSERVABILIDAD:
+      - [ ] Logging estructurado JSON (zerolog) con tenant_id, request_id, user_id
+      - [ ] Métricas por bounded context exportadas
+      - [ ] Trazabilidad: request_id propagado request→use case→repo→ledger
+      - [ ] Alarmas por SLA definidas (latencia p99, error rate)
+
+      SEGURIDAD:
+      - [ ] JWT + refresh token rotation funcionando
+      - [ ] Rate limiting por tenant activo
+      - [ ] RBAC (roles + permisos) implementado
+      - [ ] CORS configurado
+      - [ ] No secrets en código ni en Docker image
+
+      CONTABILIDAD:
+      - [ ] Ledger inmutable verificado (no UPDATE/DELETE posible)
+      - [ ] Double-entry validado end-to-end
+      - [ ] Balance check query disponible para auditoría
+
+      DOCUMENTACIÓN:
+      - [ ] README con setup local (git clone → docker-compose up → ready)
+      - [ ] CLAUDE.md con todas las reglas de desarrollo
+
+      HARDENING (futuro, documentar como pendiente):
+      - [ ] Load testing plan
+      - [ ] Auditoría contable automatizada
+      - [ ] Disaster recovery test plan
+      - [ ] Documentación formal de API (OpenAPI)
+
+      Generar resumen ejecutivo del estado del proyecto y qué queda pendiente para producción.
+
+edges:
+  - id: "arch-to-backend"
+    from: "architecture-planning"
+    to: "backend-scaffold"
+    condition:
+      type: "phrase"
+      phrases:
+        - "arquitectura definida"
+        - "architecture defined"
+        - "diseño completo"
+        - "ready for scaffold"
+
+  - id: "backend-to-domain"
+    from: "backend-scaffold"
+    to: "domain-modeling"
+    condition:
+      type: "phrase"
+      phrases:
+        - "scaffold backend completo"
+        - "backend scaffold complete"
+        - "estructura creada"
+
+  - id: "domain-to-frontend"
+    from: "domain-modeling"
+    to: "frontend-scaffold"
+    condition:
+      type: "phrase"
+      phrases:
+        - "dominio modelado"
+        - "domain modeled"
+        - "entidades completas"
+        - "domain complete"
+
+  - id: "frontend-to-ui"
+    from: "frontend-scaffold"
+    to: "ui-components"
+    condition:
+      type: "phrase"
+      phrases:
+        - "scaffold frontend completo"
+        - "frontend scaffold complete"
+        - "proyecto react creado"
+
+  - id: "ui-to-integration"
+    from: "ui-components"
+    to: "integration"
+    condition:
+      type: "phrase"
+      phrases:
+        - "componentes instalados"
+        - "components installed"
+        - "ui components ready"
+
+  - id: "integration-to-quality"
+    from: "integration"
+    to: "quality-check"
+    condition:
+      type: "phrase"
+      phrases:
+        - "integración completa"
+        - "integration complete"
+        - "api contracts defined"
+
+  - id: "quality-to-validation"
+    from: "quality-check"
+    to: "validation"
+    condition:
+      type: "phrase"
+      phrases:
+        - "calidad aprobada"
+        - "quality approved"
+        - "no issues found"
+        - "quality check passed"
+
+  - id: "quality-to-domain-loop"
+    from: "quality-check"
+    to: "domain-modeling"
+    condition:
+      type: "phrase"
+      phrases:
+        - "issues backend"
+        - "backend issues"
+        - "domain issues"
+        - "fix domain"
+        - "corregir dominio"
+    priority: 2
+
+  - id: "quality-to-ui-loop"
+    from: "quality-check"
+    to: "ui-components"
+    condition:
+      type: "phrase"
+      phrases:
+        - "issues frontend"
+        - "frontend issues"
+        - "fix ui"
+        - "corregir frontend"
+        - "ui issues"
+    priority: 2
+
+  - id: "validation-to-deploy"
+    from: "validation"
+    to: "deploy-ready"
+    condition:
+      type: "phrase"
+      phrases:
+        - "validación exitosa"
+        - "validation passed"
+        - "all checks passed"
+        - "tests passing"
+
+  - id: "validation-to-quality-loop"
+    from: "validation"
+    to: "quality-check"
+    condition:
+      type: "phrase"
+      phrases:
+        - "tests fallaron"
+        - "tests failed"
+        - "validation failed"
+        - "build failed"
+        - "lint errors"
+    priority: 2

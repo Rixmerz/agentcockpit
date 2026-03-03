@@ -1,0 +1,339 @@
+# DCC Code Quality Workflow v1.0
+# Ciclo completo de calidad de codigo usando DeltaCodeCube (35 tools)
+# Flujo: index → explore → detect → plan → develop → validate → report
+
+metadata:
+  name: "DCC Code Quality"
+  description: "Workflow de calidad de codigo con DeltaCodeCube. Indexa, analiza, detecta issues, planifica cambios, valida, y genera reportes."
+  version: "1.0.0"
+  type: "graph"
+  author: "AgentCockpit"
+  mcps_required:
+    - "deltacodecube"
+
+nodes:
+  # ---------------------------------------------------------------------------
+  # FASE 1: INDEXACION
+  # ---------------------------------------------------------------------------
+  - id: "index-codebase"
+    name: "Indexar Codebase"
+    is_start: true
+    model: haiku
+    mcps_enabled:
+      - "deltacodecube"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+      - "Task"
+    max_visits: 5
+    prompt_injection: |
+      ======================================================================
+      FASE 1: INDEXAR CODEBASE
+      ======================================================================
+
+      Indexa el proyecto completo usando DeltaCodeCube.
+
+      HERRAMIENTAS DISPONIBLES:
+      - cube_index_directory: Indexar directorio completo
+      - cube_index_file: Indexar archivo individual
+
+      PASOS:
+      1. Pregunta al usuario la ruta del proyecto si no es obvia
+      2. Ejecuta cube_index_directory con la ruta del proyecto
+      3. Reporta: totalFiles, grade, score
+
+      SIGNAL: Cuando la indexacion termine, di "indexacion completa"
+
+      ======================================================================
+
+  # ---------------------------------------------------------------------------
+  # FASE 2: EXPLORACION
+  # ---------------------------------------------------------------------------
+  - id: "explore-codebase"
+    name: "Explorar Codebase"
+    model: haiku
+    mcps_enabled:
+      - "deltacodecube"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+      - "Task"
+    max_visits: 15
+    prompt_injection: |
+      ======================================================================
+      FASE 2: EXPLORAR CODEBASE
+      ======================================================================
+
+      Analiza la estructura del codebase indexado.
+
+      HERRAMIENTAS DISPONIBLES:
+      - cube_get_stats: Estadisticas generales
+      - cube_analyze_graph: Grafo de dependencias + centralidad
+      - cube_get_centrality: Centralidad de archivo especifico
+      - cube_cluster_files: Clusterizar archivos por similaridad
+      - cube_search_by_domain: Buscar por dominio semantico
+      - cube_find_similar: Buscar archivos similares
+
+      EJECUTA en orden:
+      1. cube_get_stats — panorama general
+      2. cube_analyze_graph — estructura de dependencias
+      3. cube_cluster_files — grupos naturales
+      4. Presenta resumen al usuario
+
+      SIGNAL: Cuando termines, di "exploracion completa"
+
+      ======================================================================
+
+  # ---------------------------------------------------------------------------
+  # FASE 3: DETECCION DE ISSUES
+  # ---------------------------------------------------------------------------
+  - id: "detect-issues"
+    name: "Detectar Issues"
+    model: haiku
+    mcps_enabled:
+      - "deltacodecube"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+      - "Task"
+    max_visits: 15
+    prompt_injection: |
+      ======================================================================
+      FASE 3: DETECTAR ISSUES
+      ======================================================================
+
+      Detecta todos los problemas del codebase.
+
+      HERRAMIENTAS DISPONIBLES:
+      - cube_detect_smells: Code smells
+      - cube_get_debt: Deuda tecnica
+      - cube_get_tensions: Tensiones (violaciones de contratos)
+      - cube_detect_clones: Codigo duplicado
+      - cube_detect_drift: Archivos que divergen
+      - cube_analyze_surface: API surface
+
+      EJECUTA:
+      1. cube_detect_smells
+      2. cube_get_debt
+      3. cube_get_tensions
+      4. cube_detect_clones
+      5. cube_detect_drift
+
+      Presenta un reporte consolidado con prioridades.
+
+      SIGNAL: Cuando termines, di "issues detectados"
+
+      ======================================================================
+
+  # ---------------------------------------------------------------------------
+  # FASE 4: PLANIFICACION
+  # ---------------------------------------------------------------------------
+  - id: "plan-changes"
+    name: "Planificar Cambios"
+    mcps_enabled:
+      - "deltacodecube"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Bash"
+      - "Task"
+    max_visits: 10
+    prompt_injection: |
+      ======================================================================
+      FASE 4: PLANIFICAR CAMBIOS
+      ======================================================================
+
+      Antes de modificar, simula el impacto y valida contratos.
+
+      HERRAMIENTAS DISPONIBLES:
+      - cube_predict_impact: Predecir impacto de cambios
+      - cube_simulate_wave: Simular onda de tension
+      - cube_get_contracts: Ver relaciones entre archivos
+      - cube_get_contract_stats: Stats de contratos
+
+      PASOS:
+      1. Para cada archivo a modificar, usa cube_predict_impact
+      2. cube_simulate_wave para los archivos mas criticos
+      3. cube_get_contracts para verificar dependencias
+      4. Presenta plan de cambios al usuario con riesgos
+
+      SIGNAL: Cuando el usuario apruebe, di "plan aprobado"
+
+      ======================================================================
+
+  # ---------------------------------------------------------------------------
+  # FASE 5: DESARROLLO
+  # ---------------------------------------------------------------------------
+  - id: "develop"
+    name: "Implementar Cambios"
+    mcps_enabled:
+      - "*"
+    max_visits: 50
+    prompt_injection: |
+      ======================================================================
+      FASE 5: IMPLEMENTAR CAMBIOS
+      ======================================================================
+
+      Implementa los cambios planificados.
+
+      HERRAMIENTAS DCC RECOMENDADAS:
+      - cube_suggest_fix: Genera contexto de fix
+      - cube_find_by_criteria: Buscar archivos por criterios
+      - cube_compare: Comparar archivos
+
+      Tienes acceso a TODAS las herramientas (Write, Edit, Bash, etc).
+      Usa cube_suggest_fix como guia antes de hacer cambios manuales.
+
+      SIGNAL: Cuando termines los cambios, di "cambios completos"
+
+      ======================================================================
+
+  # ---------------------------------------------------------------------------
+  # FASE 6: VALIDACION
+  # ---------------------------------------------------------------------------
+  - id: "validate-changes"
+    name: "Validar Cambios"
+    mcps_enabled:
+      - "deltacodecube"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "Task"
+    max_visits: 10
+    prompt_injection: |
+      ======================================================================
+      FASE 6: VALIDAR CAMBIOS
+      ======================================================================
+
+      Reindexa y valida que no hay nuevas tensiones ni deuda.
+
+      HERRAMIENTAS DISPONIBLES:
+      - cube_reindex: Re-indexar archivos modificados
+      - cube_analyze_impact: Analizar impacto real
+      - cube_get_tensions: Verificar tensiones
+      - cube_get_debt: Verificar deuda tecnica
+
+      PASOS:
+      1. cube_reindex para cada archivo modificado
+      2. cube_get_tensions — hay nuevas tensiones?
+      3. cube_get_debt — subio la deuda?
+      4. Si hay issues: di "issues encontrados" para volver a develop
+      5. Si todo OK: di "validacion aprobada"
+
+      ======================================================================
+
+  # ---------------------------------------------------------------------------
+  # FASE 7: REPORTE
+  # ---------------------------------------------------------------------------
+  - id: "generate-report"
+    name: "Generar Reporte"
+    is_end: true
+    model: haiku
+    mcps_enabled:
+      - "deltacodecube"
+    tools_blocked:
+      - "Edit"
+      - "Task"
+    max_visits: 10
+    prompt_injection: |
+      ======================================================================
+      FASE 7: GENERAR REPORTE
+      ======================================================================
+
+      Genera visualizaciones del estado final del codebase.
+
+      HERRAMIENTAS DISPONIBLES:
+      - cube_generate_architecture: Diagrama de arquitectura
+      - cube_generate_matrix: Matriz de dependencias
+      - cube_generate_heatmap: Heatmap de codigo
+      - cube_generate_timeline: Timeline de cambios
+      - cube_export_html: Export HTML interactivo
+
+      Genera al menos 2 visualizaciones y presenta resumen final.
+
+      ======================================================================
+
+# =============================================================================
+# EDGES - Transiciones entre nodos
+# =============================================================================
+
+edges:
+  # index → explore
+  - id: "index-to-explore"
+    from: "index-codebase"
+    to: "explore-codebase"
+    condition:
+      type: "phrase"
+      phrases:
+        - "indexacion completa"
+        - "indexing complete"
+    priority: 1
+
+  # explore → detect
+  - id: "explore-to-detect"
+    from: "explore-codebase"
+    to: "detect-issues"
+    condition:
+      type: "phrase"
+      phrases:
+        - "exploracion completa"
+        - "exploration complete"
+    priority: 1
+
+  # detect → plan
+  - id: "detect-to-plan"
+    from: "detect-issues"
+    to: "plan-changes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "issues detectados"
+        - "issues detected"
+    priority: 1
+
+  # plan → develop
+  - id: "plan-to-develop"
+    from: "plan-changes"
+    to: "develop"
+    condition:
+      type: "phrase"
+      phrases:
+        - "plan aprobado"
+        - "plan approved"
+    priority: 1
+
+  # develop → validate
+  - id: "develop-to-validate"
+    from: "develop"
+    to: "validate-changes"
+    condition:
+      type: "phrase"
+      phrases:
+        - "cambios completos"
+        - "changes complete"
+    priority: 1
+
+  # validate → report (success)
+  - id: "validate-to-report"
+    from: "validate-changes"
+    to: "generate-report"
+    condition:
+      type: "phrase"
+      phrases:
+        - "validacion aprobada"
+        - "validation passed"
+    priority: 1
+
+  # validate → develop (loop on issues, max 3 visits on validate)
+  - id: "validate-to-develop"
+    from: "validate-changes"
+    to: "develop"
+    condition:
+      type: "phrase"
+      phrases:
+        - "issues encontrados"
+        - "issues found"
+    priority: 2

@@ -1,0 +1,202 @@
+metadata:
+  name: "ERP Phase 2 — Tests, Journal Posters & Quotes"
+  description: "Segunda fase del ERP: aumentar cobertura de tests al estándar mínimo (60% backend, 50% frontend), implementar journal posters reales para sales/invoicing/treasury, y agregar la página de cotizaciones."
+  version: "1.0.0"
+  type: "graph"
+
+nodes:
+  - id: "analysis"
+    name: "Análisis y Plan"
+    is_start: true
+    mcps_enabled:
+      - "*"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "NotebookEdit"
+    max_visits: 3
+    prompt_injection: |
+      Estás en la fase de ANÁLISIS. Solo lectura — no escribas código todavía.
+      
+      Objetivo: entender exactamente qué hace falta implementar en esta fase 2.
+      
+      Tareas de análisis:
+      1. Leer los 3 adaptadores stub en cmd/erp-server/adapters.go (salesJournalPosterAdapter, invoicingJournalPosterAdapter, treasuryJournalPosterAdapter) — entender qué lógica real necesitan
+      2. Revisar el accounting use case PostJournalEntryUseCase para entender la API que deben llamar
+      3. Revisar las interfaces de dominio de cada contexto (sales.Order, invoicing.Invoice, treasury.Payment) para entender qué datos hay disponibles
+      4. Identificar qué unit tests faltan para alcanzar ~60% backend y ~50% frontend
+      5. Leer el frontend src/App.tsx para entender el routing y dónde va la página Quotes
+      
+      Cuando termines el análisis, di "listo para implementar" para avanzar al siguiente nodo.
+
+  - id: "backend-tests"
+    name: "Tests Backend"
+    mcps_enabled:
+      - "*"
+    max_visits: 5
+    prompt_injection: |
+      Estás en la fase de TESTS BACKEND.
+      
+      Objetivo: escribir unit tests para los use cases y repositorios hasta alcanzar ~60% de cobertura global.
+      
+      Prioridad de tests (en orden):
+      1. internal/accounting/application/ — PostJournalEntry, CloseAccountingPeriod, GetTrialBalance (usar mocks de repos)
+      2. internal/sales/application/ — CreateOrder, AddOrderItem, ConfirmOrder (usar mocks)
+      3. internal/identity/application/ — RegisterUser, AuthenticateUser, CreateTenant (usar mocks)
+      4. internal/inventory/application/ — ReserveStock, AdjustStock (usar mocks)
+      5. internal/invoicing/application/ — CreateInvoice, IssueInvoice, CancelInvoice (usar mocks)
+      6. internal/treasury/application/ — RegisterPayment (usar mocks)
+      
+      Patrón de mock:
+      - Crear interfaces mock en el mismo paquete _test (no crear archivos de mock separados)
+      - Usar structs simples que implementen la interface del repositorio
+      - Testear casos exitosos + errores de dominio + validaciones de entrada
+      
+      Comandos de verificación:
+      - Ejecutar tests: TEST_DATABASE_URL= go test ./internal/.../application/... -v
+      - Verificar cobertura: go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out | grep total
+      
+      Cuando los tests de todos los use cases pasen y la cobertura sea ≥60%, di "tests backend completos" para avanzar.
+
+  - id: "journal-posters"
+    name: "Journal Posters Reales"
+    mcps_enabled:
+      - "*"
+    max_visits: 5
+    prompt_injection: |
+      Estás en la fase de JOURNAL POSTERS REALES.
+      
+      Objetivo: reemplazar los 3 adaptadores stub con implementaciones reales que posteen asientos contables automáticamente en el ledger.
+      
+      Lógica que debe implementar cada adaptador:
+      
+      salesJournalPosterAdapter.PostSaleEntry(order):
+        - Buscar período contable abierto para el tenant (periodRepo.FindOpen o FindByYearMonth)
+        - Construir JournalEntry con líneas: DR Accounts Receivable (1100) / CR Revenue (4000)
+        - Monto: order.TotalAmount() en la currency del pedido
+        - Llamar PostJournalEntryUseCase.Execute(ctx, entry)
+        - Si no hay período abierto: retornar error descriptivo (NO silenciar)
+      
+      invoicingJournalPosterAdapter.PostInvoiceEntry(invoice):
+        - Mismo patrón: DR AR (1100) / CR Revenue (4000)
+        - Monto: invoice.TotalAmount()
+      
+      treasuryJournalPosterAdapter.PostPaymentEntry(payment):
+        - DR Cash/Bank (1000) / CR AR (1100)
+        - Monto: payment.Amount()
+      
+      Consideraciones:
+      - Los adaptadores en cmd/erp-server/adapters.go necesitan recibir journalRepo, periodRepo, accountRepo, postJournalEntryUC vía constructor
+      - main.go debe actualizar la construcción de los adaptadores para inyectar las dependencias
+      - Las cuentas (1000, 1100, 4000) deben existir en el chart of accounts — si no existen, crearlas automáticamente en el adaptador (seed condicional)
+      - Mantener compatibilidad con el caso donde NO hay período abierto: no romper confirmación de órdenes, solo loggear warning + retornar nil (graceful degradation)
+      
+      Cuando los 3 adaptadores estén implementados y los integration tests sigan pasando, di "journal posters completos" para avanzar.
+
+  - id: "frontend-tests"
+    name: "Tests Frontend + Quotes"
+    mcps_enabled:
+      - "*"
+    max_visits: 5
+    prompt_injection: |
+      Estás en la fase de TESTS FRONTEND + PÁGINA QUOTES.
+      
+      Parte 1 — Tests Vitest (objetivo: ≥50% cobertura):
+      1. src/features/auth/hooks/use-auth.test.ts — testear login, logout, token storage
+      2. src/features/auth/pages/login-page.test.tsx — render, submit form, error display
+      3. src/features/dashboard/pages/dashboard-page.test.tsx — render básico con mock de datos
+      4. src/lib/api.test.ts — testear que los headers Authorization se agregan correctamente
+      5. src/services/auth.test.ts — testear login/register con mock fetch
+      
+      Patrón de tests:
+      - Usar vitest + @testing-library/react
+      - Mockear fetch con vi.fn() o msw si ya está configurado
+      - Para hooks: usar renderHook de @testing-library/react
+      
+      Comandos:
+      - npm run test (vitest)
+      - npm run test -- --coverage (verificar cobertura)
+      
+      Parte 2 — Página Quotes:
+      - Crear src/features/sales/pages/quotes-page.tsx con lista de cotizaciones (tabla vacía con botón "Nueva Cotización" por ahora — UI real sin PlaceholderPage)
+      - Agregar ruta /sales/quotes en src/App.tsx
+      - Agregar enlace en el sidebar bajo Sales
+      
+      Cuando los tests pasen con ≥50% cobertura y la página Quotes esté en el router, di "frontend completo" para avanzar.
+
+  - id: "validate"
+    name: "Validación Final"
+    is_end: true
+    mcps_enabled:
+      - "*"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "NotebookEdit"
+    max_visits: 3
+    prompt_injection: |
+      Estás en la fase de VALIDACIÓN FINAL. Modo solo-lectura — no escribas código nuevo.
+      
+      Ejecuta el checklist completo de la fase 2:
+      
+      BACKEND — Tests:
+      □ go test ./internal/.../application/... -v  → todos PASS
+      □ go test -coverprofile=coverage.out ./...
+      □ go tool cover -func=coverage.out | grep total  → ≥60%
+      □ go build ./...  → sin errores
+      □ go vet ./...  → sin warnings
+      
+      BACKEND — Integration:
+      □ go test ./internal/identity/integration/...  → PASS
+      □ go test ./internal/accounting/integration/...  → PASS
+      □ go test ./internal/sales/integration/...  → PASS
+      
+      JOURNAL POSTERS:
+      □ Confirmar que adapters.go NO tiene más "Stub" en comentarios
+      □ Confirmar que los 3 adaptadores llaman a PostJournalEntryUseCase (o degradan gracefully con log.Warn)
+      
+      FRONTEND:
+      □ npm run build  → sin errores TypeScript
+      □ npm run test -- --coverage  → cobertura ≥50%
+      □ Verificar que /sales/quotes aparece en el router y en el sidebar
+      □ Abrir en browser: la página Quotes renderiza sin errores
+      
+      Si todo pasa → reporta el resumen final al usuario con métricas:
+      - Cobertura backend actual vs mínimo 60%
+      - Cobertura frontend actual vs mínimo 50%
+      - Número de tests añadidos
+      - Journal posters: real vs stub
+      - Páginas nuevas
+
+edges:
+  - id: "analysis-to-backend-tests"
+    from: "analysis"
+    to: "backend-tests"
+    condition:
+      type: "phrase"
+      phrases:
+        - "listo para implementar"
+
+  - id: "backend-tests-to-journal"
+    from: "backend-tests"
+    to: "journal-posters"
+    condition:
+      type: "phrase"
+      phrases:
+        - "tests backend completos"
+
+  - id: "journal-to-frontend"
+    from: "journal-posters"
+    to: "frontend-tests"
+    condition:
+      type: "phrase"
+      phrases:
+        - "journal posters completos"
+
+  - id: "frontend-to-validate"
+    from: "frontend-tests"
+    to: "validate"
+    condition:
+      type: "phrase"
+      phrases:
+        - "frontend completo"

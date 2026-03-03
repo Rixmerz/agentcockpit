@@ -1,0 +1,107 @@
+{
+  "current_nodes": [
+    "ui-review"
+  ],
+  "node_visits": {
+    "url-capture": 1,
+    "web-analysis": 1,
+    "strategic-planning": 1,
+    "project-init": 1,
+    "sections-creation": 1,
+    "islands-creation": 1,
+    "images-download": 1,
+    "creative-direction": 1,
+    "ui-review": 1
+  },
+  "execution_path": [
+    {
+      "from_node": null,
+      "to_node": "url-capture",
+      "edge_id": null,
+      "timestamp": "2026-03-01T03:03:04.537082",
+      "reason": "Graph initialized"
+    },
+    {
+      "from_node": "url-capture",
+      "to_node": "web-analysis",
+      "edge_id": "capture-to-analysis",
+      "timestamp": "2026-03-01T03:03:30.572607",
+      "reason": "URL capturada: https://www.santiagoallamand.com/ - proyecto en santiago-allamand-landingpage/, idioma es, recrear con efectos visuales"
+    },
+    {
+      "from_node": "web-analysis",
+      "to_node": "strategic-planning",
+      "edge_id": "analysis-to-planning",
+      "timestamp": "2026-03-01T03:13:38.662468",
+      "reason": "An\u00e1lisis completado: estructura completa extra\u00edda - secciones, colores, fonts, efectos visuales, contenido, servicios, cursos, podcasts, redes sociales"
+    },
+    {
+      "from_node": "strategic-planning",
+      "to_node": "project-init",
+      "edge_id": "planning-to-init",
+      "timestamp": "2026-03-01T03:14:31.580813",
+      "reason": "S\u00edntesis completada: plan estrat\u00e9gico definitivo con 9 secciones, 4 islands, paleta, SEO, animaciones V7, dark mode"
+    },
+    {
+      "from_node": "project-init",
+      "to_node": "sections-creation",
+      "edge_id": "init-to-sections",
+      "timestamp": "2026-03-01T03:26:18.257452",
+      "reason": "Proyecto inicializado, 9 componentes creados, 3 islands, build exitoso"
+    },
+    {
+      "from_node": "sections-creation",
+      "to_node": "islands-creation",
+      "edge_id": "sections-to-islands",
+      "timestamp": "2026-03-01T03:26:23.944737",
+      "reason": "Secciones creadas: Navbar, Hero, Pilares, SobreMi, Cursos, Podcasts, Newsletter, Contacto, Footer - todas con contenido espec\u00edfico y acentuaci\u00f3n correcta"
+    },
+    {
+      "from_node": "islands-creation",
+      "to_node": "images-download",
+      "edge_id": "islands-to-images",
+      "timestamp": "2026-03-01T03:26:28.699805",
+      "reason": "Islands creados: ScrollAnimator (V7), MobileMenu (slide-in), CounterStats (animated counters) - build exitoso"
+    },
+    {
+      "from_node": "images-download",
+      "to_node": "creative-direction",
+      "edge_id": "images-to-creative",
+      "timestamp": "2026-03-01T03:26:36.143280",
+      "reason": "Im\u00e1genes: usando placeholders CSS gradient para cursos/podcasts. Fotos reales de Santiago Allamand deben ser provistas por el cliente. No se requieren descargas de Pexels."
+    },
+    {
+      "from_node": "creative-direction",
+      "to_node": "ui-review",
+      "edge_id": "creative-to-ui-review",
+      "timestamp": "2026-03-01T03:26:52.426727",
+      "reason": "Direcci\u00f3n creativa aplicada"
+    }
+  ],
+  "active_graph": "denofresh-analyzer-graph",
+  "max_visits_default": 10,
+  "total_transitions": 8,
+  "last_activity": "2026-03-01T03:26:52.426830",
+  "node_tool_calls": {},
+  "artifacts": {
+    "url-info": {
+      "value": "{\"url\": \"https://www.santiagoallamand.com/\", \"project_path\": \"/var/home/rixmerz/my_projects/xpteam/clientes-landingpages/santiago-allamand-landingpage/\", \"language\": \"es\", \"purpose\": \"recreate with visual effects (hover, click, scroll animations, composition, color palette, behaviors)\", \"exclude\": \"none\"}",
+      "created_by": "url-capture",
+      "created_at": "2026-03-01T03:03:17.026843",
+      "metadata": {}
+    },
+    "web-analysis": {
+      "value": "{\"person\": \"Santiago Allamand - Lawyer, Investor, University Professor, Content Creator, Entrepreneur from Chile\", \"tagline\": \"Finanzas Personales, Productividad y Estilo de Vida\", \"platform_original\": \"Framer (DigiPorto template)\", \"colors\": {\"primary_dark\": \"#303030\", \"accent_purple\": \"#5e67e6\", \"accent_lime_dark_mode\": \"#d0ff71\", \"accent_red\": \"#ff5e2b\", \"bg_white\": \"#ffffff\", \"bg_offwhite\": \"#fffdfa\", \"bg_light_gray\": \"#f5f5f5\", \"text_secondary\": \"#8f8f8f\", \"text_tertiary\": \"#666666\", \"success_green\": \"#0bde66\", \"border_gray\": \"#dadada\"}, \"fonts\": {\"headings\": \"Antonio (condensed)\", \"body\": \"Inter\", \"accent\": \"Satoshi\", \"decorative\": \"Recoleta Medium, Fasthand\"}, \"sections\": [\"Fixed Navbar\", \"Hero (name + tagline + CTA)\", \"Services/Pillars (Finanzas, Productividad, Estilo de Vida)\", \"About (bio + stats: 700K followers, 1.5M podcast downloads, 10+ years teaching)\", \"Featured Courses (Del Desorden al Control $27 USD, ETFs, Productividad, etc)\", \"Podcasts (Elemental 347+ eps, Pop Business, Cafe con Santiago)\", \"Contact (hola@santiagoallamand.com + form)\", \"Footer (social links + legal)\"], \"courses\": [{\"name\": \"Del Desorden al Control Financiero\", \"desc\": \"Ordena tus finanzas en 14 dias\", \"price\": \"$27 USD\"}, {\"name\": \"Construye Riqueza con ETFs\", \"desc\": \"Indexed fund investing\"}, {\"name\": \"Principios de Productividad\", \"desc\": \"Productivity masterclass\"}, {\"name\": \"Curso Gratis Deudas\", \"desc\": \"Free debt course\"}], \"podcasts\": [{\"name\": \"Elemental Podcast\", \"desc\": \"1,050,000+ downloads, non-fiction books, 347+ eps since 2017\"}, {\"name\": \"Pop Business\", \"desc\": \"Business cases\"}, {\"name\": \"Cafe con Santiago\", \"desc\": \"Investment, productivity, growth\"}], \"social\": {\"instagram\": \"@stgoallamand ~308K\", \"tiktok\": \"@stgoallamand ~381K\", \"twitter\": \"@stgoallamand\", \"youtube\": \"Elemental Podcast\", \"linkedin\": \"santiago-allamand\", \"substack\": \"santiagoallamand.substack.com\", \"spotify\": \"podcasts\"}, \"contact\": {\"email\": \"hola@santiagoallamand.com\", \"courses_platform\": \"cursosantiago.com\"}, \"visual_effects\": [\"Fade-in-up on scroll\", \"Staggered reveal for cards\", \"Parallax hero\", \"Button hover scale/color\", \"Card hover overlays with zoom\", \"Nav link hover transitions\", \"Custom cursor\", \"Smooth scroll\", \"Dark/light mode toggle\", \"Page transitions\"], \"breakpoints\": {\"mobile\": \"<810px\", \"tablet\": \"810-1199px\", \"desktop\": \"1200px+\"}, \"dark_mode\": true, \"stats\": {\"followers\": \"700,000+\", \"podcast_downloads\": \"1,500,000+\", \"teaching_years\": \"10+\"}}",
+      "created_by": "web-analysis",
+      "created_at": "2026-03-01T03:13:31.007922",
+      "metadata": {}
+    },
+    "strategic-plan": {
+      "value": "{\n  \"project\": {\n    \"name\": \"santiago-allamand-landingpage\",\n    \"path\": \"/var/home/rixmerz/my_projects/xpteam/clientes-landingpages/santiago-allamand-landingpage/\",\n    \"framework\": \"Deno Fresh 2.x + Preact + Tailwind CSS 4\",\n    \"language\": \"es\"\n  },\n  \"palette\": {\n    \"dark\": \"#1a1a2e\",\n    \"dark_surface\": \"#252540\",\n    \"accent\": \"#5e67e6\",\n    \"accent_hover\": \"#4d55d4\",\n    \"accent_lime\": \"#d0ff71\",\n    \"white\": \"#ffffff\",\n    \"offwhite\": \"#f8f8fa\",\n    \"light_gray\": \"#f0f0f5\",\n    \"text_primary\": \"#1a1a2e\",\n    \"text_secondary\": \"#6b6b80\",\n    \"text_muted\": \"#9999aa\",\n    \"border\": \"#e0e0e8\",\n    \"red_accent\": \"#ff5e2b\",\n    \"success\": \"#0bde66\"\n  },\n  \"fonts\": {\n    \"headings\": \"Antonio (Google Fonts) - condensed, bold, uppercase for impact\",\n    \"body\": \"Inter (Google Fonts) - clean, modern, all weights\",\n    \"accent\": \"Satoshi (manual or fallback to Inter 700)\"\n  },\n  \"sections\": [\n    {\n      \"id\": \"navbar\",\n      \"component\": \"Navbar.tsx\",\n      \"content\": \"Logo SA, links: Inicio, Sobre M\u00ed, Cursos, Podcasts, Contacto. Fixed top, backdrop-blur, dark bg. Mobile hamburger menu.\",\n      \"effects\": \"Scroll shadow, backdrop-blur on scroll, nav links hover underline animation\"\n    },\n    {\n      \"id\": \"hero\",\n      \"component\": \"Hero.tsx\",\n      \"content\": \"Large heading SANTIAGO ALLAMAND in Antonio font. Subtitle: Finanzas Personales \u00b7 Productividad \u00b7 Estilo de Vida. Intro paragraph about exploring curiosity. CTA button. Profile photo.\",\n      \"effects\": \"Fade-in-up staggered animation on heading/subtitle/paragraph/CTA. Parallax-lite on background element. Hover scale on CTA.\"\n    },\n    {\n      \"id\": \"pillars\",\n      \"component\": \"Pilares.tsx\",\n      \"content\": \"3 pillars: Finanzas Personales (icon + description), Productividad (icon + desc), Estilo de Vida (icon + desc). Section title: Lo Que Exploro.\",\n      \"effects\": \"Cards fade-in-up staggered. Hover: card lifts with shadow, accent border appears. Icon color shift on hover.\"\n    },\n    {\n      \"id\": \"about\",\n      \"component\": \"SobreMi.tsx\",\n      \"content\": \"Bio: Abogado, inversionista, profesor universitario, creador de contenido. Stats: 700K+ seguidores, 1.5M+ descargas podcast, 10+ a\u00f1os ense\u00f1ando. Philosophy paragraph. Photo.\",\n      \"effects\": \"Stats counter animation on scroll (count up). Photo fade-in from side. Text fade-in-up.\"\n    },\n    {\n      \"id\": \"courses\",\n      \"component\": \"Cursos.tsx\",\n      \"content\": \"Section title: Cursos y Recursos. Cards: Del Desorden al Control ($27 USD), Construye Riqueza con ETFs, Principios de Productividad, Curso Gratis Deudas. Each with image, title, short desc, CTA.\",\n      \"effects\": \"Cards grid, staggered fade-in. Hover: scale 1.03, overlay with CTA button appears, image zoom 1.05.\"\n    },\n    {\n      \"id\": \"podcasts\",\n      \"component\": \"Podcasts.tsx\",\n      \"content\": \"Section title: Podcasts. 3 cards: Elemental (1M+ downloads, 347+ eps), Pop Business, Caf\u00e9 con Santiago. Each with cover art description, title, stats, listen links.\",\n      \"effects\": \"Cards fade-in-up. Hover: lift shadow, play icon animation. Platform links (Spotify, YouTube, Apple) hover color.\"\n    },\n    {\n      \"id\": \"newsletter\",\n      \"component\": \"Newsletter.tsx\",\n      \"content\": \"CTA section: El Newsletter de Santiago. 3000+ suscriptores. Email input + subscribe button. Substack link.\",\n      \"effects\": \"Background accent gradient. Input focus glow. Button hover scale.\"\n    },\n    {\n      \"id\": \"contact\",\n      \"component\": \"Contacto.tsx\",\n      \"content\": \"Heading: Hablemos. Email: hola@santiagoallamand.com. Social media grid: Instagram, TikTok, Twitter/X, YouTube, LinkedIn, Spotify. Contact form optional.\",\n      \"effects\": \"Social icons hover: scale + color shift to brand color. Email hover underline. Fade-in-up.\"\n    },\n    {\n      \"id\": \"footer\",\n      \"component\": \"Footer.tsx\",\n      \"content\": \"Santiago Allamand \u00a9 2026. Quick links. Social icons row. Legal links.\",\n      \"effects\": \"Subtle top border gradient. Links hover color.\"\n    }\n  ],\n  \"islands\": [\n    {\n      \"name\": \"ScrollAnimator.tsx\",\n      \"purpose\": \"Scroll-triggered animations (V7 pattern), smooth scroll, navbar scroll shadow, parallax-lite, counter animation\",\n      \"config\": \"data-animate attributes: fade-in-up, fade-in-left, fade-in-right, scale-in. Counter animation for stats. Staggered delays via data-delay.\"\n    },\n    {\n      \"name\": \"MobileMenu.tsx\",\n      \"purpose\": \"Hamburger menu for mobile nav with slide-in animation\"\n    },\n    {\n      \"name\": \"DarkModeToggle.tsx\",\n      \"purpose\": \"Dark/light mode toggle with localStorage persistence. Swaps CSS variables.\"\n    },\n    {\n      \"name\": \"CounterStats.tsx\",\n      \"purpose\": \"Animated number counter (700K, 1.5M, 10+) that counts up when section enters viewport\"\n    }\n  ],\n  \"seo\": {\n    \"title\": \"Santiago Allamand | Finanzas Personales, Productividad y Estilo de Vida\",\n    \"description\": \"Abogado, inversionista, profesor universitario y creador de contenido. Cursos de finanzas personales, productividad y estilo de vida. 700K+ seguidores. Podcasts: Elemental, Pop Business, Caf\u00e9 con Santiago.\",\n    \"keywords\": \"Santiago Allamand, finanzas personales chile, productividad, cursos finanzas, inversiones, ETFs, Elemental Podcast, educaci\u00f3n financiera, estilo de vida, presupuesto personal\",\n    \"og_image\": \"1200x630 with photo + name + tagline\",\n    \"schemas\": [\"Person\", \"WebSite\", \"BreadcrumbList\", \"Course (for each course)\", \"PodcastSeries\"]\n  },\n  \"images\": {\n    \"strategy\": \"Use placeholder images initially. User will provide real photos of Santiago Allamand. For courses, use gradient/abstract card designs generated with CSS.\",\n    \"hero_photo\": \"Professional portrait - user must provide\",\n    \"course_thumbnails\": \"CSS gradient cards with course titles overlaid\",\n    \"podcast_covers\": \"CSS gradient cards with podcast names\"\n  },\n  \"animations_css\": {\n    \"keyframes\": [\n      \"fade-in-up (translateY 30px to 0, opacity 0 to 1, 0.7s ease-out)\",\n      \"fade-in-left (translateX -30px to 0, opacity 0 to 1, 0.7s ease-out)\",\n      \"fade-in-right (translateX 30px to 0, opacity 0 to 1, 0.7s ease-out)\",\n      \"scale-in (scale 0.95 to 1, opacity 0 to 1, 0.5s ease-out)\",\n      \"slide-in-right (translateX 100% to 0, 0.3s ease-out for mobile menu)\",\n      \"count-up (JS-driven, not CSS)\"\n    ],\n    \"hover_effects\": [\n      \"Cards: translateY(-4px) + shadow-lg, 300ms transition\",\n      \"Buttons: scale(1.02) + darken bg, 200ms transition\",\n      \"Links: underline-offset animation or color shift\",\n      \"Social icons: scale(1.1) + brand color, 200ms\",\n      \"Course cards: image zoom scale(1.05) + overlay fade-in\"\n    ],\n    \"v7_pattern\": true,\n    \"fallback_timer\": 1500,\n    \"reduced_motion\": true\n  },\n  \"dark_mode\": {\n    \"strategy\": \"CSS class toggle on <html>. data-theme attribute. Tailwind dark: variant. LocalStorage persistence.\",\n    \"light_bg\": \"#ffffff\",\n    \"dark_bg\": \"#1a1a2e\",\n    \"light_accent\": \"#5e67e6\",\n    \"dark_accent\": \"#d0ff71\"\n  },\n  \"lighthouse_targets\": {\n    \"performance\": 90,\n    \"accessibility\": 95,\n    \"best_practices\": 95,\n    \"seo\": 100\n  }\n}",
+      "created_by": "strategic-planning",
+      "created_at": "2026-03-01T03:14:23.939501",
+      "metadata": {}
+    }
+  },
+  "graph_stack": []
+}

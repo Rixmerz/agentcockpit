@@ -1,0 +1,244 @@
+metadata:
+  name: "XPTeam ERP — Completion Workflow"
+  description: "Workflow secuencial para completar el ERP: fixes de backend, 14 páginas frontend, tests de integración y validación final end-to-end."
+  version: "1.0.0"
+  type: "graph"
+
+nodes:
+  - id: "plan"
+    name: "Planificación"
+    is_start: true
+    mcps_enabled:
+      - "deltacodecube"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "NotebookEdit"
+    max_visits: 5
+    prompt_injection: |
+      Estás en la fase de PLANIFICACIÓN. Modo read-only — no escribas ni edites código.
+      
+      Tu objetivo es entender exactamente qué falta y definir el plan de ataque.
+      
+      Acciones permitidas:
+      - Leer archivos (Read, Glob, Grep)
+      - Consultar DeltaCodeCube para métricas de salud
+      - Analizar el estado actual del proyecto
+      - Responder preguntas del usuario sobre el estado
+      
+      Lo que debes revisar:
+      1. Estado de los adapters contables en cmd/erp-server/adapters.go
+      2. Las 14 rutas placeholder en frontend/src/App.tsx
+      3. El handler GET /tenants/:id en internal/identity/interfaces/http_handler.go
+      4. DEFAULT_WAREHOUSE_ID en cmd/erp-server/main.go
+      
+      Cuando termines de planificar y estés listo para implementar fixes de backend,
+      di: "continuar con backend"
+
+  - id: "backend"
+    name: "Backend Fixes"
+    mcps_enabled:
+      - "*"
+    max_visits: 15
+    prompt_injection: |
+      Estás en la fase de BACKEND FIXES. Implementa los siguientes cambios en orden:
+      
+      1. ADAPTERS CONTABLES (cmd/erp-server/adapters.go)
+         - salesJournalPosterAdapter.PostJournalEntry → implementar llamada real a PostJournalEntryUseCase
+         - invoicingJournalPosterAdapter.PostJournalEntry → igual
+         - treasuryJournalPosterAdapter.PostJournalEntry → igual
+         Los adapters son stubs que solo loggean — necesitan hacer el asiento real.
+         IMPORTANTE: el JournalEntry necesita period_id válido; busca el periodo abierto primero.
+      
+      2. DEFAULT_WAREHOUSE_ID desde ENV (cmd/erp-server/main.go)
+         - Leer os.Getenv("DEFAULT_WAREHOUSE_ID"), parsear como UUID
+         - Si vacío o inválido, loggear warning y usar uuid.Nil como fallback
+      
+      3. GET /tenants/:id (internal/identity/interfaces/http_handler.go)
+         - Crear GetTenantUseCase en internal/identity/application/
+         - Implementar el handler que devuelve TenantResponse
+      
+      Reglas:
+      - No tocar lo que no esté en esta lista
+      - Mantener la arquitectura DDD: use case → repo, no SQL en handlers
+      - Cada cambio debe compilar (el build del contenedor lo verifica)
+      - Usa Read antes de editar cualquier archivo
+      
+      Cuando termines los tres puntos, di: "continuar con frontend"
+
+  - id: "frontend"
+    name: "Frontend — 14 Páginas"
+    mcps_enabled:
+      - "*"
+    max_visits: 30
+    prompt_injection: |
+      Estás en la fase de FRONTEND — 14 PÁGINAS. Reemplaza todos los PlaceholderPage con páginas reales.
+      
+      Stack: React + TypeScript strict + shadcn/ui. Sin lógica de negocio en UI.
+      Servicios ya implementados en frontend/src/services/ — úsalos.
+      Tipos disponibles en frontend/src/types/.
+      
+      PÁGINAS A IMPLEMENTAR (en este orden):
+      
+      CONTABILIDAD:
+      1. /accounting/journal-entries → Lista de asientos + form para crear
+      2. /accounting/chart-of-accounts → Árbol de cuentas, CRUD básico
+      3. /accounting/trial-balance → Tabla de balance de comprobación (read-only)
+      4. /accounting/periods → Lista de periodos, botón cerrar periodo
+      
+      VENTAS:
+      5. /sales/orders → Lista de órdenes + estados + botón confirmar
+      6. /sales/customers → Lista de clientes + form crear
+      
+      INVENTARIO:
+      7. /inventory/products → Lista de productos + form crear
+      8. /inventory/warehouses → Lista de almacenes
+      9. /inventory/stock → Stock actual por producto/almacén (tabla)
+      
+      FACTURACIÓN:
+      10. /invoicing/invoices → Lista de facturas + estados
+      11. /invoicing/credit-notes → Lista de notas de crédito
+      
+      TESORERÍA:
+      12. /treasury/payments → Lista de pagos + form registrar pago
+      13. /treasury/bank-accounts → Lista de cuentas bancarias
+      
+      Patrón por página:
+      - Usar DataTable de components/ui/data-table.tsx para listas
+      - Usar Dialog de components/ui/dialog.tsx para forms
+      - Hook personalizado en features/<module>/hooks/ que llama al service
+      - Loading states con Skeleton
+      - Error states con mensaje claro
+      
+      Crea cada página en: frontend/src/features/<module>/pages/<page>.tsx
+      Actualiza las rutas en App.tsx cuando termines cada módulo.
+      
+      Cuando termines todas las páginas, di: "continuar con tests"
+
+  - id: "tests"
+    name: "Integration Tests"
+    mcps_enabled:
+      - "*"
+    max_visits: 15
+    prompt_injection: |
+      Estás en la fase de INTEGRATION TESTS. Escribe tests que validen el flujo real completo.
+      
+      OBJETIVO: tests que corran contra PostgreSQL real (usando testcontainers-go o una DB de test).
+      
+      Flujos críticos a testear:
+      
+      1. IDENTITY FLOW (internal/identity/integration/)
+         - Registro de usuario → 201 con UserDTO
+         - Registro duplicado → 409 CONFLICT
+         - Crear tenant → 201 con schema provisionado
+         - Grant membership → 204
+         - Login con slug correcto → 200 con JWT que tiene tenant_slug
+      
+      2. ACCOUNTING FLOW (internal/accounting/integration/)
+         - Crear periodo → éxito
+         - Post journal entry con double-entry válido → 201
+         - Post con débito ≠ crédito → 422
+         - Cerrar periodo → no acepta más entradas
+      
+      3. SALES FLOW (internal/sales/integration/)
+         - Crear cliente → 201
+         - Crear orden → 201 DRAFT
+         - Agregar item → 200
+         - Confirmar orden → 200 CONFIRMED, reserva stock
+      
+      Patrón a usar:
+      - Cada test levanta la DB de test, aplica migrations, crea datos, hace request HTTP real, teardown
+      - Usar net/http/httptest para los handlers
+      - Usar pgx conectado a la DB de test (variable de entorno TEST_DATABASE_URL)
+      - Un helper setupTestDB(t) que crea schema temporal y lo elimina al final
+      
+      Coverage mínimo: 60% del package application en los 3 contextos testeados.
+      
+      Cuando termines de escribir los tests, di: "continuar con validación"
+
+  - id: "validate"
+    name: "Validación Final"
+    is_end: true
+    mcps_enabled:
+      - "deltacodecube"
+    tools_blocked:
+      - "Write"
+      - "Edit"
+      - "NotebookEdit"
+    max_visits: 5
+    prompt_injection: |
+      Estás en la fase de VALIDACIÓN FINAL. Modo verificación — no escribas código nuevo.
+      
+      Ejecuta el checklist completo:
+      
+      BACKEND:
+      □ podman-compose build --no-cache app  →  compila sin errores
+      □ GET /health → {"status":"healthy"}
+      □ POST /v1/auth/register → 201
+      □ POST /v1/tenants → 201 (con schema provisionado)
+      □ POST /v1/tenants/:id/members → 204
+      □ POST /v1/auth/login → 200 con tenant_slug en JWT
+      □ GET /v1/auth/me → 200 con user + tenant
+      □ GET /v1/tenants/:id → 200 (ya no 501)
+      □ Al menos 1 endpoint de cada contexto: accounting, sales, inventory, invoicing, treasury
+      
+      FRONTEND (npm run build):
+      □ TypeScript sin errores (tsc --noEmit)
+      □ Sin imports rotos
+      □ Las 14 páginas tienen componente real (no PlaceholderPage)
+      
+      TESTS:
+      □ go test ./internal/identity/... → PASS
+      □ go test ./internal/accounting/domain/... → PASS
+      □ go test ./shared/... → PASS
+      
+      DeltaCodeCube post-implementation:
+      □ cube_reindex → revisar si aparecieron nuevos smells o clones
+      □ cube_get_debt → score debe ser <= al inicial
+      
+      Si todo pasa, el workflow está COMPLETO. Reporta el resultado al usuario con un resumen de lo logrado.
+
+edges:
+  - id: "plan-to-backend"
+    from: "plan"
+    to: "backend"
+    condition:
+      type: "phrase"
+      phrases:
+        - "continuar con backend"
+        - "proceed to backend"
+        - "empezar backend"
+        - "backend listo para implementar"
+
+  - id: "backend-to-frontend"
+    from: "backend"
+    to: "frontend"
+    condition:
+      type: "phrase"
+      phrases:
+        - "continuar con frontend"
+        - "proceed to frontend"
+        - "empezar frontend"
+        - "backend completo"
+
+  - id: "frontend-to-tests"
+    from: "frontend"
+    to: "tests"
+    condition:
+      type: "phrase"
+      phrases:
+        - "continuar con tests"
+        - "proceed to tests"
+        - "empezar tests"
+        - "frontend completo"
+
+  - id: "tests-to-validate"
+    from: "tests"
+    to: "validate"
+    condition:
+      type: "phrase"
+      phrases:
+        - "continuar con validación"
+        - "continuar con validacion"
+        - "proceed to validation"
+        - "tests completos"
