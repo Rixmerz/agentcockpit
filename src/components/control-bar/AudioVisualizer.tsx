@@ -4,7 +4,6 @@
  */
 
 import { useMemo, useRef, useEffect, useState } from 'react';
-import { useIsMediaPlaying } from '../../contexts/MediaContext';
 
 interface AudioVisualizerProps {
   barCount?: number;
@@ -14,11 +13,10 @@ interface AudioVisualizerProps {
 
 export function AudioVisualizer({
   barCount = 24,
-  active: activeOverride,
+  active: activeOverride = false,
   color = 'var(--color-accent-primary, #00d4aa)'
 }: AudioVisualizerProps) {
-  const isMediaPlaying = useIsMediaPlaying();
-  const active = activeOverride !== undefined ? activeOverride : isMediaPlaying;
+  const active = activeOverride;
   const barRefs = useRef<(HTMLDivElement | null)[]>([]);
   const lastPositions = useRef<number[]>(Array(barCount).fill(0.08));
   const [isWindingDown, setIsWindingDown] = useState(false);

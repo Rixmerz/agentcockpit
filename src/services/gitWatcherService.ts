@@ -14,7 +14,7 @@
  */
 
 import { getGitStatus, getSyncStatus, hasLocalGitRepo, getHeadCommitHash } from './gitService';
-// DCC auto-reindex disabled — indexing is manual via ControlBar
+import { enableAutoReindex, disableAutoReindex } from './dccAutoReindexService';
 import { gitWatcherEvents } from '../core/utils/gitWatcherEventBus';
 
 const POLL_INTERVAL_MS = 10_000;
@@ -150,6 +150,16 @@ function pollNow(): void {
   doPoll();
 }
 
-export const gitWatcherService = { start, stop, pollNow };
+/**
+ * Enable DCC auto-reindex on commit detection.
+ * When enabled, commits trigger a debounced reindexProject() call.
+ */
+function setAutoReindex(projectPath: string, enabled: boolean): void {
+  if (enabled) {
+    enableAutoReindex(projectPath);
+  } else {
+    disableAutoReindex();
+  }
+}
 
-// DCC auto-reindex on commits removed — indexing is manual via ControlBar
+export const gitWatcherService = { start, stop, pollNow, setAutoReindex };

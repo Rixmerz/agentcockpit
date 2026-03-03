@@ -14,9 +14,9 @@ import * as gitService from '../services/gitService';
 import { gitWatcherService } from '../services/gitWatcherService';
 import * as dccService from '../services/deltacodecubeService';
 import * as snapshotService from '../services/snapshotService';
-import { pipelineService } from '../services/pipeline';
+import { workflowService } from '../services/workflow';
 import * as mcpConfigService from '../services/mcpConfigService';
-import * as browserService from '../services/browserService';
+
 import * as hookService from '../services/hookService';
 import { backgroundPtyService } from '../services/backgroundPtyService';
 
@@ -79,18 +79,18 @@ const actionHandlers: Record<string, ActionHandler> = {
   'snapshot.restore': async (p) => snapshotService.restoreSnapshot(p.path as string, p.version as number),
   'snapshot.history': async (p) => snapshotService.getHistory(p.path as string, (p.limit as number) || 20),
 
-  // Pipeline
-  'pipeline.getStatus': async (p) => pipelineService.getStatus(p.path as string),
-  'pipeline.activate': async (p) => pipelineService.activatePipeline(p.path as string, p.name as string),
-  'pipeline.reset': async (p) => pipelineService.resetPipeline(p.path as string),
+  // Workflow
+  'workflow.getStatus': async (p) => workflowService.getStatus(p.path as string),
+  'workflow.activate': async (p) => workflowService.activateWorkflow(p.path as string, p.name as string),
+  'workflow.reset': async (p) => workflowService.resetWorkflow(p.path as string),
 
   // MCP Config
   'mcpConfig.load': async () => mcpConfigService.loadMcpConfig(),
   'mcpConfig.getActive': async () => mcpConfigService.getActiveMcps(),
 
   // Hooks
-  'hooks.isInstalled': async (p) => hookService.isPipelineHooksInstalled(p.path as string),
-  'hooks.install': async (p) => hookService.installPipelineHooks(p.path as string),
+  'hooks.isInstalled': async (p) => hookService.isWorkflowHooksInstalled(p.path as string),
+  'hooks.install': async (p) => hookService.installWorkflowHooks(p.path as string),
 
   // Special: capture events (used by MCP server)
   '_captureEvents': async (p) => {
@@ -148,9 +148,8 @@ export interface DebugAPI {
     gitWatcher: typeof gitWatcherService;
     dcc: typeof dccService;
     snapshot: typeof snapshotService;
-    pipeline: typeof pipelineService;
+    workflow: typeof workflowService;
     mcpConfig: typeof mcpConfigService;
-    browser: typeof browserService;
     hook: typeof hookService;
     bgPty: typeof backgroundPtyService;
   };
@@ -181,9 +180,8 @@ export function createDebugAPI(): DebugAPI {
       gitWatcher: gitWatcherService,
       dcc: dccService,
       snapshot: snapshotService,
-      pipeline: pipelineService,
+      workflow: workflowService,
       mcpConfig: mcpConfigService,
-      browser: browserService,
       hook: hookService,
       bgPty: backgroundPtyService,
     },

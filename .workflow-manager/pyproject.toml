@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "workflow-manager"
+version = "2.1.0"
+description = "MCP Server for managing Claude Code workflow flows with internal MCP spawning"
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp>=2.0.0",
+]
+
+[project.scripts]
+workflow-manager = "workflow_manager.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/workflow_manager"]

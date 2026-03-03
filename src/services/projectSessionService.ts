@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { readTextFile, writeTextFile, exists } from '@tauri-apps/plugin-fs';
 import { withTimeout, TimeoutError } from '../core/utils/promiseTimeout';
-import type { ProjectPipelineConfig } from '../types';
+import type { ProjectWorkflowConfig } from '../types';
 
 // Timeout for execute_command operations (prevents infinite hangs in bundled app)
 const INVOKE_TIMEOUT_MS = 5000;
@@ -24,7 +24,7 @@ export interface ProjectConfig {
     enableCode: boolean;
     selectedServers: string[];
   };
-  pipeline?: ProjectPipelineConfig;
+  workflow?: ProjectWorkflowConfig;
 }
 
 const CONFIG_FILENAME = 'agentcockpit-project.json';
@@ -228,35 +228,35 @@ export async function updateMcpPreferences(
 }
 
 // ============================================
-// Pipeline Configuration
+// Workflow Configuration
 // ============================================
 
 /**
- * Get pipeline configuration for a project
- * Note: 'enabled' now comes from .claude/pipeline/config.json
- * Note: 'activePipelineId' now comes from .claude/pipeline/state.json
+ * Get workflow configuration for a project
+ * Note: 'enabled' now comes from .claude/workflow/config.json
+ * Note: 'activeWorkflowId' now comes from .claude/workflow/state.json
  */
-export async function getProjectPipelineConfig(projectPath: string): Promise<ProjectPipelineConfig> {
+export async function getProjectWorkflowConfig(projectPath: string): Promise<ProjectWorkflowConfig> {
   const config = await getProjectConfig(projectPath);
-  return config.pipeline || {
+  return config.workflow || {
     installedAt: null
   };
 }
 
 /**
- * Update pipeline configuration for a project
- * Only manages installedAt now - enabled/activePipeline are in .claude/pipeline/
+ * Update workflow configuration for a project
+ * Only manages installedAt now - enabled/activeWorkflow are in .claude/workflow/
  */
-export async function updateProjectPipelineConfig(
+export async function updateProjectWorkflowConfig(
   projectPath: string,
-  pipelineConfig: Partial<ProjectPipelineConfig>
+  workflowConfig: Partial<ProjectWorkflowConfig>
 ): Promise<void> {
   const config = await getProjectConfig(projectPath);
-  config.pipeline = {
-    ...config.pipeline || {
+  config.workflow = {
+    ...config.workflow || {
       installedAt: null
     },
-    ...pipelineConfig
+    ...workflowConfig
   };
   await saveProjectConfig(projectPath, config);
 }

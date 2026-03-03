@@ -21,7 +21,7 @@ import { LoadingScreen } from '../components/common/LoadingScreen';
 
 export function AppShell() {
   const { state, activeProject, activeTerminal, addTerminal, removeTerminal } = useApp();
-  const { defaultIDE, theme, backgroundImage, backgroundOpacity, idleTimeout } = useAppSettings();
+  const { defaultIDE, theme, backgroundImage, backgroundOpacity, idleTimeout, dccAutoReindex } = useAppSettings();
 
   // Apply theme
   useEffect(() => {
@@ -46,6 +46,14 @@ export function AppShell() {
     return () => gitWatcherService.stop();
   }, [activeProject?.path]);
 
+  // DCC auto-reindex toggle
+  useEffect(() => {
+    if (activeProject?.path) {
+      gitWatcherService.setAutoReindex(activeProject.path, dccAutoReindex);
+    }
+    return () => gitWatcherService.setAutoReindex('', false);
+  }, [activeProject?.path, dccAutoReindex]);
+
   // Idle mode
   const { isIdle, signalActivity } = useIdleMode({
     idleTimeout: idleTimeout > 0 ? idleTimeout * 1000 : 0
@@ -57,7 +65,7 @@ export function AppShell() {
   // IDE detection
   const { availableIDEs, selectedIDE, handleOpenInIDE } = useIDEDetection(defaultIDE);
 
-  // Modal tracking (for browser webview z-index)
+  // Modal tracking
   const [actionsPanelModalOpen, setActionsPanelModalOpen] = useState(false);
 
   const handleAddTerminal = useCallback((projectId: string) => {

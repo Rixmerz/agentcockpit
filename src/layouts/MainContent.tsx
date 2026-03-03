@@ -1,18 +1,16 @@
 /**
  * Main Content - Terminal Area
  *
- * Contains the control bars, terminal header, browser panel,
+ * Contains the control bars, terminal header,
  * and terminal views.
  */
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 
 import { useApp, useAppSettings } from '../contexts/AppContext';
 import { TerminalView } from '../components/terminal/TerminalView';
 import { TerminalHeader } from '../components/terminal/TerminalHeader';
-import { BrowserPanel } from '../components/browser/BrowserPanel';
-import { hideAllBrowserWebviews } from '../services/browserService';
-import { ControlBar, PipelineStepsBar } from '../components/control-bar';
+import { ControlBar, WorkflowStepsBar } from '../components/control-bar';
 import { TerminalSquare } from 'lucide-react';
 
 interface MainContentAreaProps {
@@ -26,25 +24,12 @@ interface MainContentAreaProps {
 export function MainContentArea({
   selectedIDE,
   handleOpenInIDE,
-  isIdle,
   signalActivity,
-  anyModalOpen,
 }: MainContentAreaProps) {
   const { state, activeProject, activeTerminal, removeTerminal } = useApp();
   const { terminalOpacity } = useAppSettings();
 
-  // Browser panel state
-  const [browserOpen, setBrowserOpen] = useState(false);
-  const [pipelineRefreshKey, setPipelineRefreshKey] = useState(0);
-
-  const handleBrowserToggle = useCallback(async () => {
-    if (browserOpen) {
-      await hideAllBrowserWebviews();
-      setBrowserOpen(false);
-    } else {
-      setBrowserOpen(true);
-    }
-  }, [browserOpen]);
+  const [workflowRefreshKey, setWorkflowRefreshKey] = useState(0);
 
   return (
     <main className="main-content">
@@ -52,14 +37,14 @@ export function MainContentArea({
       <div className="app-top-bars">
         <ControlBar
           projectPath={activeProject?.path || null}
-          onPipelineChange={(name) => {
-            console.log('[App] Pipeline changed:', name);
-            setPipelineRefreshKey(k => k + 1);
+          onWorkflowChange={(name) => {
+            console.log('[App] Workflow changed:', name);
+            setWorkflowRefreshKey(k => k + 1);
           }}
         />
-        <PipelineStepsBar
+        <WorkflowStepsBar
           projectPath={activeProject?.path || null}
-          refreshKey={pipelineRefreshKey}
+          refreshKey={workflowRefreshKey}
           onNodeClick={(nodeId) => console.log('[App] Node clicked:', nodeId)}
         />
       </div>
@@ -77,22 +62,12 @@ export function MainContentArea({
             onClose={() => removeTerminal(activeProject.id, activeTerminal.id)}
             onOpenInIDE={() => handleOpenInIDE(activeProject.path)}
             selectedIDE={selectedIDE}
-            onBrowserToggle={handleBrowserToggle}
-            isBrowserOpen={browserOpen}
           />
         ) : (
           <div className="terminal-header justify-center">
             <span className="terminal-name text-muted">No Active Terminal</span>
           </div>
         )}
-
-        {/* Browser Panel */}
-        <BrowserPanel
-          isOpen={browserOpen}
-          onClose={() => setBrowserOpen(false)}
-          isIdle={isIdle}
-          hideForModal={anyModalOpen}
-        />
 
         <div className="terminal-view">
           {state.projects.flatMap(project =>

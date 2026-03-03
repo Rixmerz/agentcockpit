@@ -37,6 +37,8 @@ export interface AppConfig {
   terminalFinishedSound?: boolean; // Play sound when terminal finishes
   terminalFinishedThreshold?: number; // Seconds of inactivity before "finished" (1-10)
   customSoundPath?: string | null; // Custom notification sound file path
+  // DCC settings
+  dccAutoReindex?: boolean; // Auto-reindex on commits (default: false)
 }
 
 // Terminal activity state for tracking "finished" status
@@ -100,16 +102,18 @@ export type AppAction =
   | { type: 'SET_TERMINAL_FINISHED_SOUND'; payload: boolean }
   | { type: 'SET_TERMINAL_FINISHED_THRESHOLD'; payload: number }
   | { type: 'SET_CUSTOM_SOUND_PATH'; payload: string | null }
+  // DCC settings actions
+  | { type: 'SET_DCC_AUTO_REINDEX'; payload: boolean }
   // Terminal activity tracking
   | { type: 'SET_TERMINAL_ACTIVITY'; payload: { terminalId: string; isFinished: boolean; lastOutputAt: number } }
   | { type: 'CLEAR_TERMINAL_ACTIVITY'; payload: string };
 
 // ============================================
-// Pipeline Types
+// Workflow Types
 // ============================================
 
-// Pipeline step configuration (for reference in templates)
-export interface PipelineStep {
+// Workflow step configuration (for reference in templates)
+export interface WorkflowStep {
   id: string;
   order: number;
   name: string;
@@ -122,26 +126,26 @@ export interface PipelineStep {
   gate_phrases?: string[];
 }
 
-// Pipeline settings
-export interface PipelineSettings {
+// Workflow settings
+export interface WorkflowSettings {
   reset_policy: 'manual' | 'timeout' | 'per_session';
   timeout_minutes: number;
   force_sequential: boolean;
 }
 
-// Template for reusable pipeline configurations
-export interface PipelineTemplate {
+// Template for reusable workflow configurations
+export interface WorkflowTemplate {
   id: string;
   name: string;
   description: string;
   isDefault: boolean;
-  steps: PipelineStep[];
-  settings: PipelineSettings;
+  steps: WorkflowStep[];
+  settings: WorkflowSettings;
 }
 
-// Per-project pipeline configuration stored in agentcockpit-project.json
-// Note: 'enabled' now comes from .claude/pipeline/config.json (enforcer_enabled)
-// Note: 'activePipelineId' now comes from .claude/pipeline/state.json (active_pipeline)
-export interface ProjectPipelineConfig {
+// Per-project workflow configuration stored in agentcockpit-project.json
+// Note: 'enabled' now comes from .claude/workflow/config.json (enforcer_enabled)
+// Note: 'activeWorkflowId' now comes from .claude/workflow/state.json (active_workflow)
+export interface ProjectWorkflowConfig {
   installedAt: number | null;
 }

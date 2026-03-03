@@ -2,9 +2,9 @@
  * MCP Configuration Service
  *
  * Manages a centralized MCP configuration at ~/.agentcockpit/mcps.json
- * This is the source of truth for MCPs used by the pipeline system.
+ * This is the source of truth for MCPs used by the workflow system.
  *
- * The execute_mcp_tool in pipeline-manager reads from this config.
+ * The execute_mcp_tool in workflow-manager reads from this config.
  */
 
 import { homeDir } from '@tauri-apps/api/path';
@@ -647,21 +647,21 @@ async function autoDetectAgentcockpitPath(): Promise<string | null> {
     // 1. Check saved app-config.json first (fastest)
     const appConfig = await loadAppConfig();
     if (appConfig.agentcockpitPath) {
-      const savedPath = `${appConfig.agentcockpitPath}/.pipeline-manager`;
+      const savedPath = `${appConfig.agentcockpitPath}/.workflow-manager`;
       if (await exists(savedPath)) {
         return appConfig.agentcockpitPath;
       }
     }
 
-    // 2. Check hub config.json (has hub_dir from pipeline-manager setup)
+    // 2. Check hub config.json (has hub_dir from workflow-manager setup)
     const configDir = await getConfigDir();
     const hubConfigPath = `${configDir}/config.json`;
     if (await exists(hubConfigPath)) {
       const hubContent = await readTextFile(hubConfigPath);
       const hubConfig = JSON.parse(hubContent);
       if (hubConfig.hub_dir) {
-        const hubPipelinePath = `${hubConfig.hub_dir}/.pipeline-manager`;
-        if (await exists(hubPipelinePath)) {
+        const hubWorkflowPath = `${hubConfig.hub_dir}/.workflow-manager`;
+        if (await exists(hubWorkflowPath)) {
           return hubConfig.hub_dir;
         }
       }
@@ -675,8 +675,8 @@ async function autoDetectAgentcockpitPath(): Promise<string | null> {
     );
     const cwdPath = cwd.trim();
     if (cwdPath !== '/') {
-      const pipelinePath = `${cwdPath}/.pipeline-manager`;
-      if (await exists(pipelinePath)) {
+      const workflowPath = `${cwdPath}/.workflow-manager`;
+      if (await exists(workflowPath)) {
         return cwdPath;
       }
     }
@@ -726,51 +726,51 @@ export async function setAgentcockpitPath(path: string): Promise<boolean> {
 }
 
 // =====================================================
-// Pipeline Manager MCP Installation
+// Workflow Manager MCP Installation
 // =====================================================
 
-const PIPELINE_MANAGER_NAME = 'pipeline-manager';
+const WORKFLOW_MANAGER_NAME = 'workflow-manager';
 
 /**
- * Build Pipeline Manager MCP config with dynamic path
+ * Build Workflow Manager MCP config with dynamic path
  */
-function buildPipelineManagerConfig(agentcockpitPath: string): McpServerConfig {
+function buildWorkflowManagerConfig(agentcockpitPath: string): McpServerConfig {
   return {
     command: 'uv',
     args: [
       'run',
       '--directory',
-      `${agentcockpitPath}/.pipeline-manager`,
-      'pipeline-manager'
+      `${agentcockpitPath}/.workflow-manager`,
+      'workflow-manager'
     ]
   };
 }
 
 /**
- * Check if Pipeline Manager MCP is installed
+ * Check if Workflow Manager MCP is installed
  */
-export async function isPipelineManagerInstalled(): Promise<boolean> {
+export async function isWorkflowManagerInstalled(): Promise<boolean> {
   const config = await loadMcpConfig();
-  return !!config.mcpServers[PIPELINE_MANAGER_NAME];
+  return !!config.mcpServers[WORKFLOW_MANAGER_NAME];
 }
 
 /**
- * Check if Pipeline Manager MCP is enabled (installed and not disabled)
+ * Check if Workflow Manager MCP is enabled (installed and not disabled)
  */
-export async function isPipelineManagerEnabled(): Promise<boolean> {
+export async function isWorkflowManagerEnabled(): Promise<boolean> {
   const config = await loadMcpConfig();
-  const mcp = config.mcpServers[PIPELINE_MANAGER_NAME];
+  const mcp = config.mcpServers[WORKFLOW_MANAGER_NAME];
   return !!mcp && !mcp.config.disabled;
 }
 
 /**
- * Install Pipeline Manager MCP
- * Adds the pipeline-manager configuration to ~/.agentcockpit/mcps.json
- * Uses the local .pipeline-manager directory inside the AgentCockpit project
+ * Install Workflow Manager MCP
+ * Adds the workflow-manager configuration to ~/.agentcockpit/mcps.json
+ * Uses the local .workflow-manager directory inside the AgentCockpit project
  *
  * @param agentcockpitPath - Path to the AgentCockpit project (e.g., /Users/user/agentcockpit)
  */
-export async function installPipelineManagerMcp(agentcockpitPath?: string): Promise<{ success: boolean; message: string }> {
+export async function installWorkflowManagerMcp(agentcockpitPath?: string): Promise<{ success: boolean; message: string }> {
   try {
     // Get or validate the agentcockpit path
     let installPath: string | undefined = agentcockpitPath;
@@ -785,13 +785,13 @@ export async function installPipelineManagerMcp(agentcockpitPath?: string): Prom
       };
     }
 
-    // Verify .pipeline-manager exists
-    const pipelineManagerPath = `${installPath}/.pipeline-manager`;
-    const pipelineExists = await exists(pipelineManagerPath);
-    if (!pipelineExists) {
+    // Verify .workflow-manager exists
+    const workflowManagerPath = `${installPath}/.workflow-manager`;
+    const workflowExists = await exists(workflowManagerPath);
+    if (!workflowExists) {
       return {
         success: false,
-        message: `Pipeline Manager not found at ${pipelineManagerPath}`
+        message: `Workflow Manager not found at ${workflowManagerPath}`
       };
     }
 
@@ -799,43 +799,43 @@ export async function installPipelineManagerMcp(agentcockpitPath?: string): Prom
     await setAgentcockpitPath(installPath);
 
     const config = await loadMcpConfig();
-    const mcpConfig = buildPipelineManagerConfig(installPath);
+    const mcpConfig = buildWorkflowManagerConfig(installPath);
 
-    if (config.mcpServers[PIPELINE_MANAGER_NAME]) {
+    if (config.mcpServers[WORKFLOW_MANAGER_NAME]) {
       // Already exists, update config and enable
-      config.mcpServers[PIPELINE_MANAGER_NAME].config = mcpConfig;
-      config.mcpServers[PIPELINE_MANAGER_NAME].config.disabled = false;
+      config.mcpServers[WORKFLOW_MANAGER_NAME].config = mcpConfig;
+      config.mcpServers[WORKFLOW_MANAGER_NAME].config.disabled = false;
       await saveMcpConfig(config);
       // Register in Claude Code via CLI (with file fallback)
-      const cliResult = await addCodeMcp(PIPELINE_MANAGER_NAME, mcpConfig);
+      const cliResult = await addCodeMcp(WORKFLOW_MANAGER_NAME, mcpConfig);
       if (!cliResult.success) {
-        const fileOk = await addMcpToClaudeCode(PIPELINE_MANAGER_NAME, mcpConfig);
+        const fileOk = await addMcpToClaudeCode(WORKFLOW_MANAGER_NAME, mcpConfig);
         if (!fileOk) {
           return { success: false, message: 'Failed to register MCP in Claude Code' };
         }
       }
-      return { success: true, message: 'Pipeline Manager MCP updated and enabled' };
+      return { success: true, message: 'Workflow Manager MCP updated and enabled' };
     }
 
-    config.mcpServers[PIPELINE_MANAGER_NAME] = {
-      name: PIPELINE_MANAGER_NAME,
+    config.mcpServers[WORKFLOW_MANAGER_NAME] = {
+      name: WORKFLOW_MANAGER_NAME,
       config: mcpConfig,
       importedFrom: 'manual',
       importedAt: new Date().toISOString(),
-      notes: `Auto-installed by AgentCockpit from ${pipelineManagerPath}`
+      notes: `Auto-installed by AgentCockpit from ${workflowManagerPath}`
     };
 
     const saved = await saveMcpConfig(config);
     if (saved) {
       // Register in Claude Code via CLI (with file fallback)
-      const cliResult = await addCodeMcp(PIPELINE_MANAGER_NAME, mcpConfig);
+      const cliResult = await addCodeMcp(WORKFLOW_MANAGER_NAME, mcpConfig);
       if (!cliResult.success) {
-        const fileOk = await addMcpToClaudeCode(PIPELINE_MANAGER_NAME, mcpConfig);
+        const fileOk = await addMcpToClaudeCode(WORKFLOW_MANAGER_NAME, mcpConfig);
         if (!fileOk) {
           return { success: false, message: 'Failed to register MCP in Claude Code' };
         }
       }
-      return { success: true, message: 'Pipeline Manager MCP installed successfully' };
+      return { success: true, message: 'Workflow Manager MCP installed successfully' };
     }
     return { success: false, message: 'Failed to save configuration' };
   } catch (e) {
@@ -844,16 +844,16 @@ export async function installPipelineManagerMcp(agentcockpitPath?: string): Prom
 }
 
 /**
- * Uninstall Pipeline Manager MCP
- * Removes the pipeline-manager from ~/.agentcockpit/mcps.json
+ * Uninstall Workflow Manager MCP
+ * Removes the workflow-manager from ~/.agentcockpit/mcps.json
  */
-export async function uninstallPipelineManagerMcp(): Promise<{ success: boolean; message: string }> {
+export async function uninstallWorkflowManagerMcp(): Promise<{ success: boolean; message: string }> {
   // Remove from AgentCockpit config
-  const result = await removeMcp(PIPELINE_MANAGER_NAME);
+  const result = await removeMcp(WORKFLOW_MANAGER_NAME);
   // Remove from Claude Code via CLI (with file fallback)
-  const cliResult = await removeCodeMcp(PIPELINE_MANAGER_NAME);
+  const cliResult = await removeCodeMcp(WORKFLOW_MANAGER_NAME);
   if (!cliResult.success) {
-    await removeMcpFromClaudeCode(PIPELINE_MANAGER_NAME);
+    await removeMcpFromClaudeCode(WORKFLOW_MANAGER_NAME);
   }
   return result;
 }

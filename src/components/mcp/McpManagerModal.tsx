@@ -48,9 +48,9 @@ import {
   importAllFromGemini,
   openConfigInEditor,
   getConfigFilePath,
-  isPipelineManagerInstalled,
-  installPipelineManagerMcp,
-  uninstallPipelineManagerMcp,
+  isWorkflowManagerInstalled,
+  installWorkflowManagerMcp,
+  uninstallWorkflowManagerMcp,
   getAgentcockpitPath,
   setAgentcockpitPath,
   type ManagedMcp,
@@ -83,9 +83,9 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
   const [manualJson, setManualJson] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
 
-  // Pipeline Manager state
-  const [pipelineManagerInstalled, setPipelineManagerInstalled] = useState(false);
-  const [pipelineManagerLoading, setPipelineManagerLoading] = useState(false);
+  // Workflow Manager state
+  const [workflowManagerInstalled, setWorkflowManagerInstalled] = useState(false);
+  const [workflowManagerLoading, setWorkflowManagerLoading] = useState(false);
   const [agentcockpitPath, setAgentcockpitPathState] = useState<string>('');
   const [showPathInput, setShowPathInput] = useState(false);
 
@@ -103,13 +103,13 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [config, desktop, code, gemini, path, pipelineInstalled, acPath, dccInstalledResult] = await Promise.all([
+      const [config, desktop, code, gemini, path, workflowInstalled, acPath, dccInstalledResult] = await Promise.all([
         loadMcpConfig(),
         loadDesktopMcps(),
         loadCodeMcps(),
         loadGeminiMcps(),
         getConfigFilePath(),
-        isPipelineManagerInstalled(),
+        isWorkflowManagerInstalled(),
         getAgentcockpitPath(),
         isDeltaCodeCubeInstalled()
       ]);
@@ -119,7 +119,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
       setCodeMcps(code);
       setGeminiMcps(gemini);
       setConfigPath(path);
-      setPipelineManagerInstalled(pipelineInstalled);
+      setWorkflowManagerInstalled(workflowInstalled);
       setAgentcockpitPathState(acPath || '');
       setDccInstalled(dccInstalledResult);
     } catch (e) {
@@ -130,9 +130,9 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
     }
   }, [showMessage]);
 
-  // Handle install Pipeline Manager (auto-detects path)
-  const handleInstallPipelineManager = useCallback(async (pathOverride?: string) => {
-    setPipelineManagerLoading(true);
+  // Handle install Workflow Manager (auto-detects path)
+  const handleInstallWorkflowManager = useCallback(async (pathOverride?: string) => {
+    setWorkflowManagerLoading(true);
     try {
       // First try to auto-detect path if not provided
       let pathToUse = pathOverride || agentcockpitPath;
@@ -149,14 +149,14 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
       // If still no path, show manual input
       if (!pathToUse) {
         setShowPathInput(true);
-        setPipelineManagerLoading(false);
+        setWorkflowManagerLoading(false);
         return;
       }
 
-      const result = await installPipelineManagerMcp(pathToUse);
+      const result = await installWorkflowManagerMcp(pathToUse);
       if (result.success) {
         showMessage('success', result.message);
-        setPipelineManagerInstalled(true);
+        setWorkflowManagerInstalled(true);
         setShowPathInput(false);
         loadData();
         onMcpsChanged?.();
@@ -168,7 +168,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
         showMessage('error', result.message);
       }
     } finally {
-      setPipelineManagerLoading(false);
+      setWorkflowManagerLoading(false);
     }
   }, [agentcockpitPath, showMessage, loadData, onMcpsChanged]);
 
@@ -181,27 +181,27 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
 
     const saved = await setAgentcockpitPath(agentcockpitPath.trim());
     if (saved) {
-      handleInstallPipelineManager(agentcockpitPath.trim());
+      handleInstallWorkflowManager(agentcockpitPath.trim());
     } else {
       showMessage('error', 'Failed to save path');
     }
-  }, [agentcockpitPath, handleInstallPipelineManager, showMessage]);
+  }, [agentcockpitPath, handleInstallWorkflowManager, showMessage]);
 
-  // Handle uninstall Pipeline Manager
-  const handleUninstallPipelineManager = useCallback(async () => {
-    setPipelineManagerLoading(true);
+  // Handle uninstall Workflow Manager
+  const handleUninstallWorkflowManager = useCallback(async () => {
+    setWorkflowManagerLoading(true);
     try {
-      const result = await uninstallPipelineManagerMcp();
+      const result = await uninstallWorkflowManagerMcp();
       if (result.success) {
         showMessage('success', result.message);
-        setPipelineManagerInstalled(false);
+        setWorkflowManagerInstalled(false);
         loadData();
         onMcpsChanged?.();
       } else {
         showMessage('error', result.message);
       }
     } finally {
-      setPipelineManagerLoading(false);
+      setWorkflowManagerLoading(false);
     }
   }, [showMessage, loadData, onMcpsChanged]);
 
@@ -398,7 +398,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
         <div className="mcp-warning-banner">
           <AlertTriangle size={16} />
           <span>
-            This is your centralized MCP configuration. The pipeline system reads from this config.
+            This is your centralized MCP configuration. The workflow system reads from this config.
             Importing copies MCPs - originals in Desktop/Code remain unchanged.
           </span>
         </div>
@@ -770,22 +770,22 @@ Or with mcpServers wrapper:
                   <span>Plugin Settings</span>
                 </div>
 
-                {/* Pipeline Manager Section */}
+                {/* Workflow Manager Section */}
                 <div className="mcp-section-header" style={{ marginTop: '1.5rem' }}>
-                  <span>Pipeline Manager MCP</span>
+                  <span>Workflow Manager MCP</span>
                 </div>
 
-                <div className="mcp-pipeline-section">
-                  <div className="mcp-pipeline-info">
-                    <GitBranch size={20} style={{ color: pipelineManagerInstalled ? 'var(--accent)' : 'var(--text-muted)' }} />
-                    <div className="mcp-pipeline-details">
-                      <span className="mcp-pipeline-title">Pipeline Manager</span>
-                      <span className="mcp-pipeline-description">
-                        Required for pipeline flow control. Manages step-based workflows
+                <div className="mcp-workflow-section">
+                  <div className="mcp-workflow-info">
+                    <GitBranch size={20} style={{ color: workflowManagerInstalled ? 'var(--accent)' : 'var(--text-muted)' }} />
+                    <div className="mcp-workflow-details">
+                      <span className="mcp-workflow-title">Workflow Manager</span>
+                      <span className="mcp-workflow-description">
+                        Required for workflow flow control. Manages step-based workflows
                         with gates, MCP restrictions, and automatic advancement.
                       </span>
-                      <span className={`mcp-pipeline-status ${pipelineManagerInstalled ? 'installed' : 'not-installed'}`}>
-                        {pipelineManagerInstalled ? (
+                      <span className={`mcp-workflow-status ${workflowManagerInstalled ? 'installed' : 'not-installed'}`}>
+                        {workflowManagerInstalled ? (
                           <><Check size={12} /> Installed</>
                         ) : (
                           <><AlertTriangle size={12} /> Not installed</>
@@ -793,14 +793,14 @@ Or with mcpServers wrapper:
                       </span>
                     </div>
                   </div>
-                  <div className="mcp-pipeline-actions">
-                    {pipelineManagerInstalled ? (
+                  <div className="mcp-workflow-actions">
+                    {workflowManagerInstalled ? (
                       <button
                         className="btn-secondary btn-sm"
-                        onClick={handleUninstallPipelineManager}
-                        disabled={pipelineManagerLoading}
+                        onClick={handleUninstallWorkflowManager}
+                        disabled={workflowManagerLoading}
                       >
-                        {pipelineManagerLoading ? (
+                        {workflowManagerLoading ? (
                           <><Loader2 size={14} className="animate-spin" /> Removing...</>
                         ) : (
                           <><Trash2 size={14} /> Uninstall</>
@@ -809,10 +809,10 @@ Or with mcpServers wrapper:
                     ) : (
                       <button
                         className="btn-primary btn-sm"
-                        onClick={() => handleInstallPipelineManager()}
-                        disabled={pipelineManagerLoading}
+                        onClick={() => handleInstallWorkflowManager()}
+                        disabled={workflowManagerLoading}
                       >
-                        {pipelineManagerLoading ? (
+                        {workflowManagerLoading ? (
                           <><Loader2 size={14} className="animate-spin" /> Installing...</>
                         ) : (
                           <><Download size={14} /> Install</>
@@ -823,10 +823,10 @@ Or with mcpServers wrapper:
                 </div>
 
                 {/* Path configuration input */}
-                {showPathInput && !pipelineManagerInstalled && (
+                {showPathInput && !workflowManagerInstalled && (
                   <div className="mcp-path-config" style={{ marginTop: '1rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      AgentCockpit project path (where .pipeline-manager is located):
+                      AgentCockpit project path (where .workflow-manager is located):
                     </label>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <input
@@ -846,9 +846,9 @@ Or with mcpServers wrapper:
                       <button
                         className="btn-primary btn-sm"
                         onClick={handleSaveAgentcockpitPath}
-                        disabled={pipelineManagerLoading || !agentcockpitPath.trim()}
+                        disabled={workflowManagerLoading || !agentcockpitPath.trim()}
                       >
-                        {pipelineManagerLoading ? <Loader2 size={14} className="animate-spin" /> : 'Save & Install'}
+                        {workflowManagerLoading ? <Loader2 size={14} className="animate-spin" /> : 'Save & Install'}
                       </button>
                       <button
                         className="btn-secondary btn-sm"
@@ -865,16 +865,16 @@ Or with mcpServers wrapper:
                   <span>DeltaCodeCube MCP</span>
                 </div>
 
-                <div className="mcp-pipeline-section">
-                  <div className="mcp-pipeline-info">
+                <div className="mcp-workflow-section">
+                  <div className="mcp-workflow-info">
                     <Database size={20} style={{ color: dccInstalled ? 'var(--accent)' : 'var(--text-muted)' }} />
-                    <div className="mcp-pipeline-details">
-                      <span className="mcp-pipeline-title">DeltaCodeCube</span>
-                      <span className="mcp-pipeline-description">
+                    <div className="mcp-workflow-details">
+                      <span className="mcp-workflow-title">DeltaCodeCube</span>
+                      <span className="mcp-workflow-description">
                         Multi-dimensional code indexing for similarity search, impact analysis,
                         tension detection, and technical debt scoring (grades A-F).
                       </span>
-                      <span className={`mcp-pipeline-status ${dccInstalled ? 'installed' : 'not-installed'}`}>
+                      <span className={`mcp-workflow-status ${dccInstalled ? 'installed' : 'not-installed'}`}>
                         {dccInstalled ? (
                           <><Check size={12} /> Installed</>
                         ) : (
@@ -883,7 +883,7 @@ Or with mcpServers wrapper:
                       </span>
                     </div>
                   </div>
-                  <div className="mcp-pipeline-actions">
+                  <div className="mcp-workflow-actions">
                     {dccInstalled ? (
                       <button
                         className="btn-secondary btn-sm"
