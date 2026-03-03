@@ -43,6 +43,9 @@ export function settingsReducer(state: AppState, action: AppAction): AppState {
     case 'SET_CUSTOM_SOUND_PATH':
       return { ...state, customSoundPath: action.payload };
 
+    case 'SET_DCC_AUTO_REINDEX':
+      return { ...state, dccAutoReindex: action.payload };
+
     default:
       return state;
   }
@@ -71,6 +74,7 @@ export function useAppSettings() {
     terminalFinishedSound: state.terminalFinishedSound ?? true,
     terminalFinishedThreshold: state.terminalFinishedThreshold ?? 3,
     customSoundPath: state.customSoundPath ?? null,
+    dccAutoReindex: state.dccAutoReindex ?? false,
 
     setDefaultIDE: (ide: 'cursor' | 'code' | 'antigravity' | undefined) => {
       dispatch({ type: 'SET_DEFAULT_IDE', payload: ide });
@@ -114,6 +118,11 @@ export function useAppSettings() {
 
     setCustomSoundPath: (path: string | null) => {
       dispatch({ type: 'SET_CUSTOM_SOUND_PATH', payload: path });
+      scheduleSave();
+    },
+
+    setDccAutoReindex: (enabled: boolean) => {
+      dispatch({ type: 'SET_DCC_AUTO_REINDEX', payload: enabled });
       scheduleSave();
     },
   };

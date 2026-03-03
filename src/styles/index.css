@@ -27,5 +27,5 @@
    ═══════════════════════════════════════════════════════════════ */
 @import './components/control-bar.css';
 @import './components/dropdown.css';
-@import './components/pipeline-steps.css';
+@import './components/workflow-steps.css';
 @import './components/index-panel.css';

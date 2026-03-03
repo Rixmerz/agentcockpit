@@ -2,7 +2,7 @@
  * Agentful Agent Plugin
  *
  * Autonomous feature-driven development with quality gates.
- * Integrates agentful slash commands and pipeline graph activation
+ * Integrates agentful slash commands and workflow graph activation
  * into AgentCockpit's plugin system.
  */
 

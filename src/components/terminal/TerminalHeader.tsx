@@ -1,5 +1,4 @@
-import { ExternalLink, Globe } from 'lucide-react';
-import { MediaControlBar } from './MediaControlBar';
+import { ExternalLink } from 'lucide-react';
 
 interface TerminalHeaderProps {
   name: string;
@@ -7,10 +6,6 @@ interface TerminalHeaderProps {
   onClose?: () => void;
   onOpenInIDE?: () => void;
   selectedIDE?: string | null;
-  onBrowserToggle?: () => void;
-  isBrowserOpen?: boolean;
-  showMediaControls?: boolean;
-  onMediaTabFocus?: (tabId: string) => void;
 }
 
 export function TerminalHeader({
@@ -19,10 +14,6 @@ export function TerminalHeader({
   onClose,
   onOpenInIDE,
   selectedIDE,
-  onBrowserToggle,
-  isBrowserOpen,
-  showMediaControls = true,
-  onMediaTabFocus
 }: TerminalHeaderProps) {
   return (
     <div className="terminal-header">
@@ -33,11 +24,7 @@ export function TerminalHeader({
         <span className="terminal-name">{name}</span>
       </div>
 
-      <div className="terminal-header-center">
-        {showMediaControls && (
-          <MediaControlBar onTabFocus={onMediaTabFocus} />
-        )}
-      </div>
+      <div className="terminal-header-center" />
 
       <div className="terminal-header-actions">
         {/* Open in IDE Button */}
@@ -49,17 +36,6 @@ export function TerminalHeader({
           >
             <ExternalLink size={14} />
             <span>{selectedIDE}</span>
-          </button>
-        )}
-
-        {/* Browser Toggle Button */}
-        {onBrowserToggle && (
-          <button
-            className={`btn-browser-toggle ${isBrowserOpen ? 'active' : ''}`}
-            onClick={onBrowserToggle}
-            title={isBrowserOpen ? 'Close browser' : 'Open browser'}
-          >
-            <Globe size={14} />
           </button>
         )}
 

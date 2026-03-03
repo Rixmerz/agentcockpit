@@ -1,6 +1,6 @@
 import { AppProvider } from './contexts/AppContext';
 import { PluginProvider } from './plugins/context/PluginContext';
-import { MediaProvider } from './contexts/MediaContext';
+
 import { claudePlugin } from './agents/claude';
 import { agentfulPlugin } from './agents/agentful';
 import { cursorAgentPlugin } from './agents/cursor-agent';
@@ -11,11 +11,9 @@ import './App.css';
 function App() {
   return (
     <AppProvider>
-      <MediaProvider>
-        <PluginProvider initialPlugins={[claudePlugin, agentfulPlugin, cursorAgentPlugin, geminiPlugin]}>
-          <AppShell />
-        </PluginProvider>
-      </MediaProvider>
+      <PluginProvider initialPlugins={[claudePlugin, agentfulPlugin, cursorAgentPlugin, geminiPlugin]}>
+        <AppShell />
+      </PluginProvider>
     </AppProvider>
   );
 }

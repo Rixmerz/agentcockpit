@@ -1,7 +1,7 @@
 /**
  * Agentful Quick Actions
  *
- * One-click buttons for all agentful slash commands and pipeline activation.
+ * One-click buttons for all agentful slash commands and workflow activation.
  */
 
 import { useCallback } from 'react';
