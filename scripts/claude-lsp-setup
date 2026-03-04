@@ -1,0 +1,389 @@
+#!/usr/bin/env python3
+"""claude-lsp-setup — Auto-detect and install LSP servers for Claude Code.
+
+Installs LSP binaries inside distrobox with thin wrappers in ~/.local/bin/,
+then registers the corresponding Claude Code plugins.
+"""
+
+import argparse
+import json
+import os
+import shutil
+import stat
+import subprocess
+import sys
+from pathlib import Path
+
+DISTROBOX_NAME = "agentcockpit-build"
+WRAPPER_DIR = Path.home() / ".local" / "bin"
+PLUGINS_FILE = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
+
+LSP_DEFS = [
+    {
+        "plugin": "typescript-lsp",
+        "binary": "typescript-language-server",
+        "extensions": {".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"},
+        "distrobox_install": "npm install -g typescript-language-server typescript",
+        "binary_in_container": "typescript-language-server",
+    },
+    {
+        "plugin": "pyright-lsp",
+        "binary": "pyright-langserver",
+        "extensions": {".py", ".pyi"},
+        "distrobox_install": "npm install -g pyright",
+        "binary_in_container": "pyright-langserver",
+    },
+    {
+        "plugin": "rust-analyzer-lsp",
+        "binary": "rust-analyzer",
+        "extensions": {".rs"},
+        "distrobox_install": "dnf install -y rust-analyzer",
+        "binary_in_container": "rust-analyzer",
+    },
+    {
+        "plugin": "gopls-lsp",
+        "binary": "gopls",
+        "extensions": {".go"},
+        "distrobox_install": "dnf install -y golang-x-tools-gopls",
+        "binary_in_container": "gopls",
+    },
+    {
+        "plugin": "clangd-lsp",
+        "binary": "clangd",
+        "extensions": {".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hxx"},
+        "distrobox_install": "dnf install -y clang-tools-extra",
+        "binary_in_container": "clangd",
+    },
+    {
+        "plugin": "csharp-lsp",
+        "binary": "csharp-ls",
+        "extensions": {".cs", ".csx"},
+        "distrobox_install": "dnf install -y dotnet-sdk-9.0 && dotnet tool install -g csharp-ls",
+        "binary_in_container": "csharp-ls",
+    },
+    {
+        "plugin": "jdtls-lsp",
+        "binary": "jdtls",
+        "extensions": {".java"},
+        "distrobox_install": "dnf install -y jdtls",
+        "binary_in_container": "jdtls",
+    },
+    {
+        "plugin": "kotlin-lsp",
+        "binary": "kotlin-language-server",
+        "extensions": {".kt", ".kts"},
+        "distrobox_install": "dnf install -y kotlin-language-server",
+        "binary_in_container": "kotlin-language-server",
+    },
+    {
+        "plugin": "lua-lsp",
+        "binary": "lua-language-server",
+        "extensions": {".lua"},
+        "distrobox_install": "dnf install -y lua-language-server",
+        "binary_in_container": "lua-language-server",
+    },
+    {
+        "plugin": "php-lsp",
+        "binary": "intelephense",
+        "extensions": {".php"},
+        "distrobox_install": "npm install -g intelephense",
+        "binary_in_container": "intelephense",
+    },
+    {
+        "plugin": "swift-lsp",
+        "binary": "sourcekit-lsp",
+        "extensions": {".swift"},
+        "distrobox_install": "dnf install -y swift-lang",
+        "binary_in_container": "sourcekit-lsp",
+    },
+]
+
+# Files/dirs to skip during project scanning
+SKIP_DIRS = {
+    "node_modules", ".git", "target", "build", "dist", ".next",
+    "__pycache__", ".venv", "venv", ".tox", ".mypy_cache",
+    "vendor", "Pods", ".gradle", "bin", "obj",
+}
+
+GREEN = "\033[32m"
+RED = "\033[31m"
+YELLOW = "\033[33m"
+CYAN = "\033[36m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+RESET = "\033[0m"
+
+
+def is_color_supported():
+    return hasattr(sys.stderr, "isatty") and sys.stderr.isatty()
+
+
+def c(code, text):
+    if is_color_supported():
+        return f"{code}{text}{RESET}"
+    return text
+
+
+def get_installed_plugins() -> set[str]:
+    """Read installed plugin names from Claude Code's plugins file."""
+    if not PLUGINS_FILE.exists():
+        return set()
+    try:
+        data = json.loads(PLUGINS_FILE.read_text())
+        plugins = data.get("plugins", {})
+        # Keys are like "rust-analyzer-lsp@claude-plugins-official"
+        return {key.split("@")[0] for key in plugins}
+    except (json.JSONDecodeError, KeyError):
+        return set()
+
+
+def check_binary(name: str) -> tuple[bool, str]:
+    """Check if a binary exists. Returns (exists, type) where type is 'native', 'wrapper', or ''."""
+    wrapper_path = WRAPPER_DIR / name
+    if wrapper_path.exists() and wrapper_path.is_file():
+        content = wrapper_path.read_text()
+        if "distrobox" in content:
+            return True, "wrapper"
+        return True, "native"
+
+    path = shutil.which(name)
+    if path:
+        return True, "native"
+    return False, ""
+
+
+def scan_project(project_dir: str, max_files: int = 5000) -> set[str]:
+    """Scan project directory for file extensions. Returns set of extensions."""
+    extensions = set()
+    count = 0
+    project = Path(project_dir).resolve()
+
+    for root, dirs, files in os.walk(project):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
+        for f in files:
+            ext = Path(f).suffix.lower()
+            if ext:
+                extensions.add(ext)
+            count += 1
+            if count >= max_files:
+                return extensions
+    return extensions
+
+
+def detect_lsps(extensions: set[str]) -> list[dict]:
+    """Map file extensions to required LSP definitions."""
+    needed = []
+    for lsp in LSP_DEFS:
+        if extensions & lsp["extensions"]:
+            needed.append(lsp)
+    return needed
+
+
+def create_wrapper(binary_name: str, binary_in_container: str) -> Path:
+    """Create a distrobox wrapper script in ~/.local/bin/."""
+    wrapper_path = WRAPPER_DIR / binary_name
+    wrapper_content = f"""#!/bin/bash
+exec distrobox enter {DISTROBOX_NAME} -- {binary_in_container} "$@"
+"""
+    WRAPPER_DIR.mkdir(parents=True, exist_ok=True)
+    wrapper_path.write_text(wrapper_content)
+    wrapper_path.chmod(wrapper_path.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    return wrapper_path
+
+
+def install_binary_in_distrobox(lsp: dict) -> bool:
+    """Install an LSP binary inside the distrobox container."""
+    cmd = lsp["distrobox_install"]
+    binary = lsp["binary_in_container"]
+    print(f"  Installing {c(CYAN, binary)} in distrobox...", file=sys.stderr)
+
+    result = subprocess.run(
+        ["distrobox", "enter", DISTROBOX_NAME, "--", "bash", "-c", cmd],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+
+    if result.returncode != 0:
+        print(f"  {c(RED, 'FAILED')}: {result.stderr.strip()[:200]}", file=sys.stderr)
+        return False
+
+    # Verify binary is available inside container
+    verify = subprocess.run(
+        ["distrobox", "enter", DISTROBOX_NAME, "--", "which", binary],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if verify.returncode != 0:
+        print(f"  {c(RED, 'FAILED')}: binary {binary} not found after install", file=sys.stderr)
+        return False
+
+    return True
+
+
+def install_plugin(plugin_name: str) -> bool:
+    """Register a Claude Code plugin."""
+    full_name = f"{plugin_name}@claude-plugins-official"
+    print(f"  Registering plugin {c(CYAN, full_name)}...", file=sys.stderr)
+
+    result = subprocess.run(
+        ["claude", "plugin", "install", full_name],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    if result.returncode != 0:
+        print(f"  {c(RED, 'FAILED')}: {result.stderr.strip()[:200]}", file=sys.stderr)
+        return False
+    return True
+
+
+def cmd_status():
+    """Show status of all 11 LSPs."""
+    installed_plugins = get_installed_plugins()
+    active = 0
+
+    print(f"\n{c(BOLD, 'Claude Code LSP Status')}", file=sys.stderr)
+    print(f"{'─' * 56}", file=sys.stderr)
+
+    for lsp in LSP_DEFS:
+        name = lsp["plugin"]
+        has_binary, binary_type = check_binary(lsp["binary"])
+        has_plugin = name in installed_plugins
+
+        if has_binary and has_plugin:
+            active += 1
+
+        binary_str = (
+            c(GREEN, f"✓ ({binary_type})") if has_binary else c(RED, "✗")
+        )
+        plugin_str = c(GREEN, "✓") if has_plugin else c(RED, "✗")
+
+        print(
+            f"  {name:<22s} binary: {binary_str:<20s} plugin: {plugin_str}",
+            file=sys.stderr,
+        )
+
+    print(f"{'─' * 56}", file=sys.stderr)
+    print(f"  {c(BOLD, f'{active}/{len(LSP_DEFS)}')} active\n", file=sys.stderr)
+
+
+def cmd_install(project_dir: str | None, install_all: bool, dry_run: bool):
+    """Main install flow: detect → install binaries → install plugins."""
+    if install_all:
+        needed = list(LSP_DEFS)
+        print(f"{c(BOLD, 'Installing all')} {len(needed)} LSPs", file=sys.stderr)
+    else:
+        if not project_dir:
+            print(f"{c(RED, 'Error')}: provide a project path or --all", file=sys.stderr)
+            sys.exit(1)
+        project = Path(project_dir).resolve()
+        if not project.is_dir():
+            print(f"{c(RED, 'Error')}: {project} is not a directory", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"Scanning {c(CYAN, str(project))}...", file=sys.stderr)
+        extensions = scan_project(str(project))
+        needed = detect_lsps(extensions)
+
+        if not needed:
+            print(f"No supported languages detected.", file=sys.stderr)
+            return
+
+        print(
+            f"Detected: {', '.join(c(CYAN, l['plugin'].replace('-lsp', '')) for l in needed)}",
+            file=sys.stderr,
+        )
+
+    if dry_run:
+        print(f"\n{c(BOLD, 'Dry run')} — would install:", file=sys.stderr)
+        installed_plugins = get_installed_plugins()
+        for lsp in needed:
+            has_binary, btype = check_binary(lsp["binary"])
+            has_plugin = lsp["plugin"] in installed_plugins
+            actions = []
+            if not has_binary:
+                actions.append(f"install {lsp['binary']} via distrobox + create wrapper")
+            else:
+                actions.append(f"binary exists ({btype})")
+            if not has_plugin:
+                actions.append(f"register plugin {lsp['plugin']}")
+            else:
+                actions.append("plugin registered")
+            print(f"  {lsp['plugin']:<22s} {' → '.join(actions)}", file=sys.stderr)
+        return
+
+    installed_plugins = get_installed_plugins()
+    installed_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    for lsp in needed:
+        name = lsp["plugin"]
+        binary = lsp["binary"]
+        print(f"\n{'─' * 40}", file=sys.stderr)
+        print(f"{c(BOLD, name)}", file=sys.stderr)
+
+        # Step 1: Binary
+        has_binary, btype = check_binary(binary)
+        if has_binary:
+            print(f"  Binary: {c(GREEN, 'exists')} ({btype})", file=sys.stderr)
+        else:
+            ok = install_binary_in_distrobox(lsp)
+            if ok:
+                create_wrapper(binary, lsp["binary_in_container"])
+                print(f"  Binary: {c(GREEN, 'installed')} + wrapper created", file=sys.stderr)
+            else:
+                print(f"  Binary: {c(RED, 'failed')} — skipping plugin", file=sys.stderr)
+                failed_count += 1
+                continue
+
+        # Step 2: Plugin
+        if name in installed_plugins:
+            print(f"  Plugin: {c(GREEN, 'already registered')}", file=sys.stderr)
+            skipped_count += 1
+        else:
+            ok = install_plugin(name)
+            if ok:
+                print(f"  Plugin: {c(GREEN, 'registered')}", file=sys.stderr)
+                installed_count += 1
+            else:
+                print(f"  Plugin: {c(RED, 'failed')}", file=sys.stderr)
+                failed_count += 1
+
+    # Summary
+    print(f"\n{'─' * 40}", file=sys.stderr)
+    print(f"{c(BOLD, 'Summary')}", file=sys.stderr)
+    if installed_count:
+        print(f"  {c(GREEN, f'{installed_count} installed')}", file=sys.stderr)
+    if skipped_count:
+        print(f"  {c(DIM, f'{skipped_count} already present')}", file=sys.stderr)
+    if failed_count:
+        print(f"  {c(RED, f'{failed_count} failed')}", file=sys.stderr)
+    print(file=sys.stderr)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Auto-detect and install LSP servers for Claude Code"
+    )
+    parser.add_argument("project", nargs="?", help="Project directory to scan")
+    parser.add_argument("--all", action="store_true", help="Install all 11 LSPs")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would be installed")
+    parser.add_argument("--status", action="store_true", help="Show binary + plugin status")
+
+    args = parser.parse_args()
+
+    if args.status:
+        cmd_status()
+    elif args.all or args.project:
+        cmd_install(args.project, args.all, args.dry_run)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
