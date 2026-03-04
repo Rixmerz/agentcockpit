@@ -32,6 +32,7 @@ import {
 } from '../../services/hookService';
 import { WorkflowModal } from './WorkflowModal';
 import { WorkflowTimeline } from './WorkflowTimeline';
+import { reindexProject, isDeltaCodeCubeInstalled, isIndexing } from '../../services/deltacodecubeService';
 import {
   Workflow,
   Play,
@@ -93,6 +94,7 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
   const pollingEnabledRef = useRef(true);
   const activeWorkflowRef = useRef<string | null>(null);
   const enabledRef = useRef<boolean>(true);
+  const lastTransitionsRef = useRef<number>(-1);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -119,6 +121,7 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
     lastStateRef.current = null;
     activeWorkflowRef.current = null;
     enabledRef.current = true;
+    lastTransitionsRef.current = -1;
   }, [projectPath]);
 
   const loadData = useCallback(async () => {
@@ -248,6 +251,16 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
         setAvailableEdges(edges);
         const gState = await getGraphState(projectPath);
         setGraphState(gState);
+
+        // If total_transitions increased → a workflow traverse happened → trigger DCC reindex
+        const newTransitions = gState.total_transitions ?? 0;
+        if (lastTransitionsRef.current >= 0 && newTransitions > lastTransitionsRef.current) {
+          const dccInstalled = await isDeltaCodeCubeInstalled();
+          if (dccInstalled && !isIndexing()) {
+            reindexProject(projectPath).catch(() => {/* silent */});
+          }
+        }
+        lastTransitionsRef.current = newTransitions;
       }
     } catch (e) {
       // Silently ignore polling errors to avoid spam
