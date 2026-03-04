@@ -37,6 +37,11 @@ from .graph_state import (
     load_graph_state, save_graph_state, initialize_graph_state,
     reset_graph_state, get_graph_state_file, get_graph_file, get_node_visit_warning
 )
+from .experience_memory import (
+    ExperienceMemoryStore, ExperienceEntry, merge_stores,
+    generalize_path, extract_file_keywords, guess_domain, update_confidence,
+    compute_relevance, GLOBAL_MEMORY_FILE, PROJECT_MEMORIES_DIR,
+)
 
 
 # Lifespan: auto-index tools on startup (non-blocking)
@@ -1515,6 +1520,381 @@ _DCC_SUMMARIZERS = {
 }
 
 
+# ============================================================================
+# Tension Gate State (Mejora 1: Tension Resolution Loop)
+# ============================================================================
+
+_SEVERITY_ORDER = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+# Key: (project_dir, node_id) → {"attempts": int, "acknowledged": bool}
+_tension_gate_state: dict[tuple[str, str], dict] = {}
+
+
+# ============================================================================
+# Experience Memory System (Mejora 3: Experiential Learning)
+# ============================================================================
+
+_experience_store: ExperienceMemoryStore | None = None
+
+
+def _get_experience_store() -> ExperienceMemoryStore:
+    """Lazy-load the global experience memory store."""
+    global _experience_store
+    if _experience_store is None:
+        _experience_store = ExperienceMemoryStore()
+        _experience_store.load("global")
+    return _experience_store
+
+
+def _get_project_experience_store(project_dir: str) -> ExperienceMemoryStore:
+    """Load project-scoped experience store."""
+    project_name = Path(project_dir).name
+    store = ExperienceMemoryStore()
+    store.load("project", project_name)
+    return store
+
+
+def _extract_mcp_content(result: dict | None) -> dict | list | None:
+    """Unwrap MCP content array to get the parsed JSON payload."""
+    if not result:
+        return None
+    try:
+        if isinstance(result, dict) and "content" in result:
+            for item in result["content"]:
+                if item.get("type") == "text":
+                    return json.loads(item["text"])
+        return result
+    except Exception:
+        return result
+
+
+def _collect_experiences_from_dcc(raw_results: dict, project_dir: str) -> None:
+    """Extract experiences from DCC analysis raw results and record them.
+
+    raw_results: {analysis_name: raw_mcp_response}
+    """
+    global_store = _get_experience_store()
+    project_name = Path(project_dir).name
+    project_store = _get_project_experience_store(project_dir)
+
+    now = datetime.now().isoformat()
+    recorded_any = False
+
+    # Extract tensions
+    if "tensions" in raw_results and raw_results["tensions"]:
+        content = _extract_mcp_content(raw_results["tensions"])
+        tensions = []
+        if isinstance(content, dict):
+            tensions = content.get("tensions", [])
+        elif isinstance(content, list):
+            tensions = content
+
+        for t in tensions:
+            source = t.get("source", t.get("file", ""))
+            if not source:
+                continue
+
+            entry = ExperienceEntry(
+                type="tension_caused",
+                file_pattern=generalize_path(source),
+                keywords=extract_file_keywords(source),
+                domain=guess_domain(source),
+                description=t.get("description", t.get("message", ""))[:300],
+                severity=t.get("severity", "medium"),
+                project_origin=project_name,
+                related_files=[f for f in [t.get("target", t.get("related_file"))] if f],
+                scope="project",
+                first_seen=now,
+            )
+            project_store.record(entry)
+
+            # Also record globally (with global scope)
+            global_entry = ExperienceEntry(
+                type="tension_caused",
+                file_pattern=entry.file_pattern,
+                keywords=entry.keywords,
+                domain=entry.domain,
+                description=entry.description,
+                severity=entry.severity,
+                project_origin=project_name,
+                related_files=entry.related_files,
+                scope="global",
+                first_seen=now,
+            )
+            global_store.record(global_entry)
+            recorded_any = True
+
+    # Extract smells
+    if "smells" in raw_results and raw_results["smells"]:
+        content = _extract_mcp_content(raw_results["smells"])
+        if isinstance(content, dict):
+            smells = content.get("smells", [])
+            for s in smells:
+                source = s.get("file", s.get("source", ""))
+                if not source:
+                    continue
+
+                entry = ExperienceEntry(
+                    type="smell_introduced",
+                    file_pattern=generalize_path(source),
+                    keywords=extract_file_keywords(source),
+                    domain=guess_domain(source),
+                    description=f"{s.get('type', 'unknown')}: {s.get('description', '')}",
+                    severity=s.get("severity", "medium"),
+                    project_origin=project_name,
+                    scope="project",
+                    first_seen=now,
+                )
+                project_store.record(entry)
+
+                global_entry = ExperienceEntry(
+                    type="smell_introduced",
+                    file_pattern=entry.file_pattern,
+                    keywords=entry.keywords,
+                    domain=entry.domain,
+                    description=entry.description,
+                    severity=entry.severity,
+                    project_origin=project_name,
+                    scope="global",
+                    first_seen=now,
+                )
+                global_store.record(global_entry)
+                recorded_any = True
+
+    if recorded_any:
+        try:
+            project_store.save()
+            global_store.save()
+        except Exception as e:
+            print(f"[workflow-manager] Experience save failed (non-fatal): {e}", file=sys.stderr)
+
+
+def _collect_gate_blocked(project_dir: str, node_id: str,
+                          blocking_tensions: list[dict], severity: str) -> None:
+    """Record a gate-blocked experience."""
+    project_name = Path(project_dir).name
+    global_store = _get_experience_store()
+    project_store = _get_project_experience_store(project_dir)
+
+    # Build description from blocking tensions
+    tension_descs = [t.get("description", t.get("type", "unknown"))[:100] for t in blocking_tensions[:3]]
+    desc = f"Gate blocked at node '{node_id}': {'; '.join(tension_descs)}"
+
+    files = [t.get("source", t.get("file", "")) for t in blocking_tensions if t.get("source") or t.get("file")]
+
+    for store, scope in [(project_store, "project"), (global_store, "global")]:
+        for f in files[:3]:
+            if f:
+                entry = ExperienceEntry(
+                    type="gate_blocked",
+                    file_pattern=generalize_path(f),
+                    keywords=extract_file_keywords(f),
+                    domain=guess_domain(f),
+                    description=desc[:300],
+                    severity=severity,
+                    project_origin=project_name,
+                    related_files=[rf for rf in files if rf != f][:5],
+                    scope=scope,
+                )
+                store.record(entry)
+
+    try:
+        project_store.save()
+        global_store.save()
+    except Exception as e:
+        print(f"[workflow-manager] Experience gate_blocked save failed: {e}", file=sys.stderr)
+
+
+def _collect_gate_resolved(project_dir: str, node_id: str, attempts: int) -> None:
+    """Record a gate-resolved experience (gate passed after previous blocks)."""
+    project_name = Path(project_dir).name
+    global_store = _get_experience_store()
+    project_store = _get_project_experience_store(project_dir)
+
+    desc = f"Gate resolved at node '{node_id}' after {attempts} attempt(s)"
+
+    for store, scope in [(project_store, "project"), (global_store, "global")]:
+        entry = ExperienceEntry(
+            type="gate_resolved",
+            file_pattern=f"workflow/{node_id}",
+            keywords=[node_id.replace("_", " ").replace("-", " ").split()[0]],
+            domain="config",
+            description=desc,
+            severity="low",
+            project_origin=project_name,
+            scope=scope,
+        )
+        store.record(entry)
+
+    try:
+        project_store.save()
+        global_store.save()
+    except Exception as e:
+        print(f"[workflow-manager] Experience gate_resolved save failed: {e}", file=sys.stderr)
+
+
+def _extract_tensions(result: dict | None) -> list[dict]:
+    """Extract tension list from DCC cube_get_tensions MCP response."""
+    if not result:
+        return []
+    try:
+        content = result
+        if isinstance(result, dict) and "content" in result:
+            for item in result["content"]:
+                if item.get("type") == "text":
+                    content = json.loads(item["text"])
+                    break
+        if isinstance(content, dict):
+            return content.get("tensions", [])
+        if isinstance(content, list):
+            return content
+    except Exception:
+        pass
+    return []
+
+
+def _summarize_fix_suggestion(result: dict | None) -> str | None:
+    """Parse cube_suggest_fix result into actionable text."""
+    if not result:
+        return None
+    try:
+        content = result
+        if isinstance(result, dict) and "content" in result:
+            for item in result["content"]:
+                if item.get("type") == "text":
+                    content = json.loads(item["text"])
+                    break
+        if isinstance(content, dict):
+            fix = content.get("suggestion", content.get("fix", ""))
+            files = content.get("files", content.get("affected_files", []))
+            if fix:
+                summary = str(fix)[:300]
+                if files:
+                    summary += f" (files: {', '.join(str(f) for f in files[:3])})"
+                return summary
+        return str(content)[:300]
+    except Exception:
+        return str(result)[:200]
+
+
+async def _check_tension_gate(node: "Node | None", project_dir: str) -> dict | None:
+    """Check tension gate for a node before allowing transition out.
+
+    Returns None if no gate or gate allows passage.
+    Returns dict with blocking details if tensions prevent traversal.
+    """
+    if not node or not node.dcc_context:
+        return None
+
+    gate_config = node.dcc_context.get("tension_gate")
+    if not gate_config or not gate_config.get("enabled", False):
+        return None
+
+    gate_key = (project_dir, node.id)
+    gate_state = _tension_gate_state.setdefault(gate_key, {"attempts": 0, "acknowledged": False})
+
+    # Escape hatches
+    if gate_state["acknowledged"]:
+        return None
+    max_retries = gate_config.get("max_retries", 5)
+    if gate_state["attempts"] >= max_retries:
+        return {"blocked": False, "auto_escaped": True, "attempts": gate_state["attempts"]}
+
+    # Run DCC analysis
+    min_severity = gate_config.get("min_severity", "medium")
+    min_sev_level = _SEVERITY_ORDER.get(min_severity, 1)
+
+    await _run_dcc_reindex(project_dir)
+    raw_tensions = await _execute_dcc_tool("cube_get_tensions", {"status": "detected"}, project_dir)
+    tensions = _extract_tensions(raw_tensions)
+
+    # Filter by severity
+    blocking = [
+        t for t in tensions
+        if _SEVERITY_ORDER.get(t.get("severity", "low"), 0) >= min_sev_level
+    ]
+
+    if not blocking:
+        # Gate passed — record resolution if there were previous attempts
+        if gate_state["attempts"] > 0:
+            try:
+                _collect_gate_resolved(project_dir, node.id, gate_state["attempts"])
+            except Exception:
+                pass
+        return None
+
+    gate_state["attempts"] += 1
+
+    # Experience memory: record gate blocked
+    try:
+        _collect_gate_blocked(project_dir, node.id, blocking, min_severity)
+    except Exception:
+        pass  # Non-fatal
+
+    result = {
+        "blocked": True,
+        "attempts": gate_state["attempts"],
+        "max_retries": max_retries,
+        "remaining_retries": max_retries - gate_state["attempts"],
+        "blocking_tensions": len(blocking),
+        "min_severity": min_severity,
+        "tensions": [
+            {
+                "type": t.get("type", "unknown"),
+                "severity": t.get("severity", "unknown"),
+                "source": t.get("source", t.get("file", "?")),
+                "target": t.get("target", t.get("related_file", "?")),
+                "description": t.get("description", t.get("message", ""))[:200],
+            }
+            for t in blocking[:5]
+        ],
+    }
+
+    # Optionally get fix suggestions
+    if gate_config.get("suggest_fixes", False):
+        max_suggestions = gate_config.get("max_fix_suggestions", 3)
+        suggestions = []
+        for t in blocking[:max_suggestions]:
+            source = t.get("source", t.get("file"))
+            if source:
+                fix_result = await _execute_dcc_tool("cube_suggest_fix", {"file": source}, project_dir)
+                suggestion = _summarize_fix_suggestion(fix_result)
+                if suggestion:
+                    suggestions.append({"file": source, "suggestion": suggestion})
+        if suggestions:
+            result["fix_suggestions"] = suggestions
+
+    return result
+
+
+def _clear_tension_gate_state(project_dir: str, node_id: str | None = None) -> None:
+    """Clear tension gate state for a project (optionally for a specific node)."""
+    if node_id:
+        _tension_gate_state.pop((project_dir, node_id), None)
+    else:
+        keys_to_remove = [k for k in _tension_gate_state if k[0] == project_dir]
+        for k in keys_to_remove:
+            del _tension_gate_state[k]
+
+
+def _get_tension_gate_info(node: "Node | None", project_dir: str, node_id: str | None) -> dict | None:
+    """Get tension gate status info for graph_status()."""
+    if not node or not node.dcc_context:
+        return None
+    gate_config = node.dcc_context.get("tension_gate")
+    if not gate_config or not gate_config.get("enabled", False):
+        return None
+    gate_key = (project_dir, node_id) if node_id else None
+    gate_state = _tension_gate_state.get(gate_key, {"attempts": 0, "acknowledged": False}) if gate_key else None
+    return {
+        "enabled": True,
+        "min_severity": gate_config.get("min_severity", "medium"),
+        "max_retries": gate_config.get("max_retries", 5),
+        "attempts": gate_state["attempts"] if gate_state else 0,
+        "acknowledged": gate_state["acknowledged"] if gate_state else False,
+        "suggest_fixes": gate_config.get("suggest_fixes", False),
+    }
+
+
 def _is_dcc_available() -> bool:
     """Check if deltacodecube MCP is configured (without starting it)."""
     configs = load_mcp_configs()
@@ -1575,8 +1955,9 @@ async def _run_dcc_reindex(project_dir: str) -> dict | None:
         return None
 
 
-async def _run_dcc_analysis(analyses: list[str], token_budget: int, project_dir: str) -> dict | None:
-    """Execute DCC analyses and return summaries.
+async def _run_dcc_analysis(analyses: list[str], token_budget: int,
+                           project_dir: str) -> tuple[dict | None, dict]:
+    """Execute DCC analyses and return (summaries, raw_results).
 
     Automatically reindexes the project before running analyses to ensure
     results reflect the current state of the codebase.
@@ -1587,15 +1968,18 @@ async def _run_dcc_analysis(analyses: list[str], token_budget: int, project_dir:
         project_dir: Project directory for DCC tool calls.
 
     Returns:
-        Dict of analysis_name → summary string, or None if nothing produced.
+        Tuple of (summaries_dict, raw_results_dict).
+        summaries_dict: analysis_name → summary string, or None.
+        raw_results_dict: analysis_name → raw MCP response (for experience collection).
     """
     if not analyses:
-        return None
+        return None, {}
 
     # Reindex project so analyses reflect current codebase state
     await _run_dcc_reindex(project_dir)
 
     results = {}
+    raw_results = {}
     total_chars = 0
 
     for analysis_name in analyses:
@@ -1605,6 +1989,7 @@ async def _run_dcc_analysis(analyses: list[str], token_budget: int, project_dir:
 
         tool_name, default_args, summarizer = _DCC_SUMMARIZERS[analysis_name]
         raw = await _execute_dcc_tool(tool_name, default_args, project_dir)
+        raw_results[analysis_name] = raw
         summary = summarizer(raw)
         if summary:
             # Rough token budget check (1 token ≈ 4 chars)
@@ -1614,7 +1999,116 @@ async def _run_dcc_analysis(analyses: list[str], token_budget: int, project_dir:
             results[analysis_name] = summary
             total_chars += len(summary)
 
-    return results if results else None
+    return (results if results else None), raw_results
+
+
+# ============================================================================
+# Impact Preview (Mejora 2: Impact Simulation Pre-Refactor)
+# ============================================================================
+
+async def _run_impact_preview(node: "Node | None", project_dir: str) -> dict | None:
+    """Run impact simulation preview when entering a node with impact_preview configured.
+
+    Uses cube_simulate_wave on recently changed files to predict which areas
+    of the codebase are at risk from upcoming changes.
+
+    Returns:
+        Dict with impact analysis or None if not configured/available.
+    """
+    if not node or not node.dcc_context:
+        return None
+
+    preview_config = node.dcc_context.get("impact_preview")
+    if not preview_config or not preview_config.get("enabled", False):
+        return None
+
+    if not _is_dcc_available():
+        return None
+
+    max_hops = preview_config.get("max_hops", 3)
+    risk_threshold = preview_config.get("risk_threshold", "medium")
+    risk_level = _SEVERITY_ORDER.get(risk_threshold, 1)
+
+    try:
+        # Get recently changed files from git
+        import subprocess
+        git_result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD~3"],
+            cwd=project_dir, capture_output=True, text=True, timeout=10
+        )
+        changed_files = [f.strip() for f in git_result.stdout.strip().split("\n") if f.strip()]
+
+        if not changed_files:
+            # Fallback: get files from DCC tensions
+            raw_tensions = await _execute_dcc_tool("cube_get_tensions", {"limit": 5}, project_dir)
+            tensions = _extract_tensions(raw_tensions)
+            changed_files = list({t.get("source", t.get("file", "")) for t in tensions if t.get("source") or t.get("file")})
+
+        if not changed_files:
+            return None
+
+        # Run wave simulation on top changed files (max 5)
+        wave_results = []
+        for file_path in changed_files[:5]:
+            wave = await _execute_dcc_tool("cube_simulate_wave", {
+                "file": file_path,
+                "max_hops": max_hops,
+            }, project_dir)
+            if wave:
+                wave_results.append({"source_file": file_path, "wave": wave})
+
+        if not wave_results:
+            return None
+
+        # Aggregate impact
+        files_at_risk = set()
+        risk_details = []
+        for wr in wave_results:
+            wave_data = wr["wave"]
+            content = wave_data
+            if isinstance(wave_data, dict) and "content" in wave_data:
+                for item in wave_data["content"]:
+                    if item.get("type") == "text":
+                        try:
+                            content = json.loads(item["text"])
+                        except Exception:
+                            content = wave_data
+                        break
+
+            affected = []
+            if isinstance(content, dict):
+                affected = content.get("affected_files", content.get("wave", content.get("ripple", [])))
+            elif isinstance(content, list):
+                affected = content
+
+            for af in affected:
+                if isinstance(af, dict):
+                    sev = _SEVERITY_ORDER.get(af.get("risk", af.get("severity", "low")), 0)
+                    if sev >= risk_level:
+                        fname = af.get("file", af.get("path", "?"))
+                        files_at_risk.add(fname)
+                        risk_details.append({
+                            "file": fname,
+                            "risk": af.get("risk", af.get("severity", "unknown")),
+                            "reason": af.get("reason", af.get("description", ""))[:150],
+                            "from": wr["source_file"],
+                        })
+                elif isinstance(af, str):
+                    files_at_risk.add(af)
+
+        if not files_at_risk and not risk_details:
+            return {"risk_level": "low", "message": "No significant impact detected"}
+
+        return {
+            "files_at_risk": len(files_at_risk),
+            "risk_threshold": risk_threshold,
+            "changed_files_analyzed": len(wave_results),
+            "details": risk_details[:10],
+            "review_order": list(files_at_risk)[:10],
+        }
+
+    except Exception as e:
+        return {"error": f"Impact preview failed: {e}"}
 
 
 @mcp.tool()
@@ -1700,6 +2194,7 @@ def graph_status(project_dir: str | None = None, session_id: str | None = None) 
             "enabled": enforcer_config.get("dcc_injection_enabled", True),
             "node_override": current_node.dcc_context if current_node and current_node.dcc_context else None,
         },
+        "tension_gate": _get_tension_gate_info(current_node, resolved_dir, current_node_id),
         "last_activity": state.last_activity,
         "project_dir": resolved_dir
     }
@@ -1762,6 +2257,25 @@ async def graph_traverse(
             "project_dir": resolved_dir
         }
 
+    # Tension gate: check if current node blocks exit due to unresolved tensions
+    current_node = graph.nodes.get(current_node_id)
+    gate_result = await _check_tension_gate(current_node, resolved_dir)
+    if gate_result and gate_result.get("blocked"):
+        return {
+            "error": True,
+            "tension_gate_blocked": True,
+            "session_id": sid,
+            "message": (
+                f"Tension gate blocked: {gate_result['blocking_tensions']} unresolved tension(s) "
+                f"with severity >= {gate_result['min_severity']}. "
+                f"Fix the issues and retry, or use graph_acknowledge_tensions() to force advance. "
+                f"Attempt {gate_result['attempts']}/{gate_result['max_retries']} "
+                f"(auto-passes after {gate_result['max_retries']})."
+            ),
+            "gate_details": gate_result,
+            "project_dir": resolved_dir
+        }
+
     # Execute transition
     try:
         state = take_transition(graph, state, edge, reason)
@@ -1792,13 +2306,28 @@ async def graph_traverse(
     should_run, analyses, token_budget = _resolve_dcc_config(new_node, enforcer_config)
 
     dcc_result = None
+    dcc_raw = {}
     if should_run:
         try:
-            dcc_result = await _run_dcc_analysis(analyses, token_budget, resolved_dir)
+            dcc_result, dcc_raw = await _run_dcc_analysis(analyses, token_budget, resolved_dir)
         except Exception as e:
             dcc_result = {"error": str(e)}
 
-    return {
+    # Experience memory: auto-collect from DCC results
+    if dcc_raw:
+        try:
+            _collect_experiences_from_dcc(dcc_raw, resolved_dir)
+        except Exception:
+            pass  # Non-fatal
+
+    # Impact preview: simulate wave for nodes with impact_preview configured
+    impact_result = None
+    try:
+        impact_result = await _run_impact_preview(new_node, resolved_dir)
+    except Exception as e:
+        impact_result = {"error": str(e)}
+
+    result = {
         "success": True,
         "session_id": sid,
         "traversed_edge": edge_id,
@@ -1817,6 +2346,11 @@ async def graph_traverse(
         "reason": reason,
         "project_dir": resolved_dir
     }
+
+    if impact_result:
+        result["impact_preview"] = impact_result
+
+    return result
 
 
 @mcp.tool()
@@ -1982,6 +2516,7 @@ def graph_reset(project_dir: str | None = None, session_id: str | None = None) -
         }
 
     state = reset_graph_state(resolved_dir, graph)
+    _clear_tension_gate_state(resolved_dir)
     start_node = graph.get_start_node()
 
     return {
@@ -2040,6 +2575,7 @@ def graph_set_node(
         reason=f"Admin jump to {node_id}"
     )
     save_graph_state(resolved_dir, state)
+    _clear_tension_gate_state(resolved_dir, node_id)
 
     node = graph.nodes[node_id]
     return {
@@ -2054,6 +2590,73 @@ def graph_set_node(
             "visits": state.get_visit_count(node_id)
         },
         "prompt_injection": node.prompt_injection,
+        "project_dir": resolved_dir
+    }
+
+
+@mcp.tool()
+async def graph_acknowledge_tensions(
+    project_dir: str | None = None,
+    session_id: str | None = None
+) -> dict:
+    """Acknowledge unresolved tensions and force-advance past the tension gate.
+
+    Use this as an escape hatch when the agent has reviewed the tensions but
+    decides to proceed anyway. The next graph_traverse() from this node will
+    skip the tension gate check.
+
+    Args:
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
+    """
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
+    try:
+        graph, state = _load_active_graph(resolved_dir)
+    except (ValueError, GraphParseError) as e:
+        return {
+            "error": True,
+            "session_id": sid,
+            "message": str(e),
+            "project_dir": resolved_dir
+        }
+
+    current_node_id = state.get_current_node()
+    current_node = graph.nodes.get(current_node_id) if current_node_id else None
+
+    if not current_node or not current_node.dcc_context:
+        return {
+            "error": True,
+            "session_id": sid,
+            "message": f"Node '{current_node_id}' has no tension gate configured",
+            "project_dir": resolved_dir
+        }
+
+    gate_config = current_node.dcc_context.get("tension_gate", {})
+    if not gate_config.get("enabled", False):
+        return {
+            "error": True,
+            "session_id": sid,
+            "message": f"Node '{current_node_id}' has no tension gate enabled",
+            "project_dir": resolved_dir
+        }
+
+    gate_key = (resolved_dir, current_node_id)
+    gate_state = _tension_gate_state.setdefault(gate_key, {"attempts": 0, "acknowledged": False})
+    gate_state["acknowledged"] = True
+
+    # Mark tensions as reviewed in DCC
+    try:
+        await _execute_dcc_tool("cube_get_tensions", {"status": "reviewed"}, resolved_dir)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "session_id": sid,
+        "message": f"Tensions acknowledged for node '{current_node_id}'. Next traverse will pass the gate.",
+        "node_id": current_node_id,
+        "attempts_before_ack": gate_state["attempts"],
         "project_dir": resolved_dir
     }
 
@@ -2090,6 +2693,164 @@ def graph_visualize(project_dir: str | None = None, session_id: str | None = Non
         "mermaid": mermaid,
         "hint": "Render this in a markdown code block with ```mermaid",
         "project_dir": resolved_dir
+    }
+
+
+@mcp.tool()
+async def graph_timeline(
+    since: str | None = None,
+    limit: int = 50,
+    project_dir: str | None = None,
+    session_id: str | None = None
+) -> dict:
+    """Get a unified timeline of workflow transitions, DCC tensions, and git commits.
+
+    Correlates three data sources into a single chronological view:
+    - Workflow transitions (from execution_path in graph state)
+    - DCC tensions and smells (from DeltaCodeCube)
+    - Git commits (from git log)
+
+    Args:
+        since: ISO timestamp to filter events from (default: workflow start)
+        limit: Maximum number of events to return (default: 50)
+        project_dir: Absolute path to the project directory (optional after set_session)
+        session_id: Optional session ID for parallel session isolation
+    """
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
+    try:
+        graph, state = _load_active_graph(resolved_dir)
+    except (ValueError, GraphParseError) as e:
+        return {
+            "error": True,
+            "session_id": sid,
+            "message": str(e),
+            "project_dir": resolved_dir
+        }
+
+    events = []
+
+    # 1. Workflow transitions from execution_path
+    for entry in state.execution_path:
+        ts = entry.timestamp if hasattr(entry, 'timestamp') else entry.get("timestamp", "")
+        from_node = entry.from_node if hasattr(entry, 'from_node') else entry.get("from_node")
+        to_node = entry.to_node if hasattr(entry, 'to_node') else entry.get("to_node", "?")
+        reason = entry.reason if hasattr(entry, 'reason') else entry.get("reason", "")
+        edge_id = entry.edge_id if hasattr(entry, 'edge_id') else entry.get("edge_id")
+
+        if since and ts < since:
+            continue
+
+        to_name = graph.nodes[to_node].name if to_node in graph.nodes else to_node
+        events.append({
+            "type": "transition",
+            "timestamp": ts,
+            "description": f"→ {to_name}" + (f" ({reason})" if reason else ""),
+            "from_node": from_node,
+            "to_node": to_node,
+            "edge_id": edge_id,
+        })
+
+    # 2. Git commits
+    since_flag = f"--since={since}" if since else "--since=7 days ago"
+    try:
+        import subprocess
+        git_result = subprocess.run(
+            ["git", "log", since_flag, "--format=%H|%aI|%s", f"--max-count={limit}"],
+            cwd=resolved_dir, capture_output=True, text=True, timeout=10
+        )
+        for line in git_result.stdout.strip().split("\n"):
+            if not line or "|" not in line:
+                continue
+            parts = line.split("|", 2)
+            if len(parts) < 3:
+                continue
+            commit_hash, ts, message = parts
+
+            # Get changed files for this commit
+            diff_result = subprocess.run(
+                ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash],
+                cwd=resolved_dir, capture_output=True, text=True, timeout=10
+            )
+            files = [f.strip() for f in diff_result.stdout.strip().split("\n") if f.strip()]
+
+            events.append({
+                "type": "commit",
+                "timestamp": ts,
+                "description": message,
+                "commit": commit_hash[:8],
+                "files": files[:10],
+            })
+    except Exception:
+        pass
+
+    # 3. DCC tensions (if available)
+    if _is_dcc_available():
+        try:
+            raw_tensions = await _execute_dcc_tool("cube_get_tensions", {"limit": limit}, resolved_dir)
+            tensions = _extract_tensions(raw_tensions)
+            for t in tensions:
+                ts = t.get("detected_at", t.get("timestamp", t.get("created_at", "")))
+                if since and ts and ts < since:
+                    continue
+                events.append({
+                    "type": "tension",
+                    "timestamp": ts or "",
+                    "severity": t.get("severity", "unknown"),
+                    "description": t.get("description", t.get("message", t.get("type", "tension")))[:200],
+                    "source": t.get("source", t.get("file", "?")),
+                    "target": t.get("target", t.get("related_file")),
+                    "status": t.get("status", "detected"),
+                })
+
+            # Also get smells
+            raw_smells = await _execute_dcc_tool("cube_detect_smells", {"summary_only": False, "limit": 20}, resolved_dir)
+            if raw_smells:
+                smell_content = raw_smells
+                if isinstance(raw_smells, dict) and "content" in raw_smells:
+                    for item in raw_smells["content"]:
+                        if item.get("type") == "text":
+                            try:
+                                smell_content = json.loads(item["text"])
+                            except Exception:
+                                smell_content = raw_smells
+                            break
+
+                smells_list = []
+                if isinstance(smell_content, dict):
+                    smells_list = smell_content.get("smells", [])
+                elif isinstance(smell_content, list):
+                    smells_list = smell_content
+
+                for s in smells_list[:20]:
+                    ts = s.get("detected_at", s.get("timestamp", ""))
+                    if since and ts and ts < since:
+                        continue
+                    events.append({
+                        "type": "smell",
+                        "timestamp": ts or "",
+                        "severity": s.get("severity", "unknown"),
+                        "description": s.get("description", s.get("smell_type", s.get("type", "smell")))[:200],
+                        "file": s.get("file", s.get("source", "?")),
+                    })
+        except Exception:
+            pass
+
+    # Sort by timestamp (events without timestamps go last)
+    events.sort(key=lambda e: e.get("timestamp") or "9999", reverse=False)
+
+    return {
+        "success": True,
+        "session_id": sid,
+        "total_events": len(events),
+        "events": events[:limit],
+        "event_counts": {
+            "transitions": sum(1 for e in events if e["type"] == "transition"),
+            "commits": sum(1 for e in events if e["type"] == "commit"),
+            "tensions": sum(1 for e in events if e["type"] == "tension"),
+            "smells": sum(1 for e in events if e["type"] == "smell"),
+        },
+        "project_dir": resolved_dir,
     }
 
 
@@ -2809,4 +3570,249 @@ def graph_builder_delete(builder_id: str) -> dict:
     return {
         "success": True,
         "message": f"Builder '{name}' deleted"
+    }
+
+
+# ============================================================================
+# Experience Memory MCP Tools
+# ============================================================================
+
+@mcp.tool()
+def experience_query(
+    file_path: str,
+    top_n: int = 5,
+    project_dir: str | None = None,
+    session_id: str | None = None
+) -> dict:
+    """Query experience memory for relevant memories about a file.
+
+    Returns past experiences (tensions, smells, gate blocks) that are
+    relevant to the given file path, ranked by relevance score.
+
+    Args:
+        file_path: Path to the file to query about (relative or absolute)
+        top_n: Maximum number of results to return (default 5)
+        project_dir: Project directory (optional after set_session)
+        session_id: Optional session ID
+    """
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    project_name = Path(resolved_dir).name
+
+    global_store = _get_experience_store()
+    project_store = _get_project_experience_store(resolved_dir)
+
+    # Merge both stores for unified query
+    merged = merge_stores(global_store, project_store)
+
+    # Score and rank
+    scored = []
+    for entry in merged:
+        score = compute_relevance(entry, file_path)
+        if score > 0.05:
+            scored.append((entry, score))
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+    top = scored[:top_n]
+
+    return {
+        "file_path": file_path,
+        "matches": len(top),
+        "total_memories": len(merged),
+        "results": [
+            {
+                "score": round(score, 3),
+                "type": entry.type,
+                "file_pattern": entry.file_pattern,
+                "domain": entry.domain,
+                "description": entry.description,
+                "severity": entry.severity,
+                "confidence": round(entry.confidence, 3),
+                "occurrences": entry.occurrences,
+                "resolution": entry.resolution or None,
+                "scope": entry.scope,
+                "last_seen": entry.last_seen,
+            }
+            for entry, score in top
+        ],
+        "session_id": sid,
+        "project_dir": resolved_dir,
+    }
+
+
+@mcp.tool()
+def experience_record(
+    type: str,
+    file_path: str,
+    description: str,
+    severity: str = "medium",
+    resolution: str = "",
+    scope: str = "project",
+    project_dir: str | None = None,
+    session_id: str | None = None
+) -> dict:
+    """Manually record an experience memory.
+
+    Use this to capture insights about code patterns, issues found,
+    or resolutions that should be remembered for future reference.
+
+    Args:
+        type: Experience type (tension_caused|tension_resolved|smell_introduced|
+              smell_fixed|gate_blocked|gate_resolved|impact_high)
+        file_path: File path this experience relates to
+        description: Human-readable description of the experience
+        severity: low|medium|high|critical (default medium)
+        resolution: How the issue was resolved (if applicable)
+        scope: "global" (cross-project) or "project" (default project)
+        project_dir: Project directory (optional after set_session)
+        session_id: Optional session ID
+    """
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+    project_name = Path(resolved_dir).name
+
+    from .experience_memory import VALID_TYPES, VALID_SEVERITIES, VALID_SCOPES
+
+    if type not in VALID_TYPES:
+        return {
+            "error": True,
+            "message": f"Invalid type '{type}'. Valid: {', '.join(sorted(VALID_TYPES))}",
+        }
+    if severity not in VALID_SEVERITIES:
+        return {
+            "error": True,
+            "message": f"Invalid severity '{severity}'. Valid: {', '.join(sorted(VALID_SEVERITIES))}",
+        }
+    if scope not in VALID_SCOPES:
+        return {
+            "error": True,
+            "message": f"Invalid scope '{scope}'. Valid: {', '.join(sorted(VALID_SCOPES))}",
+        }
+
+    entry = ExperienceEntry(
+        type=type,
+        file_pattern=generalize_path(file_path),
+        keywords=extract_file_keywords(file_path),
+        domain=guess_domain(file_path),
+        description=description,
+        severity=severity,
+        project_origin=project_name,
+        resolution=resolution,
+        scope=scope,
+    )
+
+    if scope == "project":
+        store = _get_project_experience_store(resolved_dir)
+    else:
+        store = _get_experience_store()
+
+    recorded = store.record(entry)
+    store.save()
+
+    return {
+        "success": True,
+        "id": recorded.id,
+        "type": recorded.type,
+        "file_pattern": recorded.file_pattern,
+        "domain": recorded.domain,
+        "confidence": round(recorded.confidence, 3),
+        "occurrences": recorded.occurrences,
+        "scope": recorded.scope,
+        "is_new": recorded.occurrences == 1,
+        "session_id": sid,
+        "project_dir": resolved_dir,
+    }
+
+
+@mcp.tool()
+def experience_list(
+    type_filter: str | None = None,
+    scope_filter: str | None = None,
+    min_confidence: float = 0.0,
+    limit: int = 20,
+    project_dir: str | None = None,
+    session_id: str | None = None
+) -> dict:
+    """List experience memories with optional filters.
+
+    Args:
+        type_filter: Filter by type (e.g. "tension_caused", "smell_introduced")
+        scope_filter: Filter by scope ("global" or "project")
+        min_confidence: Minimum confidence threshold (0.0-1.0)
+        limit: Maximum entries to return (default 20)
+        project_dir: Project directory (optional after set_session)
+        session_id: Optional session ID
+    """
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
+    global_store = _get_experience_store()
+    project_store = _get_project_experience_store(resolved_dir)
+    merged = merge_stores(global_store, project_store)
+
+    # Apply filters
+    filtered = merged
+    if type_filter:
+        filtered = [e for e in filtered if e.type == type_filter]
+    if scope_filter:
+        filtered = [e for e in filtered if e.scope == scope_filter]
+    if min_confidence > 0.0:
+        filtered = [e for e in filtered if e.confidence >= min_confidence]
+
+    # Sort by confidence desc, then recency
+    filtered.sort(key=lambda e: (e.confidence, e.last_seen or ""), reverse=True)
+    entries = filtered[:limit]
+
+    return {
+        "total_matching": len(filtered),
+        "showing": len(entries),
+        "entries": [
+            {
+                "id": e.id,
+                "type": e.type,
+                "file_pattern": e.file_pattern,
+                "domain": e.domain,
+                "description": e.description[:200],
+                "severity": e.severity,
+                "confidence": round(e.confidence, 3),
+                "occurrences": e.occurrences,
+                "scope": e.scope,
+                "resolution": e.resolution[:100] if e.resolution else None,
+                "last_seen": e.last_seen,
+            }
+            for e in entries
+        ],
+        "session_id": sid,
+        "project_dir": resolved_dir,
+    }
+
+
+@mcp.tool()
+def experience_stats(
+    project_dir: str | None = None,
+    session_id: str | None = None
+) -> dict:
+    """Get statistics about experience memory.
+
+    Shows counts by type, scope, severity, and confidence distribution.
+
+    Args:
+        project_dir: Project directory (optional after set_session)
+        session_id: Optional session ID
+    """
+    resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
+    global_store = _get_experience_store()
+    project_store = _get_project_experience_store(resolved_dir)
+
+    global_stats = global_store.stats()
+    project_stats = project_store.stats()
+
+    return {
+        "global": global_stats,
+        "project": project_stats,
+        "combined_total": global_stats["total"] + project_stats["total"],
+        "storage": {
+            "global_file": str(GLOBAL_MEMORY_FILE),
+            "project_file": str(PROJECT_MEMORIES_DIR / Path(resolved_dir).name / "experience_memory.json"),
+        },
+        "session_id": sid,
+        "project_dir": resolved_dir,
     }
