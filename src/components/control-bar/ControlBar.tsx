@@ -306,20 +306,29 @@ export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
     }
   }, [loadLspInfo]);
 
-  // Handle install all missing LSPs
+  // Handle install all missing LSPs — refresh UI after each one
   const handleInstallAllMissing = useCallback(async () => {
     if (!lspDetection?.missing.length) return;
-    for (const plugin of lspDetection.missing) {
+    const toInstall = [...lspDetection.missing];
+    for (const plugin of toInstall) {
       setLspInstalling(plugin);
       try {
-        await installLsp(plugin);
+        const ok = await installLsp(plugin);
+        if (ok) {
+          // Refresh statuses after each successful install so UI updates
+          const statuses = await getLspStatus();
+          setLspStatuses(statuses);
+          if (projectPath) {
+            const detection = await detectProjectLsps(projectPath);
+            setLspDetection(detection);
+          }
+        }
       } catch (err) {
         console.error(`[ControlBar] Failed to install ${plugin}:`, err);
       }
     }
     setLspInstalling(null);
-    await loadLspInfo();
-  }, [lspDetection, loadLspInfo]);
+  }, [lspDetection, projectPath]);
 
   // Load workflows
   useEffect(() => {
