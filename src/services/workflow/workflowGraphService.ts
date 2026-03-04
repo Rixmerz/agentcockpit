@@ -15,7 +15,9 @@ import {
   GRAPH_FILE,
   type GraphState,
   type WorkflowState,
+  type WorkflowGraph,
 } from './workflowIOService';
+import { execGitSafe } from '../git/gitCore';
 
 export interface CopyAssetsResult {
   success: boolean;
@@ -743,4 +745,102 @@ export async function listAvailableWorkflows(projectPath: string | null): Promis
     console.error('[Graph] Error listing workflows:', e);
     return [];
   }
+}
+
+
+// ============================================
+// Timeline (Unified Git + Workflow view)
+// ============================================
+
+export interface TimelineEvent {
+  type: 'transition' | 'commit';
+  timestamp: string;
+  description: string;
+  // transition-specific
+  fromNode?: string | null;
+  toNode?: string;
+  edgeId?: string | null;
+  // commit-specific
+  commit?: string;
+  files?: string[];
+}
+
+export interface TimelineData {
+  events: TimelineEvent[];
+  eventCounts: {
+    transitions: number;
+    commits: number;
+  };
+}
+
+export async function getTimeline(projectPath: string | null, limit = 50): Promise<TimelineData> {
+  const empty: TimelineData = { events: [], eventCounts: { transitions: 0, commits: 0 } };
+  if (!projectPath) return empty;
+
+  const events: TimelineEvent[] = [];
+
+  try {
+    // 1. Workflow transitions from execution_path
+    const graph = await getGraph(projectPath);
+    const state = await getGraphState(projectPath);
+
+    if (state.execution_path) {
+      const nodeNames: Record<string, string> = {};
+      if (graph) {
+        for (const node of graph.nodes) {
+          nodeNames[node.id] = node.name;
+        }
+      }
+
+      for (const entry of state.execution_path) {
+        const toName = nodeNames[entry.to_node] || entry.to_node;
+        events.push({
+          type: 'transition',
+          timestamp: entry.timestamp,
+          description: `→ ${toName}` + (entry.reason ? ` (${entry.reason})` : ''),
+          fromNode: entry.from_node,
+          toNode: entry.to_node,
+          edgeId: entry.edge_id,
+        });
+      }
+    }
+
+    // 2. Git commits (last 7 days)
+    const gitLog = await execGitSafe(projectPath, 'log --since="7 days ago" --format=%H|%aI|%s --max-count=' + limit);
+    if (gitLog) {
+      for (const line of gitLog.split('\n')) {
+        if (!line || !line.includes('|')) continue;
+        const parts = line.split('|');
+        if (parts.length < 3) continue;
+        const [hash, ts, ...msgParts] = parts;
+        const message = msgParts.join('|');
+
+        // Get changed files
+        const diffTree = await execGitSafe(projectPath, `diff-tree --no-commit-id --name-only -r ${hash}`);
+        const files = diffTree ? diffTree.split('\n').filter(Boolean).slice(0, 10) : [];
+
+        events.push({
+          type: 'commit',
+          timestamp: ts,
+          description: message,
+          commit: hash.substring(0, 8),
+          files,
+        });
+      }
+    }
+  } catch (e) {
+    console.error('[Graph] Error building timeline:', e);
+  }
+
+  // Sort by timestamp
+  events.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+
+  const limited = events.slice(0, limit);
+  return {
+    events: limited,
+    eventCounts: {
+      transitions: limited.filter(e => e.type === 'transition').length,
+      commits: limited.filter(e => e.type === 'commit').length,
+    },
+  };
 }

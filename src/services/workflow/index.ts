@@ -39,6 +39,8 @@ export type {
   WorkflowStatus,
   GlobalWorkflowInfo,
   CopyAssetsResult,
+  TimelineEvent,
+  TimelineData,
 } from './workflowGraphService';
 
 export {
@@ -59,6 +61,7 @@ export {
   listGlobalWorkflows,
   getStatus,
   listAvailableWorkflows,
+  getTimeline,
 } from './workflowGraphService';
 
 // Node Service - legacy compatibility, settings, MCPs
@@ -92,6 +95,7 @@ import {
   activateWorkflow, deactivateWorkflow,
   copyAllAgentsToProject, copyAllSkillsToProject, copyAllAssetsToProject,
   listGlobalWorkflows, getStatus, listAvailableWorkflows,
+  getTimeline,
 } from './workflowGraphService';
 import {
   getWorkflowState, saveWorkflowState, getWorkflowSteps, getGlobalWorkflowSteps,
@@ -136,6 +140,9 @@ export const workflowService = {
   copyAllAgentsToProject,
   copyAllSkillsToProject,
   copyAllAssetsToProject,
+
+  // Timeline
+  getTimeline,
 
   // Settings
   getWorkflowSettings,
