@@ -726,12 +726,20 @@ class McpConnection:
                 }
             }
 
+            # Visualization tools need more time (HTML generation over large codebases)
+            _SLOW_TOOLS = {"cube_generate_timeline", "cube_generate_heatmap",
+                           "cube_generate_architecture", "cube_generate_matrix",
+                           "cube_export_html", "cube_get_temporal_features",
+                           "cube_simulate_wave", "cube_get_deltas", "cube_detect_clones",
+                           "cube_analyze_graph", "cube_cluster_files"}
+            _timeout = 360.0 if tool_name in _SLOW_TOOLS else 120.0
+
             try:
                 await self._send_message(request)
-                response = await self._read_message(timeout=120.0)
+                response = await self._read_message(timeout=_timeout)
                 return response
             except asyncio.TimeoutError:
-                return {"error": {"code": -1, "message": f"Timeout waiting for response from {self.name}"}}
+                return {"error": {"code": -1, "message": f"Timeout waiting for response from {self.name} (limit: {int(_timeout)}s)"}}
             except json.JSONDecodeError as e:
                 return {"error": {"code": -1, "message": f"Invalid JSON from {self.name}: {e}"}}
             except RuntimeError as e:

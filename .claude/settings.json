@@ -11,6 +11,11 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/cfa_validator.py\"",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/lsp_status_check.py\"",
+            "timeout": 3
           }
         ]
       }
@@ -47,6 +52,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/memory_injector.py\"",
+            "timeout": 3
+          }
+        ]
+      },
+      {
         "matcher": "mcp__cfa__kg_retrieve|mcp__cfa__kg_build|mcp__cfa__workflow_onboard",
         "hooks": [
           {
@@ -58,6 +73,16 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "mcp__workflow-manager__graph_traverse",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/workflow_post_traverse.py\"",
+            "timeout": 5
+          }
+        ]
+      },
       {
         "matcher": "Edit",
         "hooks": [

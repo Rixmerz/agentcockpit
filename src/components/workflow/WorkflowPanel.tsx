@@ -31,6 +31,8 @@ import {
   syncWorkflowHooks,
 } from '../../services/hookService';
 import { WorkflowModal } from './WorkflowModal';
+import { WorkflowTimeline } from './WorkflowTimeline';
+import { reindexProject, isDeltaCodeCubeInstalled, isIndexing } from '../../services/deltacodecubeService';
 import {
   Workflow,
   Play,
@@ -49,6 +51,7 @@ import {
   ArrowRight,
   Repeat,
   RefreshCw,
+  Clock,
 } from 'lucide-react';
 
 interface WorkflowPanelProps {
@@ -84,12 +87,14 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
   const [availableEdges, setAvailableEdges] = useState<AvailableEdge[]>([]);
   const [graphState, setGraphState] = useState<GraphState | null>(null);
   const [showEdges, setShowEdges] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
 
   // Refs for polling optimization
   const lastStateRef = useRef<string | null>(null);
   const pollingEnabledRef = useRef(true);
   const activeWorkflowRef = useRef<string | null>(null);
   const enabledRef = useRef<boolean>(true);
+  const lastTransitionsRef = useRef<number>(-1);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -116,6 +121,7 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
     lastStateRef.current = null;
     activeWorkflowRef.current = null;
     enabledRef.current = true;
+    lastTransitionsRef.current = -1;
   }, [projectPath]);
 
   const loadData = useCallback(async () => {
@@ -245,6 +251,16 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
         setAvailableEdges(edges);
         const gState = await getGraphState(projectPath);
         setGraphState(gState);
+
+        // If total_transitions increased → a workflow traverse happened → trigger DCC reindex
+        const newTransitions = gState.total_transitions ?? 0;
+        if (lastTransitionsRef.current >= 0 && newTransitions > lastTransitionsRef.current) {
+          const dccInstalled = await isDeltaCodeCubeInstalled();
+          if (dccInstalled && !isIndexing()) {
+            reindexProject(projectPath).catch(() => {/* silent */});
+          }
+        }
+        lastTransitionsRef.current = newTransitions;
       }
     } catch (e) {
       // Silently ignore polling errors to avoid spam
@@ -738,6 +754,21 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
                   )}
                 </div>
               )}
+
+              {/* Timeline toggle */}
+              <div className="workflow-timeline-section">
+                <button
+                  className={`workflow-action-btn workflow-timeline-toggle${showTimeline ? ' active' : ''}`}
+                  onClick={() => setShowTimeline(v => !v)}
+                  title="Toggle workflow + git timeline"
+                >
+                  <Clock size={14} />
+                  Timeline
+                </button>
+                {showTimeline && (
+                  <WorkflowTimeline projectPath={projectPath} />
+                )}
+              </div>
 
               {/* Actions */}
               <div className="workflow-panel-actions">
