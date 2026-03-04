@@ -17,6 +17,7 @@ from pathlib import Path
 DISTROBOX_NAME = "agentcockpit-build"
 WRAPPER_DIR = Path.home() / ".local" / "bin"
 PLUGINS_FILE = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
+SETTINGS_FILE = Path.home() / ".claude" / "settings.json"
 
 LSP_DEFS = [
     {
@@ -138,17 +139,46 @@ def get_installed_plugins() -> set[str]:
 
 
 def check_binary(name: str) -> tuple[bool, str]:
-    """Check if a binary exists. Returns (exists, type) where type is 'native', 'wrapper', or ''."""
+    """Check if a binary exists AND actually works.
+
+    Returns (exists, type) where type is 'native', 'wrapper', or ''.
+    Uses --version/--help probe to catch rustup proxy stubs and broken installs.
+    """
     wrapper_path = WRAPPER_DIR / name
     if wrapper_path.exists() and wrapper_path.is_file():
         content = wrapper_path.read_text()
         if "distrobox" in content:
-            return True, "wrapper"
+            # Verify wrapper target actually works inside distrobox
+            try:
+                subprocess.run(
+                    ["distrobox", "enter", DISTROBOX_NAME, "--", "which", name],
+                    capture_output=True, text=True, timeout=15,
+                )
+                return True, "wrapper"
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                return False, ""
         return True, "native"
 
     path = shutil.which(name)
     if path:
-        return True, "native"
+        # Probe: run --version to catch broken stubs (e.g. rustup proxy without component)
+        try:
+            result = subprocess.run(
+                [path, "--version"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                return True, "native"
+            # Some binaries don't support --version, try --help
+            result = subprocess.run(
+                [path, "--help"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                return True, "native"
+            return False, ""
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            return False, ""
     return False, ""
 
 
@@ -258,6 +288,7 @@ DISPLAY_NAMES = {
 def cmd_status(as_json: bool = False):
     """Show status of all 11 LSPs."""
     installed_plugins = get_installed_plugins()
+    enabled_plugins = get_enabled_plugins()
     active = 0
     results = []
 
@@ -265,8 +296,9 @@ def cmd_status(as_json: bool = False):
         name = lsp["plugin"]
         has_binary, binary_type = check_binary(lsp["binary"])
         has_plugin = name in installed_plugins
+        is_enabled = name in enabled_plugins
 
-        if has_binary and has_plugin:
+        if has_binary and has_plugin and is_enabled:
             active += 1
 
         results.append({
@@ -275,6 +307,7 @@ def cmd_status(as_json: bool = False):
             "hasBinary": has_binary,
             "binaryType": binary_type,
             "hasPlugin": has_plugin,
+            "isEnabled": is_enabled,
         })
 
     if as_json:
@@ -332,6 +365,30 @@ def find_lsp_def(plugin_name: str) -> dict | None:
         if lsp["plugin"] == plugin_name:
             return lsp
     return None
+
+
+def get_enabled_plugins() -> set[str]:
+    """Read which plugins are enabled from Claude Code settings."""
+    if not SETTINGS_FILE.exists():
+        return set()
+    try:
+        data = json.loads(SETTINGS_FILE.read_text())
+        enabled = data.get("enabledPlugins", {})
+        return {key.split("@")[0] for key, val in enabled.items() if val}
+    except (json.JSONDecodeError, KeyError):
+        return set()
+
+
+def enable_plugin(plugin_name: str) -> bool:
+    """Enable an already-installed Claude Code plugin."""
+    full_name = f"{plugin_name}@claude-plugins-official"
+    result = subprocess.run(
+        ["claude", "plugin", "enable", full_name],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return result.returncode == 0
 
 
 def uninstall_plugin(plugin_name: str) -> bool:
@@ -509,6 +566,79 @@ def cmd_install(project_dir: str | None, install_all: bool, dry_run: bool, as_js
     print(file=sys.stderr)
 
 
+def cmd_auto_setup(project_dir: str):
+    """Auto-setup: detect project LSPs, install missing binaries, register + enable plugins.
+
+    Designed to run silently on project open. Outputs JSON summary to stdout.
+    All progress/errors go to stderr.
+    """
+    project = Path(project_dir).resolve()
+    if not project.is_dir():
+        print(json.dumps({"ok": False, "error": f"Not a directory: {project_dir}"}))
+        return
+
+    extensions = scan_project(str(project))
+    needed = detect_lsps(extensions)
+
+    if not needed:
+        print(json.dumps({
+            "ok": True,
+            "detected": [],
+            "actions": [],
+        }))
+        return
+
+    installed_plugins = get_installed_plugins()
+    enabled_plugins = get_enabled_plugins()
+    actions = []
+
+    for lsp in needed:
+        name = lsp["plugin"]
+        binary = lsp["binary"]
+        display = DISPLAY_NAMES.get(name, name)
+
+        has_binary, btype = check_binary(binary)
+
+        # Step 1: Ensure binary exists
+        if not has_binary:
+            print(f"  [{display}] Installing binary...", file=sys.stderr)
+            ok = install_binary_in_distrobox(lsp)
+            if ok:
+                create_wrapper(binary, lsp["binary_in_container"])
+                actions.append({"plugin": name, "action": "binary_installed"})
+                print(f"  [{display}] Binary installed + wrapper created", file=sys.stderr)
+            else:
+                actions.append({"plugin": name, "action": "binary_failed"})
+                print(f"  [{display}] Binary install failed, skipping", file=sys.stderr)
+                continue
+
+        # Step 2: Ensure plugin is registered
+        if name not in installed_plugins:
+            print(f"  [{display}] Registering plugin...", file=sys.stderr)
+            ok = install_plugin(name)
+            if ok:
+                actions.append({"plugin": name, "action": "plugin_installed"})
+            else:
+                actions.append({"plugin": name, "action": "plugin_failed"})
+                continue
+
+        # Step 3: Ensure plugin is enabled
+        if name not in enabled_plugins:
+            print(f"  [{display}] Enabling plugin...", file=sys.stderr)
+            ok = enable_plugin(name)
+            if ok:
+                actions.append({"plugin": name, "action": "plugin_enabled"})
+            else:
+                actions.append({"plugin": name, "action": "enable_failed"})
+
+    detected = [lsp["plugin"] for lsp in needed]
+    print(json.dumps({
+        "ok": True,
+        "detected": detected,
+        "actions": actions,
+    }))
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Auto-detect and install LSP servers for Claude Code"
@@ -521,10 +651,13 @@ def main():
     parser.add_argument("--install-single", metavar="PLUGIN", help="Install a single LSP plugin")
     parser.add_argument("--uninstall-single", metavar="PLUGIN", help="Uninstall a single LSP plugin")
     parser.add_argument("--detect", action="store_true", help="Detect LSPs needed by project")
+    parser.add_argument("--auto-setup", action="store_true", help="Auto-detect + install + enable LSPs for project")
 
     args = parser.parse_args()
 
-    if args.install_single:
+    if args.auto_setup and args.project:
+        cmd_auto_setup(args.project)
+    elif args.install_single:
         cmd_install_single(args.install_single)
     elif args.uninstall_single:
         cmd_uninstall_single(args.uninstall_single)

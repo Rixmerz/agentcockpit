@@ -12,12 +12,25 @@ export interface LspStatus {
   hasBinary: boolean;
   binaryType: 'native' | 'wrapper' | '';
   hasPlugin: boolean;
+  isEnabled: boolean;
 }
 
 export interface LspDetection {
   detected: string[];
   missing: string[];
   installed: string[];
+}
+
+export interface AutoSetupAction {
+  plugin: string;
+  action: string;
+}
+
+export interface AutoSetupResult {
+  ok: boolean;
+  detected: string[];
+  actions: AutoSetupAction[];
+  error?: string;
 }
 
 async function runLspSetup(args: string, cwd: string): Promise<string> {
@@ -47,4 +60,13 @@ export async function uninstallLsp(plugin: string): Promise<boolean> {
   const output = await runLspSetup(`--uninstall-single ${plugin}`, '/');
   const result = JSON.parse(output.trim());
   return result.success === true;
+}
+
+/**
+ * Auto-setup: detect project LSPs, install missing binaries, register + enable plugins.
+ * Runs on project open — installs everything needed silently.
+ */
+export async function autoSetupLsps(projectPath: string): Promise<AutoSetupResult> {
+  const output = await runLspSetup(`--auto-setup "${projectPath}"`, projectPath);
+  return JSON.parse(output.trim());
 }

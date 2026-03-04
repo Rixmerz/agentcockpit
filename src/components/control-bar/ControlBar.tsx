@@ -60,6 +60,7 @@ import {
   detectProjectLsps,
   installLsp,
   uninstallLsp,
+  autoSetupLsps,
   type LspStatus,
   type LspDetection,
 } from '../../services/lspService';
@@ -231,14 +232,38 @@ export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
     }
   }, [projectPath]);
 
-  // Auto-detect LSPs on project change
+  // Auto-setup LSPs on project change: detect → install → enable → refresh
   useEffect(() => {
     if (!projectPath) {
       setLspStatuses([]);
       setLspDetection(null);
       return;
     }
-    detectProjectLsps(projectPath).then(setLspDetection).catch(() => {});
+    let cancelled = false;
+    (async () => {
+      try {
+        // Run auto-setup (installs missing binaries + registers + enables plugins)
+        const result = await autoSetupLsps(projectPath);
+        if (cancelled) return;
+        if (result.actions.length > 0) {
+          console.log('[ControlBar] LSP auto-setup:', result.actions);
+        }
+        // Refresh statuses after setup
+        const [statuses, detection] = await Promise.all([
+          getLspStatus(),
+          detectProjectLsps(projectPath),
+        ]);
+        if (cancelled) return;
+        setLspStatuses(statuses);
+        setLspDetection(detection);
+      } catch (err) {
+        if (cancelled) return;
+        console.warn('[ControlBar] LSP auto-setup failed:', err);
+        // Fallback to just detection
+        detectProjectLsps(projectPath).then(setLspDetection).catch(() => {});
+      }
+    })();
+    return () => { cancelled = true; };
   }, [projectPath]);
 
   // Load LSP info on-demand (when dropdown opens)
