@@ -15,7 +15,6 @@ import {
   GRAPH_FILE,
   type GraphState,
   type WorkflowState,
-  type WorkflowGraph,
 } from './workflowIOService';
 import { execGitSafe } from '../git/gitCore';
 

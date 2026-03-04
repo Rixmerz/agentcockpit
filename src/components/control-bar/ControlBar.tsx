@@ -23,6 +23,7 @@ import {
   Trash2,
   Settings,
   Database,
+  Puzzle,
 } from 'lucide-react';
 import { DropdownPanel, DropdownItem, DropdownSection } from './DropdownPanel';
 import { Modal } from '../common/Modal';
@@ -54,6 +55,14 @@ import {
   reindexProject,
   type IndexStats,
 } from '../../services/deltacodecubeService';
+import {
+  getLspStatus,
+  detectProjectLsps,
+  installLsp,
+  uninstallLsp,
+  type LspStatus,
+  type LspDetection,
+} from '../../services/lspService';
 
 // Helper function for relative time
 function formatRelativeTime(timestamp: number): string {
@@ -150,6 +159,11 @@ export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
   const [indexError, setIndexError] = useState<string | null>(null);
   const indexCacheRef = useRef<Map<string, IndexStats>>(new Map());
 
+  // LSP state
+  const [lspStatuses, setLspStatuses] = useState<LspStatus[]>([]);
+  const [lspDetection, setLspDetection] = useState<LspDetection | null>(null);
+  const [lspInstalling, setLspInstalling] = useState<string | null>(null);
+
   // Check DCC install only (lazy — stats loaded on-demand via dropdown)
   useEffect(() => {
     if (!projectPath) {
@@ -216,6 +230,71 @@ export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
       setIndexLoading(false);
     }
   }, [projectPath]);
+
+  // Auto-detect LSPs on project change
+  useEffect(() => {
+    if (!projectPath) {
+      setLspStatuses([]);
+      setLspDetection(null);
+      return;
+    }
+    detectProjectLsps(projectPath).then(setLspDetection).catch(() => {});
+  }, [projectPath]);
+
+  // Load LSP info on-demand (when dropdown opens)
+  const loadLspInfo = useCallback(async () => {
+    try {
+      const statuses = await getLspStatus();
+      setLspStatuses(statuses);
+      if (projectPath) {
+        const detection = await detectProjectLsps(projectPath);
+        setLspDetection(detection);
+      }
+    } catch (err) {
+      console.warn('[ControlBar] Failed to load LSP info:', err);
+    }
+  }, [projectPath]);
+
+  // Handle LSP install
+  const handleInstallLsp = useCallback(async (plugin: string) => {
+    setLspInstalling(plugin);
+    try {
+      await installLsp(plugin);
+      await loadLspInfo();
+    } catch (err) {
+      console.error('[ControlBar] Failed to install LSP:', err);
+    } finally {
+      setLspInstalling(null);
+    }
+  }, [loadLspInfo]);
+
+  // Handle LSP uninstall
+  const handleUninstallLsp = useCallback(async (plugin: string) => {
+    setLspInstalling(plugin);
+    try {
+      await uninstallLsp(plugin);
+      await loadLspInfo();
+    } catch (err) {
+      console.error('[ControlBar] Failed to uninstall LSP:', err);
+    } finally {
+      setLspInstalling(null);
+    }
+  }, [loadLspInfo]);
+
+  // Handle install all missing LSPs
+  const handleInstallAllMissing = useCallback(async () => {
+    if (!lspDetection?.missing.length) return;
+    for (const plugin of lspDetection.missing) {
+      setLspInstalling(plugin);
+      try {
+        await installLsp(plugin);
+      } catch (err) {
+        console.error(`[ControlBar] Failed to install ${plugin}:`, err);
+      }
+    }
+    setLspInstalling(null);
+    await loadLspInfo();
+  }, [lspDetection, loadLspInfo]);
 
   // Load workflows
   useEffect(() => {
@@ -891,6 +970,124 @@ export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
             )}
           </DropdownPanel>
         )}
+
+        {/* LSP Dropdown */}
+        <DropdownPanel
+          trigger="LSP"
+          triggerIcon={<Puzzle size={12} />}
+          label="Language Server Protocols"
+          badge={(() => {
+            const active = lspStatuses.filter(s => s.hasBinary && s.hasPlugin).length;
+            return active > 0 ? `${active}/${lspStatuses.length}` : undefined;
+          })()}
+          statusDot={
+            !projectPath ? 'none'
+            : lspDetection?.missing.length ? 'warning'
+            : lspDetection?.installed.length ? 'active'
+            : 'none'
+          }
+          onOpen={loadLspInfo}
+        >
+          {lspStatuses.length === 0 ? (
+            <div className="dropdown__empty">Loading...</div>
+          ) : (
+            <>
+              {/* Active (installed) LSPs */}
+              {(() => {
+                const active = lspStatuses.filter(s => s.hasBinary && s.hasPlugin);
+                if (active.length === 0) return null;
+                return (
+                  <DropdownSection title={`Active (${active.length})`}>
+                    {active.map(lsp => (
+                      <div key={lsp.plugin} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <DropdownItem
+                          icon={<Check size={14} />}
+                          label={lsp.displayName}
+                          description={lsp.binaryType}
+                        />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUninstallLsp(lsp.plugin);
+                          }}
+                          disabled={lspInstalling !== null}
+                          title="Uninstall"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--color-status-error)',
+                            cursor: lspInstalling ? 'not-allowed' : 'pointer',
+                            padding: '4px',
+                            opacity: lspInstalling === lsp.plugin ? 1 : 0.7,
+                          }}
+                        >
+                          {lspInstalling === lsp.plugin ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                        </button>
+                      </div>
+                    ))}
+                  </DropdownSection>
+                );
+              })()}
+
+              {/* Missing for project */}
+              {lspDetection && lspDetection.missing.length > 0 && (
+                <DropdownSection title="Missing for Project">
+                  <DropdownItem
+                    icon={lspInstalling ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    label="Install All Missing"
+                    description={`${lspDetection.missing.length} LSPs needed`}
+                    onClick={handleInstallAllMissing}
+                    disabled={lspInstalling !== null}
+                  />
+                  {lspDetection.missing.map(plugin => {
+                    const lsp = lspStatuses.find(s => s.plugin === plugin);
+                    return (
+                      <DropdownItem
+                        key={plugin}
+                        icon={lspInstalling === plugin ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                        label={lsp?.displayName || plugin}
+                        badge="Install"
+                        onClick={() => handleInstallLsp(plugin)}
+                        disabled={lspInstalling !== null}
+                      />
+                    );
+                  })}
+                </DropdownSection>
+              )}
+
+              {/* Available (not installed, not detected) */}
+              {(() => {
+                const detectedSet = new Set(lspDetection?.detected || []);
+                const available = lspStatuses.filter(
+                  s => !(s.hasBinary && s.hasPlugin) && !detectedSet.has(s.plugin)
+                );
+                if (available.length === 0) return null;
+                return (
+                  <DropdownSection title="Available">
+                    {available.map(lsp => (
+                      <DropdownItem
+                        key={lsp.plugin}
+                        icon={lspInstalling === lsp.plugin ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                        label={lsp.displayName}
+                        badge="Install"
+                        onClick={() => handleInstallLsp(lsp.plugin)}
+                        disabled={lspInstalling !== null}
+                      />
+                    ))}
+                  </DropdownSection>
+                );
+              })()}
+
+              <DropdownSection title="Actions">
+                <DropdownItem
+                  icon={<RefreshCw size={14} />}
+                  label="Refresh"
+                  onClick={loadLspInfo}
+                />
+              </DropdownSection>
+            </>
+          )}
+        </DropdownPanel>
 
       </div>
 

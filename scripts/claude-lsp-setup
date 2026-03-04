@@ -240,13 +240,26 @@ def install_plugin(plugin_name: str) -> bool:
     return True
 
 
-def cmd_status():
+DISPLAY_NAMES = {
+    "typescript-lsp": "TypeScript",
+    "pyright-lsp": "Python",
+    "rust-analyzer-lsp": "Rust",
+    "gopls-lsp": "Go",
+    "clangd-lsp": "C/C++",
+    "csharp-lsp": "C#",
+    "jdtls-lsp": "Java",
+    "kotlin-lsp": "Kotlin",
+    "lua-lsp": "Lua",
+    "php-lsp": "PHP",
+    "swift-lsp": "Swift",
+}
+
+
+def cmd_status(as_json: bool = False):
     """Show status of all 11 LSPs."""
     installed_plugins = get_installed_plugins()
     active = 0
-
-    print(f"\n{c(BOLD, 'Claude Code LSP Status')}", file=sys.stderr)
-    print(f"{'─' * 56}", file=sys.stderr)
+    results = []
 
     for lsp in LSP_DEFS:
         name = lsp["plugin"]
@@ -256,13 +269,28 @@ def cmd_status():
         if has_binary and has_plugin:
             active += 1
 
-        binary_str = (
-            c(GREEN, f"✓ ({binary_type})") if has_binary else c(RED, "✗")
-        )
-        plugin_str = c(GREEN, "✓") if has_plugin else c(RED, "✗")
+        results.append({
+            "plugin": name,
+            "displayName": DISPLAY_NAMES.get(name, name),
+            "hasBinary": has_binary,
+            "binaryType": binary_type,
+            "hasPlugin": has_plugin,
+        })
 
+    if as_json:
+        print(json.dumps(results))
+        return
+
+    print(f"\n{c(BOLD, 'Claude Code LSP Status')}", file=sys.stderr)
+    print(f"{'─' * 56}", file=sys.stderr)
+
+    for r in results:
+        binary_str = (
+            c(GREEN, f"✓ ({r['binaryType']})") if r["hasBinary"] else c(RED, "✗")
+        )
+        plugin_str = c(GREEN, "✓") if r["hasPlugin"] else c(RED, "✗")
         print(
-            f"  {name:<22s} binary: {binary_str:<20s} plugin: {plugin_str}",
+            f"  {r['plugin']:<22s} binary: {binary_str:<20s} plugin: {plugin_str}",
             file=sys.stderr,
         )
 
@@ -270,7 +298,113 @@ def cmd_status():
     print(f"  {c(BOLD, f'{active}/{len(LSP_DEFS)}')} active\n", file=sys.stderr)
 
 
-def cmd_install(project_dir: str | None, install_all: bool, dry_run: bool):
+def cmd_detect(project_dir: str, as_json: bool = False):
+    """Detect which LSPs a project needs and which are already installed."""
+    project = Path(project_dir).resolve()
+    if not project.is_dir():
+        if as_json:
+            print(json.dumps({"detected": [], "missing": [], "installed": []}))
+        else:
+            print(f"{c(RED, 'Error')}: {project} is not a directory", file=sys.stderr)
+        return
+
+    extensions = scan_project(str(project))
+    needed = detect_lsps(extensions)
+    installed_plugins = get_installed_plugins()
+
+    detected = [lsp["plugin"] for lsp in needed]
+    installed = [p for p in detected if p in installed_plugins and check_binary(
+        next(l["binary"] for l in LSP_DEFS if l["plugin"] == p)
+    )[0]]
+    missing = [p for p in detected if p not in installed]
+
+    if as_json:
+        print(json.dumps({"detected": detected, "missing": missing, "installed": installed}))
+    else:
+        print(f"Detected: {detected}", file=sys.stderr)
+        print(f"Missing: {missing}", file=sys.stderr)
+        print(f"Installed: {installed}", file=sys.stderr)
+
+
+def find_lsp_def(plugin_name: str) -> dict | None:
+    """Find LSP definition by plugin name."""
+    for lsp in LSP_DEFS:
+        if lsp["plugin"] == plugin_name:
+            return lsp
+    return None
+
+
+def uninstall_plugin(plugin_name: str) -> bool:
+    """Unregister a Claude Code plugin."""
+    full_name = f"{plugin_name}@claude-plugins-official"
+    print(f"  Unregistering plugin {c(CYAN, full_name)}...", file=sys.stderr)
+
+    result = subprocess.run(
+        ["claude", "plugin", "uninstall", full_name],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    if result.returncode != 0:
+        print(f"  {c(RED, 'FAILED')}: {result.stderr.strip()[:200]}", file=sys.stderr)
+        return False
+    return True
+
+
+def cmd_install_single(plugin_name: str):
+    """Install a single LSP (binary + plugin)."""
+    lsp = find_lsp_def(plugin_name)
+    if not lsp:
+        print(json.dumps({"success": False, "error": f"Unknown plugin: {plugin_name}"}))
+        return
+
+    has_binary, btype = check_binary(lsp["binary"])
+    if not has_binary:
+        ok = install_binary_in_distrobox(lsp)
+        if ok:
+            create_wrapper(lsp["binary"], lsp["binary_in_container"])
+        else:
+            print(json.dumps({"success": False, "error": "Binary installation failed"}))
+            return
+
+    installed_plugins = get_installed_plugins()
+    if plugin_name not in installed_plugins:
+        ok = install_plugin(plugin_name)
+        if not ok:
+            print(json.dumps({"success": False, "error": "Plugin registration failed"}))
+            return
+
+    print(json.dumps({"success": True}))
+
+
+def cmd_uninstall_single(plugin_name: str):
+    """Uninstall a single LSP (delete wrapper + unregister plugin)."""
+    lsp = find_lsp_def(plugin_name)
+    if not lsp:
+        print(json.dumps({"success": False, "error": f"Unknown plugin: {plugin_name}"}))
+        return
+
+    # Remove wrapper if it exists
+    wrapper_path = WRAPPER_DIR / lsp["binary"]
+    if wrapper_path.exists():
+        content = wrapper_path.read_text()
+        if "distrobox" in content:
+            wrapper_path.unlink()
+            print(f"  Removed wrapper {wrapper_path}", file=sys.stderr)
+
+    # Unregister plugin
+    installed_plugins = get_installed_plugins()
+    if plugin_name in installed_plugins:
+        ok = uninstall_plugin(plugin_name)
+        if not ok:
+            print(json.dumps({"success": False, "error": "Plugin unregistration failed"}))
+            return
+
+    print(json.dumps({"success": True}))
+
+
+def cmd_install(project_dir: str | None, install_all: bool, dry_run: bool, as_json: bool = False):
     """Main install flow: detect → install binaries → install plugins."""
     if install_all:
         needed = list(LSP_DEFS)
@@ -298,8 +432,18 @@ def cmd_install(project_dir: str | None, install_all: bool, dry_run: bool):
         )
 
     if dry_run:
-        print(f"\n{c(BOLD, 'Dry run')} — would install:", file=sys.stderr)
         installed_plugins = get_installed_plugins()
+        detected = [lsp["plugin"] for lsp in needed]
+        installed = [p for p in detected if p in installed_plugins and check_binary(
+            next(l["binary"] for l in LSP_DEFS if l["plugin"] == p)
+        )[0]]
+        missing = [p for p in detected if p not in installed]
+
+        if as_json:
+            print(json.dumps({"detected": detected, "missing": missing, "installed": installed}))
+            return
+
+        print(f"\n{c(BOLD, 'Dry run')} — would install:", file=sys.stderr)
         for lsp in needed:
             has_binary, btype = check_binary(lsp["binary"])
             has_plugin = lsp["plugin"] in installed_plugins
@@ -373,13 +517,23 @@ def main():
     parser.add_argument("--all", action="store_true", help="Install all 11 LSPs")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be installed")
     parser.add_argument("--status", action="store_true", help="Show binary + plugin status")
+    parser.add_argument("--json", action="store_true", help="Output JSON to stdout")
+    parser.add_argument("--install-single", metavar="PLUGIN", help="Install a single LSP plugin")
+    parser.add_argument("--uninstall-single", metavar="PLUGIN", help="Uninstall a single LSP plugin")
+    parser.add_argument("--detect", action="store_true", help="Detect LSPs needed by project")
 
     args = parser.parse_args()
 
-    if args.status:
-        cmd_status()
+    if args.install_single:
+        cmd_install_single(args.install_single)
+    elif args.uninstall_single:
+        cmd_uninstall_single(args.uninstall_single)
+    elif args.status:
+        cmd_status(as_json=args.json)
+    elif args.detect and args.project:
+        cmd_detect(args.project, as_json=args.json)
     elif args.all or args.project:
-        cmd_install(args.project, args.all, args.dry_run)
+        cmd_install(args.project, args.all, args.dry_run, as_json=args.json)
     else:
         parser.print_help()
         sys.exit(1)
