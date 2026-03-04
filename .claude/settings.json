@@ -74,6 +74,16 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "mcp__workflow-manager__graph_traverse",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/workflow_post_traverse.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Edit",
         "hooks": [
           {

@@ -31,6 +31,7 @@ import {
   syncWorkflowHooks,
 } from '../../services/hookService';
 import { WorkflowModal } from './WorkflowModal';
+import { WorkflowTimeline } from './WorkflowTimeline';
 import {
   Workflow,
   Play,
@@ -49,6 +50,7 @@ import {
   ArrowRight,
   Repeat,
   RefreshCw,
+  Clock,
 } from 'lucide-react';
 
 interface WorkflowPanelProps {
@@ -84,6 +86,7 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
   const [availableEdges, setAvailableEdges] = useState<AvailableEdge[]>([]);
   const [graphState, setGraphState] = useState<GraphState | null>(null);
   const [showEdges, setShowEdges] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
 
   // Refs for polling optimization
   const lastStateRef = useRef<string | null>(null);
@@ -738,6 +741,21 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
                   )}
                 </div>
               )}
+
+              {/* Timeline toggle */}
+              <div className="workflow-timeline-section">
+                <button
+                  className={`workflow-action-btn workflow-timeline-toggle${showTimeline ? ' active' : ''}`}
+                  onClick={() => setShowTimeline(v => !v)}
+                  title="Toggle workflow + git timeline"
+                >
+                  <Clock size={14} />
+                  Timeline
+                </button>
+                {showTimeline && (
+                  <WorkflowTimeline projectPath={projectPath} />
+                )}
+              </div>
 
               {/* Actions */}
               <div className="workflow-panel-actions">
