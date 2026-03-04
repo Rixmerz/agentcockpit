@@ -37,6 +37,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/experience_injector.py\"",
+            "timeout": 3
+          }
+        ]
+      },
+      {
         "matcher": "mcp__cfa__kg_retrieve|mcp__cfa__kg_build|mcp__cfa__workflow_onboard",
         "hooks": [
           {
