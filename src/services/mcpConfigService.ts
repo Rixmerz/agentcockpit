@@ -857,3 +857,49 @@ export async function uninstallWorkflowManagerMcp(): Promise<{ success: boolean;
   }
   return result;
 }
+
+// =====================================================
+// Workflow Manager Proxy MCPs
+// =====================================================
+
+/**
+ * Get MCPs available as proxy targets for the workflow-manager.
+ * Returns all MCPs from the config excluding workflow-manager itself.
+ */
+export async function getProxyMcps(): Promise<ManagedMcp[]> {
+  const config = await loadMcpConfig();
+  return Object.values(config.mcpServers).filter(
+    mcp => mcp.name !== WORKFLOW_MANAGER_NAME
+  );
+}
+
+/**
+ * Open a specific file path in the system editor
+ */
+export async function openFileInEditor(filePath: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const openCmd = await getOpenCommand();
+    await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `${openCmd} "${filePath}"`,
+        cwd: '/'
+      }),
+      INVOKE_TIMEOUT_MS,
+      'open file in editor'
+    );
+    return { success: true, message: `Opening ${filePath}...` };
+  } catch (e) {
+    return { success: false, message: `Error: ${e}` };
+  }
+}
+
+/**
+ * Get the workflow-manager source directory path
+ */
+export async function getWorkflowManagerSourcePath(): Promise<string | null> {
+  const acPath = await getAgentcockpitPath();
+  if (acPath) {
+    return `${acPath}/.workflow-manager/src/workflow_manager/server.py`;
+  }
+  return null;
+}

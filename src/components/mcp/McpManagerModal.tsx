@@ -30,7 +30,9 @@ import {
   Settings,
   GitBranch,
   Database,
-  Loader2
+  Loader2,
+  ExternalLink,
+  Network
 } from 'lucide-react';
 import {
   loadMcpConfig,
@@ -53,6 +55,9 @@ import {
   uninstallWorkflowManagerMcp,
   getAgentcockpitPath,
   setAgentcockpitPath,
+  getProxyMcps,
+  openFileInEditor,
+  getWorkflowManagerSourcePath,
   type ManagedMcp,
   type McpServerConfig
 } from '../../services/mcpConfigService';
@@ -93,6 +98,10 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
   const [dccInstalled, setDccInstalled] = useState(false);
   const [dccLoading, setDccLoading] = useState(false);
 
+  // Proxy MCPs state
+  const [proxyMcps, setProxyMcps] = useState<ManagedMcp[]>([]);
+  const [proxySourcePath, setProxySourcePath] = useState<string | null>(null);
+
   // Show temporary message
   const showMessage = useCallback((type: 'success' | 'error' | 'warning', text: string) => {
     setMessage({ type, text });
@@ -103,7 +112,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [config, desktop, code, gemini, path, workflowInstalled, acPath, dccInstalledResult] = await Promise.all([
+      const [config, desktop, code, gemini, path, workflowInstalled, acPath, dccInstalledResult, proxy, wmSourcePath] = await Promise.all([
         loadMcpConfig(),
         loadDesktopMcps(),
         loadCodeMcps(),
@@ -111,7 +120,9 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
         getConfigFilePath(),
         isWorkflowManagerInstalled(),
         getAgentcockpitPath(),
-        isDeltaCodeCubeInstalled()
+        isDeltaCodeCubeInstalled(),
+        getProxyMcps(),
+        getWorkflowManagerSourcePath()
       ]);
 
       setActiveMcps(Object.values(config.mcpServers));
@@ -122,6 +133,8 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
       setWorkflowManagerInstalled(workflowInstalled);
       setAgentcockpitPathState(acPath || '');
       setDccInstalled(dccInstalledResult);
+      setProxyMcps(proxy);
+      setProxySourcePath(wmSourcePath);
     } catch (e) {
       console.error('[McpManager] Load error:', e);
       showMessage('error', `Error loading MCPs: ${e}`);
@@ -241,6 +254,32 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
       setDccLoading(false);
     }
   }, [showMessage, loadData, onMcpsChanged]);
+
+  // Handle remove proxy MCP
+  const handleRemoveProxyMcp = useCallback(async (name: string) => {
+    const result = await removeMcp(name);
+    if (result.success) {
+      showMessage('success', `Removed proxy MCP "${name}"`);
+      loadData();
+      onMcpsChanged?.();
+    } else {
+      showMessage('error', result.message);
+    }
+  }, [loadData, showMessage, onMcpsChanged]);
+
+  // Handle open proxy config source
+  const handleOpenProxySource = useCallback(async () => {
+    if (proxySourcePath) {
+      const result = await openFileInEditor(proxySourcePath);
+      if (result.success) {
+        showMessage('success', result.message);
+      } else {
+        showMessage('error', result.message);
+      }
+    } else {
+      showMessage('error', 'Could not determine workflow-manager source path');
+    }
+  }, [proxySourcePath, showMessage]);
 
   useEffect(() => {
     if (isOpen) {
@@ -911,6 +950,76 @@ Or with mcpServers wrapper:
                     )}
                   </div>
                 </div>
+
+                {/* Proxy MCPs Section */}
+                {workflowManagerInstalled && (
+                  <>
+                    <div className="mcp-section-header" style={{ marginTop: '1.5rem' }}>
+                      <span>Proxy MCPs (execute_mcp_tool)</span>
+                      <div className="mcp-section-actions">
+                        <button
+                          className="btn-icon-sm"
+                          onClick={handleOpenProxySource}
+                          title="Open proxy source code"
+                        >
+                          <ExternalLink size={14} />
+                        </button>
+                        <button
+                          className="btn-icon-sm"
+                          onClick={handleOpenConfig}
+                          title="Edit mcps.json config"
+                        >
+                          <FileEdit size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mcp-workflow-section" style={{ flexDirection: 'column', gap: '0.5rem' }}>
+                      <span className="mcp-workflow-description" style={{ marginBottom: '0.25rem' }}>
+                        MCPs accessible via workflow-manager's execute_mcp_tool proxy.
+                        Remove deprecated or unused MCPs here.
+                      </span>
+
+                      {proxyMcps.length === 0 ? (
+                        <div className="mcp-empty-small">
+                          No proxy MCPs configured. Import MCPs in the Active tab to make them available.
+                        </div>
+                      ) : (
+                        <div className="mcp-list">
+                          {proxyMcps.map(mcp => (
+                            <div
+                              key={mcp.name}
+                              className={`mcp-item ${mcp.config.disabled ? 'disabled' : ''}`}
+                            >
+                              <div className="mcp-item-main">
+                                <Network
+                                  size={16}
+                                  style={{ color: mcp.config.disabled ? 'var(--text-muted)' : 'var(--accent)' }}
+                                />
+                                <div className="mcp-item-info">
+                                  <span className="mcp-item-name">{mcp.name}</span>
+                                  <span className="mcp-item-meta">
+                                    {mcp.config.command && `${mcp.config.command} ${(mcp.config.args || []).slice(0, 2).join(' ')}...`}
+                                    {mcp.config.disabled && ' (disabled)'}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="mcp-item-actions">
+                                <button
+                                  className="btn-icon-sm danger"
+                                  onClick={() => handleRemoveProxyMcp(mcp.name)}
+                                  title={`Remove "${mcp.name}" from proxy`}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 <div className="mcp-settings-note">
                   <Info size={14} />
