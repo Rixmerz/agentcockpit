@@ -5507,6 +5507,18 @@ input[type="checkbox"] {
   cursor: not-allowed;
 }
 
+.workflow-timeline-badge {
+  background: var(--accent, #6366f1);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  min-width: 16px;
+  text-align: center;
+  line-height: 1.4;
+}
+
 /* Workflow Selector (Global Workflows) */
 .workflow-selector {
   position: relative;

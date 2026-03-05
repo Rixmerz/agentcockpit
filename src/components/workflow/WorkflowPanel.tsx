@@ -95,6 +95,7 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
   const activeWorkflowRef = useRef<string | null>(null);
   const enabledRef = useRef<boolean>(true);
   const lastTransitionsRef = useRef<number>(-1);
+  const dccInstalledRef = useRef<boolean | null>(null);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -122,6 +123,12 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
     activeWorkflowRef.current = null;
     enabledRef.current = true;
     lastTransitionsRef.current = -1;
+    dccInstalledRef.current = null;
+  }, [projectPath]);
+
+  // Cache DCC installed status once per project switch — avoids await in polling hot path
+  useEffect(() => {
+    isDeltaCodeCubeInstalled().then(v => { dccInstalledRef.current = v; });
   }, [projectPath]);
 
   const loadData = useCallback(async () => {
@@ -255,8 +262,7 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
         // If total_transitions increased → a workflow traverse happened → trigger DCC reindex
         const newTransitions = gState.total_transitions ?? 0;
         if (lastTransitionsRef.current >= 0 && newTransitions > lastTransitionsRef.current) {
-          const dccInstalled = await isDeltaCodeCubeInstalled();
-          if (dccInstalled && !isIndexing()) {
+          if (dccInstalledRef.current === true && !isIndexing()) {
             reindexProject(projectPath).catch(() => {/* silent */});
           }
         }
@@ -764,6 +770,11 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
                 >
                   <Clock size={14} />
                   Timeline
+                  {(graphState?.execution_path?.length ?? 0) > 0 && (
+                    <span className="workflow-timeline-badge">
+                      {graphState!.execution_path.length}
+                    </span>
+                  )}
                 </button>
                 {showTimeline && (
                   <WorkflowTimeline projectPath={projectPath} />

@@ -15,29 +15,114 @@ Protocol:
 
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
-from datetime import datetime, timezone
 
 _APPROVE = json.dumps({"decision": "approve"})
 
 
+def _get_changed_files(project_path: str) -> list[str]:
+    """Return list of files changed in the last commit (relative paths)."""
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
+            capture_output=True, text=True, cwd=project_path, timeout=5
+        )
+        if result.returncode == 0:
+            files = [f.strip() for f in result.stdout.splitlines() if f.strip()]
+            return files
+    except Exception:
+        pass
+    return []
+
+
 def _record_experience(result: dict, project_path: str) -> None:
-    """Persist experience entry from graph_traverse result."""
-    dcc_analysis = result.get("dcc_analysis")
+    """Persist experience entries from graph_traverse result using ExperienceMemoryStore."""
     from_node = result.get("from_node", "")
     to_node = result.get("to_node", "")
     edge_id = result.get("traversed_edge", "")
     reason = result.get("reason", "")
+    dcc_analysis = result.get("dcc_analysis")
     impact = result.get("impact_preview", {})
+
+    if not from_node and not to_node:
+        return
 
     smells_summary = ""
     if isinstance(dcc_analysis, dict):
         smells_summary = dcc_analysis.get("smells", "")
 
-    if not smells_summary and not impact and not from_node:
+    # Try to import experience_memory from workflow-manager
+    wm_src = Path.home() / ".workflow-manager" / "src"
+    # Also try project-local install
+    proj_wm_src = Path(project_path) / ".workflow-manager" / "src"
+    for src_path in [proj_wm_src, wm_src]:
+        if src_path.exists() and str(src_path) not in sys.path:
+            sys.path.insert(0, str(src_path))
+
+    try:
+        from workflow_manager.experience_memory import (
+            ExperienceEntry, ExperienceMemoryStore,
+            generalize_path, extract_file_keywords, guess_domain,
+        )
+    except ImportError:
+        _record_experience_fallback(result, project_path,
+                                     from_node, to_node, edge_id, reason,
+                                     smells_summary, impact)
         return
 
+    project_name = Path(project_path).name
+    store = ExperienceMemoryStore()
+    store.load(scope="project", project_name=project_name)
+
+    changed_files = _get_changed_files(project_path)
+
+    if changed_files:
+        for rel_file in changed_files:
+            entry_type = "smell_introduced" if smells_summary else ("impact_high" if impact else "tension_caused")
+            description = f"{from_node} → {to_node}: {smells_summary[:120]}" if smells_summary else f"{from_node} → {to_node}"
+            entry = ExperienceEntry(
+                type=entry_type,
+                file_pattern=generalize_path(rel_file),
+                keywords=extract_file_keywords(rel_file),
+                domain=guess_domain(rel_file),
+                description=description,
+                severity="medium",
+                confidence=0.45,
+                occurrences=1,
+                project_origin=project_name,
+                resolution=f"Edge: {edge_id}. Reason: {reason[:100]}",
+                related_files=[rel_file],
+                scope="project",
+            )
+            store.record(entry)
+    else:
+        # Fallback: one generic entry scoped to source files
+        entry_type = "smell_introduced" if smells_summary else ("impact_high" if impact else "tension_caused")
+        description = f"{from_node} → {to_node}: {smells_summary[:120]}" if smells_summary else f"{from_node} → {to_node}"
+        entry = ExperienceEntry(
+            type=entry_type,
+            file_pattern="src/**/*.ts",
+            keywords=[w for w in f"{from_node} {to_node}".replace("-", " ").split() if len(w) > 2],
+            domain="general",
+            description=description,
+            severity="medium",
+            confidence=0.30,
+            occurrences=1,
+            project_origin=project_name,
+            resolution=f"Edge: {edge_id}. Reason: {reason[:100]}",
+            scope="project",
+        )
+        store.record(entry)
+
+    store.save()
+
+
+def _record_experience_fallback(result: dict, project_path: str,
+                                 from_node: str, to_node: str, edge_id: str,
+                                 reason: str, smells_summary: str, impact: dict) -> None:
+    """Fallback when experience_memory module is unavailable."""
     project_name = Path(project_path).name
     wm_dir = Path.home() / ".workflow-manager"
     proj_mem_dir = wm_dir / "project_memories" / project_name
@@ -51,29 +136,29 @@ def _record_experience(result: dict, project_path: str) -> None:
         except Exception:
             existing = {"entries": []}
 
+    from datetime import datetime, timezone
+    changed_files = _get_changed_files(project_path)
+    file_pattern = f"src/**/*.ts" if not changed_files else changed_files[0]
+
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "workflow_transition": {
-            "from": from_node,
-            "to": to_node,
-            "edge": edge_id,
-            "reason": reason,
-        },
-        "dcc_smells": smells_summary,
-        "impact": impact,
-        "file_pattern": "*",
-        "keywords": [w for w in to_node.replace("-", " ").split() if len(w) > 2],
-        "domain": "workflow",
-        "description": f"{from_node} → {to_node}: {smells_summary[:80]}" if smells_summary else f"{from_node} → {to_node}",
-        "resolution": f"Edge: {edge_id}. Reason: {reason[:100]}",
-        "confidence": 0.6,
+        "type": "smell_introduced" if smells_summary else "impact_high",
+        "file_pattern": file_pattern,
+        "keywords": [w for w in f"{from_node} {to_node}".replace("-", " ").split() if len(w) > 2],
+        "domain": "general",
+        "description": f"{from_node} → {to_node}: {smells_summary[:120]}" if smells_summary else f"{from_node} → {to_node}",
+        "severity": "medium",
+        "confidence": 0.30,
         "occurrences": 1,
+        "project_origin": project_name,
+        "resolution": f"Edge: {edge_id}. Reason: {reason[:100]}",
+        "scope": "project",
+        "last_seen": datetime.now(timezone.utc).isoformat(),
+        "first_seen": datetime.now(timezone.utc).isoformat(),
     }
 
     entries: list = existing.get("entries", [])
     entries.append(entry)
-    existing["entries"] = entries[-200:]  # cap at 200
-    existing["last_updated"] = datetime.now(timezone.utc).isoformat()
+    existing["entries"] = entries[-200:]
 
     try:
         mem_file.write_text(json.dumps(existing, indent=2, ensure_ascii=False))

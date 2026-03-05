@@ -30,6 +30,12 @@ _APPROVE = json.dumps({"decision": "approve"})
 # Slow tools to skip memory injection (batch operations, not file-specific)
 _SKIP_TOOLS = {"Bash", "Task", "Agent", "Read", "Glob", "Grep"}
 
+# Generic stems that provide weak signal — lower threshold to 0.5 for these
+_GENERIC_STEMS = frozenset({
+    "index", "types", "handler", "utils", "helpers", "constants",
+    "config", "main", "mod", "init", "base", "common", "shared",
+})
+
 
 def _get_file_path(hook_input: dict) -> str:
     """Extract file path from hook input or environment."""
@@ -94,11 +100,21 @@ def _find_memory_files(file_path: str, project_dir: str, memory_dir: Path) -> li
             if common_parts:
                 score += 0.5
 
-        if score >= 1.0:
+        threshold = 0.5 if target_stem in _GENERIC_STEMS else 1.0
+        if score >= threshold:
             scored.append((md, score))
 
     scored.sort(key=lambda x: x[1], reverse=True)
-    return [md for md, _ in scored[:2]]  # Max 2 memory files per edit
+    matches = [md for md, _ in scored[:2]]  # Max 2 memory files per edit
+
+    # Fallback: if editing a .claude/hooks/*.py file and no matches found,
+    # inject hooks-guide.md unconditionally (if it exists)
+    if not matches and Path(file_path).suffix == ".py" and ".claude/hooks" in file_path.replace("\\", "/"):
+        hooks_guide = memory_dir / "hooks" / "hooks-guide.md"
+        if hooks_guide.exists():
+            matches = [hooks_guide]
+
+    return matches
 
 
 def _format_memory(md_path: Path, memory_dir: Path) -> str:
