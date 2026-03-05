@@ -1,3 +1,6 @@
 [submodule ".deltacodecube"]
 	path = .deltacodecube
 	url = https://github.com/Rixmerz/DeltaCodeCube.git
+[submodule "vendor/flowtrace-debugger"]
+	path = vendor/flowtrace-debugger
+	url = https://github.com/Rixmerz/flowtrace-debugger.git
