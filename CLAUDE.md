@@ -1,3 +1,6 @@
+<!-- AgentCockpit workflow manager — do not remove this line -->
+@.claude/AS.md
+
 # AgentCockpit — Guía de Desarrollo
 
 ## Stack
