@@ -32,7 +32,8 @@ import {
   Database,
   Loader2,
   ExternalLink,
-  Network
+  Network,
+  Activity
 } from 'lucide-react';
 import {
   loadMcpConfig,
@@ -66,6 +67,11 @@ import {
   installDeltaCodeCubeMcp,
   uninstallDeltaCodeCubeMcp,
 } from '../../services/deltacodecubeService';
+import {
+  isFlowtraceInstalled,
+  installFlowtraceMcp,
+  uninstallFlowtraceMcp,
+} from '../../services/flowtraceService';
 interface McpManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -98,6 +104,10 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
   const [dccInstalled, setDccInstalled] = useState(false);
   const [dccLoading, setDccLoading] = useState(false);
 
+  // FlowTrace state
+  const [flowtraceInstalled, setFlowtraceInstalled] = useState(false);
+  const [flowtraceLoading, setFlowtraceLoading] = useState(false);
+
   // Proxy MCPs state
   const [proxyMcps, setProxyMcps] = useState<ManagedMcp[]>([]);
   const [proxySourcePath, setProxySourcePath] = useState<string | null>(null);
@@ -112,7 +122,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [config, desktop, code, gemini, path, workflowInstalled, acPath, dccInstalledResult, proxy, wmSourcePath] = await Promise.all([
+      const [config, desktop, code, gemini, path, workflowInstalled, acPath, dccInstalledResult, flowtraceInstalledResult, proxy, wmSourcePath] = await Promise.all([
         loadMcpConfig(),
         loadDesktopMcps(),
         loadCodeMcps(),
@@ -121,6 +131,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
         isWorkflowManagerInstalled(),
         getAgentcockpitPath(),
         isDeltaCodeCubeInstalled(),
+        isFlowtraceInstalled(),
         getProxyMcps(),
         getWorkflowManagerSourcePath()
       ]);
@@ -133,6 +144,7 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
       setWorkflowManagerInstalled(workflowInstalled);
       setAgentcockpitPathState(acPath || '');
       setDccInstalled(dccInstalledResult);
+      setFlowtraceInstalled(flowtraceInstalledResult);
       setProxyMcps(proxy);
       setProxySourcePath(wmSourcePath);
     } catch (e) {
@@ -252,6 +264,43 @@ export function McpManagerModal({ isOpen, onClose, onMcpsChanged }: McpManagerMo
       }
     } finally {
       setDccLoading(false);
+    }
+  }, [showMessage, loadData, onMcpsChanged]);
+
+  // Handle install FlowTrace
+  const handleInstallFlowtrace = useCallback(async () => {
+    setFlowtraceLoading(true);
+    try {
+      const pathToUse = agentcockpitPath || (await getAgentcockpitPath()) || undefined;
+      const result = await installFlowtraceMcp(pathToUse);
+      if (result.success) {
+        showMessage('success', result.message);
+        setFlowtraceInstalled(true);
+        loadData();
+        onMcpsChanged?.();
+      } else {
+        showMessage('error', result.message);
+      }
+    } finally {
+      setFlowtraceLoading(false);
+    }
+  }, [agentcockpitPath, showMessage, loadData, onMcpsChanged]);
+
+  // Handle uninstall FlowTrace
+  const handleUninstallFlowtrace = useCallback(async () => {
+    setFlowtraceLoading(true);
+    try {
+      const result = await uninstallFlowtraceMcp();
+      if (result.success) {
+        showMessage('success', result.message);
+        setFlowtraceInstalled(false);
+        loadData();
+        onMcpsChanged?.();
+      } else {
+        showMessage('error', result.message);
+      }
+    } finally {
+      setFlowtraceLoading(false);
     }
   }, [showMessage, loadData, onMcpsChanged]);
 
@@ -942,6 +991,58 @@ Or with mcpServers wrapper:
                         disabled={dccLoading}
                       >
                         {dccLoading ? (
+                          <><Loader2 size={14} className="animate-spin" /> Installing...</>
+                        ) : (
+                          <><Download size={14} /> Install</>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* FlowTrace Section */}
+                <div className="mcp-section-header" style={{ marginTop: '1.5rem' }}>
+                  <span>FlowTrace MCP</span>
+                </div>
+
+                <div className="mcp-workflow-section">
+                  <div className="mcp-workflow-info">
+                    <Activity size={20} style={{ color: flowtraceInstalled ? 'var(--accent)' : 'var(--text-muted)' }} />
+                    <div className="mcp-workflow-details">
+                      <span className="mcp-workflow-title">FlowTrace Debugger</span>
+                      <span className="mcp-workflow-description">
+                        Log search, flow tracing, error analysis, dashboard visualization,
+                        and build/execute automation for distributed system debugging.
+                      </span>
+                      <span className={`mcp-workflow-status ${flowtraceInstalled ? 'installed' : 'not-installed'}`}>
+                        {flowtraceInstalled ? (
+                          <><Check size={12} /> Installed</>
+                        ) : (
+                          <><AlertTriangle size={12} /> Not installed</>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mcp-workflow-actions">
+                    {flowtraceInstalled ? (
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={handleUninstallFlowtrace}
+                        disabled={flowtraceLoading}
+                      >
+                        {flowtraceLoading ? (
+                          <><Loader2 size={14} className="animate-spin" /> Removing...</>
+                        ) : (
+                          <><Trash2 size={14} /> Uninstall</>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-primary btn-sm"
+                        onClick={handleInstallFlowtrace}
+                        disabled={flowtraceLoading}
+                      >
+                        {flowtraceLoading ? (
                           <><Loader2 size={14} className="animate-spin" /> Installing...</>
                         ) : (
                           <><Download size={14} /> Install</>

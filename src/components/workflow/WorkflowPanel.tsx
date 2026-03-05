@@ -580,6 +580,27 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
 
             {workflowDropdownOpen && (
               <div className="workflow-selector-dropdown">
+                {/* Pipeline ON/OFF toggle */}
+                {isInstalled && (
+                  <div
+                    className="workflow-selector-option"
+                    style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}
+                    onClick={(e) => { e.stopPropagation(); handleToggleEnabled(); }}
+                  >
+                    <div className="workflow-option-info">
+                      <span className="workflow-option-name">
+                        {enabled ? 'Pipeline ON' : 'Pipeline OFF'}
+                      </span>
+                      <span className="workflow-option-desc">
+                        {enabled ? 'Click to disable enforcement' : 'Click to enable enforcement'}
+                      </span>
+                    </div>
+                    <label className="workflow-toggle" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={enabled} onChange={handleToggleEnabled} />
+                      <span className="toggle-slider"><Power size={10} /></span>
+                    </label>
+                  </div>
+                )}
                 {/* Option to use local workflow */}
                 <div
                   className={`workflow-selector-option ${!activeWorkflowName ? 'active' : ''}`}
