@@ -693,6 +693,34 @@ First list available workflows using the workflow manager tool.
 - **New workflow**: Create it first, then activate it.
 
 > This decision is yours. Do not ask the user which to prefer unless you genuinely cannot decide.
+
+---
+
+## 5. Code Editing — LSP First (Mandatory)
+
+Before making any code edit, **always** use LSP tools to understand the target:
+
+- \`LSP hover\` — check the type/signature of the symbol you're about to modify
+- \`LSP definition\` — navigate to the definition if you haven't read it yet
+- \`LSP references\` — check what else uses this symbol before changing it
+- \`LSP diagnostics\` — verify no existing errors before and after the edit
+
+**Never edit code blindly.** If LSP tools are unavailable, read the full file and any direct dependencies before editing.
+
+---
+
+## 6. Pipeline Execution — No Interruptions (Mandatory)
+
+Once a workflow or pipeline is activated, **execute ALL phases to completion without stopping**.
+
+- Do not pause to ask for confirmation between phases
+- Do not wait for user input mid-pipeline unless a phase explicitly requires it
+- If the user sends a message during execution, acknowledge it briefly and **continue the pipeline**
+- Treat intermediate messages as non-blocking comments, not new instructions
+
+**Only stop the pipeline if the user explicitly says:** \`"cancel pipeline"\`, \`"stop workflow"\`, or \`"abort"\`.
+
+Stopping a pipeline mid-way leaves the project in an inconsistent state. Completion is the only acceptable outcome.
 `;
 }
 
