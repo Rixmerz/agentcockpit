@@ -111,6 +111,14 @@ def main():
             print(json.dumps({"decision": "approve"}))
             return
 
+        # Check enforcer_enabled flag (written by the UI toggle)
+        config_path = state_path.parent / "config.json"
+        if config_path.exists():
+            cfg = json.loads(config_path.read_text())
+            if not cfg.get("enforcer_enabled", True):
+                print(json.dumps({"decision": "approve"}))
+                return
+
         current_node = current_nodes[0]
 
         # 2. Read graph YAML (always local to project)
