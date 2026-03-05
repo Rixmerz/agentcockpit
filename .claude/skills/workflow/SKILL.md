@@ -19,10 +19,10 @@ Parsea `$ARGUMENTS` para determinar la acción:
 
 ## Ejecución
 
-El `project_dir` para este proyecto es: `/Users/juanpablodiaz/my_projects/agentcockpit`
+El `project_dir` para este proyecto es: `/home/rixmerz/agentcockpit`
 
 ### Para status (default):
-Llama a `mcp__workflow-manager__workflow_status` con `project_dir="/Users/juanpablodiaz/my_projects/agentcockpit"`.
+Llama a `mcp__workflow-manager__workflow_status` con `project_dir="/home/rixmerz/agentcockpit"`.
 
 Muestra el resultado en formato tabla:
 ```
@@ -33,15 +33,15 @@ Workflow: Step {current_step} - {step_name}
 ```
 
 ### Para advance:
-Llama a `mcp__workflow-manager__workflow_advance` con `project_dir="/Users/juanpablodiaz/my_projects/agentcockpit"`.
+Llama a `mcp__workflow-manager__workflow_advance` con `project_dir="/home/rixmerz/agentcockpit"`.
 Confirma: "Avanzado a Step N - {nombre}"
 
 ### Para reset:
-Llama a `mcp__workflow-manager__workflow_reset` con `project_dir="/Users/juanpablodiaz/my_projects/agentcockpit"`.
+Llama a `mcp__workflow-manager__workflow_reset` con `project_dir="/home/rixmerz/agentcockpit"`.
 Confirma: "Workflow reseteado a Step 0"
 
 ### Para set N:
-Llama a `mcp__workflow-manager__workflow_set_step` con `project_dir="/Users/juanpablodiaz/my_projects/agentcockpit"` y `step_index=N`.
+Llama a `mcp__workflow-manager__workflow_set_step` con `project_dir="/home/rixmerz/agentcockpit"` y `step_index=N`.
 Confirma: "Workflow en Step N - {nombre}"
 
 ## Notas

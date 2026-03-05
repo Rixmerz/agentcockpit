@@ -1,6 +1,6 @@
 ---
 name: plugins
-description: Agent Plugin System - manages the pluggable AI agent architecture (Claude, Cursor, Gemini, Agentful)
+description: Agent Plugin System - manages the pluggable AI agent architecture (Claude, Cursor, Gemini)
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---
@@ -32,14 +32,6 @@ src/agents/
 │   │   └── QuickActions.tsx
 │   └── services/
 │       └── claudeService.ts
-├── agentful/
-│   ├── manifest.json
-│   ├── index.ts
-│   ├── components/
-│   │   ├── AgentfulLauncher.tsx
-│   │   └── QuickActions.tsx
-│   └── services/
-│       └── agentfulService.ts
 ├── cursor-agent/
 │   └── (same structure)
 └── gemini-cli/
