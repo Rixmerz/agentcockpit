@@ -24,6 +24,7 @@ import {
   Settings,
   Database,
   Puzzle,
+  Power,
 } from 'lucide-react';
 import { DropdownPanel, DropdownItem, DropdownSection } from './DropdownPanel';
 import { Modal } from '../common/Modal';
@@ -31,11 +32,13 @@ import { GitSettings } from '../sidebar-right/GitSettings';
 
 // Import services
 import { workflowService, copyAllAssetsToProject } from '../../services/workflowService';
+import { getEnforcerEnabled } from '../../services/workflow/index';
 import { loadMcpConfig } from '../../services/mcpConfigService';
 import {
   isWorkflowHooksInstalled,
   installWorkflowHooks,
   uninstallWorkflowHooks,
+  syncWorkflowHooks,
 } from '../../services/hookService';
 import { McpManagerModal } from '../mcp/McpManagerModal';
 import { gitPush, type SyncStatus } from '../../services/gitService';
@@ -124,6 +127,7 @@ export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
   const [, setWorkflowLoading] = useState(false);
   const [isWorkflowInstalled, setIsWorkflowInstalled] = useState(false);
   const [isInstallingWorkflow, setIsInstallingWorkflow] = useState(false);
+  const [workflowEnabled, setWorkflowEnabled] = useState(true);
 
   // MCP state
   const [mcpServers, setMcpServers] = useState<McpStatus[]>([]);
@@ -357,6 +361,9 @@ export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
 
         const installed = await isWorkflowHooksInstalled(projectPath);
         setIsWorkflowInstalled(installed);
+
+        const enabled = await getEnforcerEnabled(projectPath);
+        setWorkflowEnabled(enabled);
       } catch (err) {
         console.warn('[ControlBar] Failed to load workflows:', err);
       }
@@ -639,6 +646,21 @@ export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
     }
   }, [projectPath]);
 
+  // Handle workflow enforcer toggle
+  const handleToggleWorkflowEnabled = useCallback(async () => {
+    if (!projectPath) return;
+    const newEnabled = !workflowEnabled;
+    setWorkflowEnabled(newEnabled);
+    try {
+      if (isWorkflowInstalled) {
+        await syncWorkflowHooks(projectPath, newEnabled, []);
+      }
+    } catch (e) {
+      console.error('[ControlBar] Toggle error:', e);
+      setWorkflowEnabled(!newEnabled);
+    }
+  }, [projectPath, workflowEnabled, isWorkflowInstalled]);
+
   return (
     <div className="control-bar">
       <div className="control-bar__section control-bar__section--left">
@@ -665,6 +687,18 @@ export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
               ))
             )}
           </DropdownSection>
+
+          {activeWorkflow && (
+            <DropdownSection title="Enforcer">
+              <DropdownItem
+                icon={<Power size={14} />}
+                label={workflowEnabled ? 'Pipeline ON' : 'Pipeline OFF'}
+                description={workflowEnabled ? 'Click to disable enforcement' : 'Click to enable enforcement'}
+                active={workflowEnabled}
+                onClick={handleToggleWorkflowEnabled}
+              />
+            </DropdownSection>
+          )}
 
           {activeWorkflow && (
             <DropdownSection title="Actions">
