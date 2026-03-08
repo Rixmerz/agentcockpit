@@ -36,3 +36,33 @@ src-tauri/target/
 .claude/tasks/
 # agentful runtime state
 .agentful/
+
+# Private project states and snapshots
+.agentcockpit/states/
+.agentcockpit/snapshots.json
+
+# Databases (knowledge graph, orchestration, MCP)
+.claude/*.db
+.claude/*.db-shm
+.claude/*.db-wal
+
+# Active workflow state (private)
+.claude/workflow/
+
+# Workflow manager runtime data (sessions, screenshots, DBs)
+.workflow-manager/data/
+
+# Obsolete agents directory
+.agents/
+
+# Private/custom workflows (only debug-graph.yaml is public)
+.claude/workflows/cfa-*
+.claude/workflows/denofresh-*
+.claude/workflows/erp-*
+.claude/workflows/fresh-seo-*
+.claude/workflows/haiku-*
+.claude/workflows/landing-*
+.claude/workflows/macro-*
+.claude/workflows/testing-demo.yaml
+.claude/workflows/xpteam-*
+.claude/workflows/dcc-*
