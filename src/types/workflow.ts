@@ -2,19 +2,8 @@
 // Workflow Types
 // ============================================
 
-// Workflow step configuration (for reference in templates)
-export interface WorkflowStep {
-  id: string;
-  order: number;
-  name: string;
-  description?: string;
-  prompt_injection?: string;
-  mcps_enabled?: string[];
-  tools_blocked?: string[];
-  gate_type?: 'any' | 'tool' | 'phrase' | 'always';
-  gate_tool?: string;
-  gate_phrases?: string[];
-}
+// Re-export WorkflowStep from canonical source to avoid duplication
+export type { WorkflowStep } from '../services/workflow/workflowIOService';
 
 // Workflow settings
 export interface WorkflowSettings {

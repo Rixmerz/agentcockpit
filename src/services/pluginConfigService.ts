@@ -49,7 +49,6 @@ async function ensureConfigDir(): Promise<void> {
     const dirExists = await exists(dir);
     if (!dirExists) {
       await mkdir(dir, { recursive: true });
-      console.log('[PluginConfig] Created config directory:', dir);
     }
   } catch (e) {
     console.error('[PluginConfig] Error creating directory:', e);
@@ -85,11 +84,9 @@ export function getDefaultClaudeConfig(): ClaudePluginConfig {
 export async function loadPluginsConfig(): Promise<PluginsConfig> {
   try {
     const configPath = await getConfigPath();
-    console.log('[PluginConfig] Loading from:', configPath);
 
     const fileExists = await exists(configPath);
     if (!fileExists) {
-      console.log('[PluginConfig] Config not found, returning defaults');
       return getDefaultConfig();
     }
 
@@ -100,7 +97,6 @@ export async function loadPluginsConfig(): Promise<PluginsConfig> {
     );
 
     const config = JSON.parse(content) as PluginsConfig;
-    console.log('[PluginConfig] Loaded config');
     return config;
   } catch (e) {
     console.error('[PluginConfig] Load error:', e);
@@ -125,7 +121,6 @@ export async function savePluginsConfig(config: PluginsConfig): Promise<boolean>
       'write plugins.json'
     );
 
-    console.log('[PluginConfig] Saved config');
     return true;
   } catch (e) {
     console.error('[PluginConfig] Save error:', e);

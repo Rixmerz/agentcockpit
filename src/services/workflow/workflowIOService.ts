@@ -124,7 +124,6 @@ export let cachedHubConfig: { hub_dir: string; workflows_dir: string; states_dir
  */
 export function invalidateHubConfigCache(): void {
   cachedHubConfig = null;
-  console.log('[Graph] Hub config cache invalidated');
 }
 
 // ============================================

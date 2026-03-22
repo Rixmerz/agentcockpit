@@ -308,7 +308,6 @@ export async function installWorkflowHooks(
 
     // 2.5. Initialize workflow state (state.json at step 0)
     await resetWorkflow(projectPath);
-    console.log('[HookService] Workflow state initialized at step 0');
 
     // 2.6. Create /workflow skill for Claude Code
     const skillsDir = `${projectPath}/.claude/skills/workflow`;
@@ -319,7 +318,6 @@ export async function installWorkflowHooks(
     const skillPath = `${skillsDir}/SKILL.md`;
     const skillContent = generateWorkflowSkill(projectPath);
     await writeTextFile(skillPath, skillContent);
-    console.log('[HookService] Workflow skill created at', skillPath);
 
     // 3. Read existing settings (preserve other hooks)
     let settings = await readClaudeSettings(projectPath) || {};
@@ -360,7 +358,6 @@ export async function installWorkflowHooks(
     // 6. Install AS.md and update CLAUDE.md
     await installAsMarkdown(projectPath);
 
-    console.log('[HookService] Workflow hooks installed successfully');
     return { success: true };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
@@ -408,7 +405,6 @@ export async function uninstallWorkflowHooks(projectPath: string): Promise<HookR
       await remove(enforcerPath);
     }
 
-    console.log('[HookService] Workflow hooks uninstalled successfully');
     return { success: true };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
@@ -561,7 +557,6 @@ export async function installReindexHooks(
       return { success: false, error: 'Failed to write settings.json' };
     }
 
-    console.log('[HookService] Reindex hooks installed successfully');
     return { success: true };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
@@ -602,7 +597,6 @@ export async function uninstallReindexHooks(projectPath: string): Promise<HookRe
       await remove(hookPath);
     }
 
-    console.log('[HookService] Reindex hooks uninstalled successfully');
     return { success: true };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
@@ -739,7 +733,6 @@ export async function installAsMarkdown(projectPath: string): Promise<void> {
     // 2. Write AS.md
     const asPath = `${claudeDir}/AS.md`;
     await writeTextFile(asPath, generateAsMarkdown());
-    console.log('[HookService] AS.md written to', asPath);
 
     // 3. Update CLAUDE.md
     const claudeMdPath = `${projectPath}/CLAUDE.md`;
@@ -759,7 +752,6 @@ export async function installAsMarkdown(projectPath: string): Promise<void> {
       // Create minimal CLAUDE.md
       await writeTextFile(claudeMdPath, prefix);
     }
-    console.log('[HookService] CLAUDE.md updated with AS.md reference');
   } catch (e) {
     console.error('[HookService] installAsMarkdown error:', e);
   }
@@ -805,7 +797,6 @@ export async function syncWorkflowHooks(
     config.last_updated = new Date().toISOString();
 
     await writeTextFile(configPath, JSON.stringify(config, null, 2));
-    console.log('[HookService] Workflow enforcer', enabled ? 'enabled' : 'disabled');
 
     return { success: true };
   } catch (e) {

@@ -38,7 +38,6 @@ export const TerminalView = memo(function TerminalView({ terminalId, workingDir,
 
   // Callback when terminal finishes (no output for threshold duration)
   const handleTerminalFinished = useCallback(() => {
-    console.log('[TerminalView] 🔔 Terminal finished detected:', terminalId);
     setTerminalActivity(terminalId, true, Date.now());
     if (terminalFinishedSound) {
       playNotificationSound(customSoundPath);
@@ -175,7 +174,6 @@ export const TerminalView = memo(function TerminalView({ terminalId, workingDir,
 
     spawn('default', workingDir, cols, rows)
       .then((ptyId) => {
-        console.log(`PTY ${ptyId} spawned at ${cols}x${rows}`);
         registerPtyId(terminalId, ptyId);
       })
       .catch((err) => {

@@ -32,8 +32,6 @@ export function enableAutoReindex(projectPath: string): void {
   _cleanup = gitWatcherEvents.on('commit', (event) => {
     if (!_enabled) return;
 
-    console.log(`[DCC AutoReindex] Commit detected: ${event.commitHash.substring(0, 8)}, scheduling reindex in ${DEBOUNCE_MS}ms`);
-
     // Debounce: clear previous timer if rapid commits
     if (_debounceTimer) {
       clearTimeout(_debounceTimer);
@@ -45,21 +43,15 @@ export function enableAutoReindex(projectPath: string): void {
       // Guard: DCC must be installed and not already indexing
       const installed = await isDeltaCodeCubeInstalled();
       if (!installed) {
-        console.log('[DCC AutoReindex] DCC not installed, skipping');
         return;
       }
 
       if (isIndexing()) {
-        console.log('[DCC AutoReindex] Already indexing, skipping');
         return;
       }
 
-      console.log(`[DCC AutoReindex] Reindexing project: ${event.projectPath}`);
       try {
-        const stats = await reindexProject(event.projectPath);
-        if (stats) {
-          console.log(`[DCC AutoReindex] Done — ${stats.totalFiles} files, grade ${stats.grade}`);
-        }
+        await reindexProject(event.projectPath);
       } catch (e) {
         console.error('[DCC AutoReindex] Reindex failed:', e);
         indexEvents.emit('error', {
@@ -71,7 +63,6 @@ export function enableAutoReindex(projectPath: string): void {
     }, DEBOUNCE_MS);
   });
 
-  console.log(`[DCC AutoReindex] Enabled for: ${projectPath}`);
 }
 
 /**
@@ -86,10 +77,6 @@ export function disableAutoReindex(): void {
   if (_debounceTimer) {
     clearTimeout(_debounceTimer);
     _debounceTimer = null;
-  }
-
-  if (_enabled) {
-    console.log('[DCC AutoReindex] Disabled');
   }
 
   _enabled = false;

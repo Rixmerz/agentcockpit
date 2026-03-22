@@ -60,7 +60,6 @@ export async function generateClaudeMdSection(projectPath: string): Promise<bool
     }
 
     await writeTextFile(claudeMdPath, content);
-    console.log('[DCC] CLAUDE.md section updated');
     return true;
   } catch (e) {
     console.error('[DCC] CLAUDE.md generation error:', e);

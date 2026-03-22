@@ -34,14 +34,11 @@ const CONFIG_FILENAME = 'agentcockpit-project.json';
  * Fallback: Read config using Tauri FS plugin (doesn't require shell)
  */
 async function readProjectConfigFS(projectPath: string): Promise<ProjectConfig | null> {
-  console.log('[ProjectSession:FS] Reading config from:', projectPath);
-
   try {
     const configPath = `${projectPath}/${CONFIG_FILENAME}`;
     const fileExists = await withTimeout(exists(configPath), 2000, 'check exists');
 
     if (!fileExists) {
-      console.log('[ProjectSession:FS] Config file does not exist');
       return null;
     }
 
@@ -51,7 +48,6 @@ async function readProjectConfigFS(projectPath: string): Promise<ProjectConfig |
       `readTextFile ${configPath}`
     );
 
-    console.log('[ProjectSession:FS] Config read successfully');
     return JSON.parse(content);
   } catch (error) {
     if (error instanceof TimeoutError) {
@@ -64,7 +60,6 @@ async function readProjectConfigFS(projectPath: string): Promise<ProjectConfig |
 }
 
 async function readProjectConfig(projectPath: string): Promise<ProjectConfig | null> {
-  console.log('[ProjectSession:Shell] Reading config from:', projectPath);
 
   // Try execute_command first (works in dev, may hang in bundled)
   try {
@@ -79,15 +74,12 @@ async function readProjectConfig(projectPath: string): Promise<ProjectConfig | n
       `readProjectConfig from ${projectPath}`
     );
 
-    console.log('[ProjectSession:Shell] Config read successfully');
     return JSON.parse(result);
   } catch (error) {
     if (error instanceof TimeoutError) {
-      console.warn('[ProjectSession:Shell] Timed out, trying FS plugin');
       return await readProjectConfigFS(projectPath);
     }
     // Other errors (file not found, etc.) - try FS fallback
-    console.log('[ProjectSession:Shell] Shell failed, trying FS plugin');
     return await readProjectConfigFS(projectPath);
   }
 }
@@ -96,7 +88,6 @@ async function readProjectConfig(projectPath: string): Promise<ProjectConfig | n
  * Fallback: Write config using Tauri FS plugin (doesn't require shell)
  */
 async function writeProjectConfigFS(projectPath: string, config: ProjectConfig): Promise<void> {
-  console.log('[ProjectSession:FS] Writing config:', projectPath);
   const configPath = `${projectPath}/${CONFIG_FILENAME}`;
   const json = JSON.stringify(config, null, 2);
 
@@ -105,11 +96,9 @@ async function writeProjectConfigFS(projectPath: string, config: ProjectConfig):
     INVOKE_TIMEOUT_MS,
     `writeTextFile ${configPath}`
   );
-  console.log('[ProjectSession:FS] Config written successfully');
 }
 
 async function writeProjectConfig(projectPath: string, config: ProjectConfig): Promise<void> {
-  console.log('[ProjectSession:Shell] Writing config to:', projectPath);
   const json = JSON.stringify(config, null, 2);
   // Escape single quotes for shell
   const escaped = json.replace(/'/g, "'\\''");
@@ -121,13 +110,7 @@ async function writeProjectConfig(projectPath: string, config: ProjectConfig): P
     });
 
     await withTimeout(invokePromise, INVOKE_TIMEOUT_MS, 'writeProjectConfig');
-    console.log('[ProjectSession:Shell] Config written successfully');
-  } catch (error) {
-    if (error instanceof TimeoutError) {
-      console.warn('[ProjectSession:Shell] Write timed out, trying FS plugin');
-    } else {
-      console.log('[ProjectSession:Shell] Shell write failed, trying FS plugin');
-    }
+  } catch {
     await writeProjectConfigFS(projectPath, config);
   }
 }

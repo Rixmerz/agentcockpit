@@ -122,7 +122,6 @@ export function ActionsPanel({
   useEffect(() => {
     return sessionEvents.on('resume-detected', async ({ uuid, terminalId: tid }) => {
       if (!projectPath) return;
-      console.log('[ActionsPanel] Resume UUID detected:', uuid, 'terminal:', tid);
       try {
         const session = await createSessionFromResume(projectPath, uuid, tid);
         setSelectedSession(session);

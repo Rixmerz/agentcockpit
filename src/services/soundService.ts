@@ -135,7 +135,6 @@ export async function playNotificationSound(customPath?: string | null): Promise
       source.start(0);
     } catch {
       // If audio file fails to load, play synthesized fallback
-      console.log('[SoundService] Using fallback beep');
       playFallbackBeep();
     }
   } catch (error) {

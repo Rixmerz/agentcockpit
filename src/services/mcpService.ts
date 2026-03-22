@@ -31,10 +31,8 @@ export interface McpConfigs {
 // Read JSON file using Tauri FS plugin (avoids TCC cascade)
 async function readJsonFile(path: string): Promise<unknown | null> {
   try {
-    console.log('[MCP] Reading file:', path);
     const fileExists = await withTimeout(exists(path), 2000, 'check exists');
     if (!fileExists) {
-      console.log('[MCP] File does not exist:', path);
       return null;
     }
 
@@ -44,7 +42,6 @@ async function readJsonFile(path: string): Promise<unknown | null> {
       `read ${path}`
     );
     const parsed = JSON.parse(content);
-    console.log('[MCP] Successfully parsed JSON from:', path);
     return parsed;
   } catch (e) {
     console.error('[MCP] Failed to read/parse file:', path, e);
@@ -84,7 +81,6 @@ export async function loadDesktopMcps(): Promise<McpServer[]> {
 
   try {
     const configPath = await getDesktopConfigPath();
-    console.log('[MCP] Loading Desktop MCPs from:', configPath);
 
     const config = await readJsonFile(configPath) as { mcpServers?: Record<string, McpServerConfig> } | null;
 
@@ -102,7 +98,6 @@ export async function loadDesktopMcps(): Promise<McpServer[]> {
           status: 'unknown',
         });
       }
-      console.log('[MCP] Loaded', servers.length, 'Desktop MCPs:', servers.map(s => s.name).join(', '));
     } else {
       console.warn('[MCP] Desktop config has no mcpServers key');
     }
@@ -128,7 +123,6 @@ export async function loadCodeMcps(): Promise<McpServer[]> {
 
   try {
     const configPath = await getCodeConfigPath();
-    console.log('[MCP] Loading Code MCPs from:', configPath);
 
     const config = await readJsonFile(configPath) as { mcpServers?: Record<string, McpServerConfig> } | null;
 
@@ -146,7 +140,6 @@ export async function loadCodeMcps(): Promise<McpServer[]> {
           status: 'unknown',
         });
       }
-      console.log('[MCP] Loaded', servers.length, 'Code MCPs:', servers.map(s => s.name).join(', '));
     } else {
       console.warn('[MCP] Code config has no mcpServers key');
     }

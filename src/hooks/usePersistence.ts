@@ -12,9 +12,17 @@ interface PersistedConfig {
   mcpDefaultEnabled: boolean;
   // Global settings
   defaultIDE?: 'cursor' | 'code' | 'antigravity';
+  theme?: 'cyber-teal' | 'battlefield';
   backgroundImage?: string;
   backgroundOpacity?: number;
   terminalOpacity?: number;
+  idleTimeout?: number;
+  // Terminal notification settings
+  terminalFinishedSound?: boolean;
+  terminalFinishedThreshold?: number;
+  customSoundPath?: string | null;
+  // DCC settings
+  dccAutoReindex?: boolean;
 }
 
 const CONFIG_FILENAME = 'agentcockpit-config.json';
@@ -37,10 +45,8 @@ async function ensureDataDir(): Promise<void> {
 export async function loadConfig(): Promise<PersistedConfig | null> {
   try {
     const configPath = await getConfigPath();
-    console.log('[Persistence] Loading config from:', configPath);
 
     const fileExists = await exists(configPath);
-    console.log('[Persistence] File exists:', fileExists);
 
     if (!fileExists) {
       return null;
@@ -48,7 +54,6 @@ export async function loadConfig(): Promise<PersistedConfig | null> {
 
     const content = await readTextFile(configPath);
     const config = JSON.parse(content) as PersistedConfig;
-    console.log('[Persistence] Loaded config:', Object.keys(config));
 
     // Validate and clean up: remove terminals (they need to be re-created as PTYs)
     const cleanedConfig: PersistedConfig = {
@@ -71,7 +76,6 @@ export async function saveConfig(config: PersistedConfig): Promise<void> {
   try {
     await ensureDataDir();
     const configPath = await getConfigPath();
-    console.log('[Persistence] Saving config to:', configPath);
 
     // Clean config before saving (remove runtime-only data)
     const cleanedConfig: PersistedConfig = {
@@ -83,17 +87,8 @@ export async function saveConfig(config: PersistedConfig): Promise<void> {
       activeTerminalId: null,
     };
 
-    console.log('[Persistence] Saving settings:', {
-      defaultIDE: cleanedConfig.defaultIDE,
-      backgroundImage: cleanedConfig.backgroundImage ? '(set)' : '(not set)',
-      backgroundOpacity: cleanedConfig.backgroundOpacity,
-      terminalOpacity: cleanedConfig.terminalOpacity,
-      projectsCount: cleanedConfig.projects.length,
-    });
-
     const content = JSON.stringify(cleanedConfig, null, 2);
     await writeTextFile(configPath, content);
-    console.log('[Persistence] Config saved successfully');
   } catch (error) {
     console.error('[Persistence] Failed to save config:', error);
   }

@@ -138,7 +138,6 @@ export async function ensureDccServer(projectPath: string): Promise<void> {
 
   dccState.serverStartPromise = (async () => {
     if (dccState.serverStartedForProject !== null) {
-      console.log(`[DCC] Switching project: ${dccState.serverStartedForProject} -> ${projectPath}`);
       try {
         await withTimeout(invoke('dcc_stop'), DCC_STOP_TIMEOUT_MS, 'dcc_stop');
       } catch (e) {
@@ -159,7 +158,6 @@ export async function ensureDccServer(projectPath: string): Promise<void> {
     dccState.serverStartedForProject = projectPath;
     dccState.serverStartPromise = null;
     dccState.serverStartFailedAt = null;
-    console.log(`[DCC] MCP server started for project: ${projectPath}`);
   })();
 
   dccState.serverStartPromise.catch((err) => {
@@ -241,13 +239,6 @@ export function parseDebtResultForProject(result: unknown, projectPath: string):
 
   const data = result as Record<string, unknown>;
   const allFiles = (Array.isArray(data.all_files) ? data.all_files : []) as Record<string, unknown>[];
-
-  if (allFiles.length > 0) {
-    const samplePaths = allFiles.slice(0, 3).map(f => String(f.file_path || f.file || ''));
-    console.log(`[DCC] parseDebt: projectPath="${projectPath}", total_files=${allFiles.length}, sample paths:`, samplePaths);
-  } else {
-    console.log(`[DCC] parseDebt: projectPath="${projectPath}", all_files is empty. Keys:`, Object.keys(data));
-  }
 
   const prefix = projectPath.endsWith('/') ? projectPath : projectPath + '/';
   const projectFiles = allFiles.filter(f => {

@@ -63,7 +63,6 @@ class BackgroundPtyService {
 
     try {
       const ptyId = await ptySpawn('default', projectPath, cols, rows);
-      console.log(`[BackgroundPTY] Spawned for ${projectPath} (ID: ${ptyId})`);
 
       // No output listeners needed - completely invisible
       // This PTY is fire-and-forget for git commands
@@ -89,14 +88,12 @@ class BackgroundPtyService {
       // Execute command
       // Add newline to execute the command
       const command = `git ${args}\n`;
-      console.log(`[BackgroundPTY] Executing: git ${args.substring(0, 60)}`);
       await ptyWrite(ptyId, command);
 
       // Wait for command to likely complete
       // Git add/commit/tag are fast operations (~100-300ms)
       // This delay allows the command to finish before the next one starts
       await this.waitForCompletion(args);
-      console.log(`[BackgroundPTY] Completed: git ${args.substring(0, 30)}`);
 
     } catch (error) {
       // Log error but don't throw - snapshots are non-critical
@@ -136,7 +133,6 @@ class BackgroundPtyService {
       try {
         await ptyClose(ptyId);
         this.ptyMap.delete(projectPath);
-        console.log(`[BackgroundPTY] Closed for ${projectPath}`);
       } catch (error) {
         console.warn(`[BackgroundPTY] Failed to close PTY for ${projectPath}:`, error);
       }
@@ -156,7 +152,6 @@ class BackgroundPtyService {
     await Promise.all(promises);
     this.ptyMap.clear();
     this.initMap.clear();
-    console.log('[BackgroundPTY] All PTYs closed');
   }
 
   /**

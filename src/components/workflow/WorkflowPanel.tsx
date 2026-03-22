@@ -136,35 +136,27 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
     setError(null);
 
     try {
-      console.log('[WorkflowPanel] Loading data for project:', projectPath);
-
       // Load global workflows list (include project-local workflows)
       const globalList = await listGlobalWorkflows(projectPath);
       setGlobalWorkflows(globalList);
-      console.log('[WorkflowPanel] Global workflows:', globalList);
 
       // Load workflow state first (contains active_workflow from MCP)
       const workflowState = await getWorkflowState(projectPath);
-      console.log('[WorkflowPanel] State loaded:', workflowState);
 
       // Use active_workflow from state (set by MCP workflow-manager)
       const activeName = workflowState.active_workflow || await getActiveWorkflowName(projectPath);
       setActiveWorkflowName(activeName);
-      console.log('[WorkflowPanel] Active workflow:', activeName);
 
       // If there's an active global workflow, load its steps
       let workflowSteps: WorkflowStep[];
       if (activeName) {
         workflowSteps = await getGlobalWorkflowSteps(activeName);
-        console.log('[WorkflowPanel] Global workflow steps loaded:', workflowSteps.length);
         // Fallback to local if global workflow file not found
         if (workflowSteps.length === 0) {
-          console.log('[WorkflowPanel] Global workflow empty, falling back to local');
           workflowSteps = await getWorkflowSteps(projectPath);
         }
       } else {
         workflowSteps = await getWorkflowSteps(projectPath);
-        console.log('[WorkflowPanel] Local steps loaded:', workflowSteps);
       }
 
       setState(workflowState);
@@ -175,7 +167,6 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
       setAvailableEdges(edges);
       const gState = await getGraphState(projectPath);
       setGraphState(gState);
-      console.log('[WorkflowPanel] Graph state:', gState.current_nodes, 'edges:', edges.length);
 
       // Load project-specific workflow config if we have a project
       if (projectPath) {
@@ -222,7 +213,6 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
 
       // Only update if state actually changed
       if (lastStateRef.current !== newStateStr) {
-        console.log('[WorkflowPanel] State changed externally, updating UI');
         lastStateRef.current = newStateStr;
 
         // Update state
@@ -230,14 +220,12 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
 
         // Check if enabled state changed
         if (newEnabled !== enabledRef.current) {
-          console.log('[WorkflowPanel] Enabled changed:', enabledRef.current, '->', newEnabled);
           setEnabled(newEnabled);
         }
 
         // Check if active workflow changed (use ref to avoid stale closure)
         const newActiveName = newState.active_workflow || null;
         if (newActiveName !== activeWorkflowRef.current) {
-          console.log('[WorkflowPanel] Active workflow changed:', activeWorkflowRef.current, '->', newActiveName);
           setActiveWorkflowName(newActiveName);
 
           // Reload steps if workflow changed
@@ -502,7 +490,6 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
       const activeName = workflowState.active_workflow || await getActiveWorkflowName(projectPath);
       setActiveWorkflowName(activeName);
 
-      console.log('[WorkflowPanel] Dropdown refreshed - workflows:', globalList.length, 'active:', activeName);
     } catch (e) {
       console.error('[WorkflowPanel] Dropdown refresh error:', e);
     } finally {

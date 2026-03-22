@@ -85,7 +85,6 @@ export async function advanceWorkflow(projectPath?: string | null): Promise<Work
   const maxVisits = targetNode?.max_visits || graphState.max_visits_default;
 
   if (currentVisits >= maxVisits) {
-    console.log('[Graph] Max visits reached for node:', edge.to);
     return getWorkflowStateFromGraph(projectPath);
   }
 
@@ -432,7 +431,6 @@ export async function activateWorkflow(projectPath: string, graphName: string): 
           if (agentExists) {
             const agentContent = await readTextFile(agentSourcePath);
             await writeTextFile(agentDestPath, agentContent);
-            console.log(`[Graph] Agent copied: ${agentName}`);
           } else {
             console.warn(`[Graph] Agent not found: ${agentName}`);
           }
@@ -440,7 +438,6 @@ export async function activateWorkflow(projectPath: string, graphName: string): 
           console.error(`[Graph] Error copying agent ${agentName}:`, agentError);
         }
       }
-      console.log(`[Graph] Copied ${requiredAgents.length} agents to project`);
     }
 
     // Create /workflow skill for Claude Code
@@ -452,7 +449,6 @@ export async function activateWorkflow(projectPath: string, graphName: string): 
     const skillPath = `${skillsDir}/SKILL.md`;
     const skillContent = generateWorkflowSkill(projectPath);
     await writeTextFile(skillPath, skillContent);
-    console.log('[Graph] Workflow skill created at', skillPath);
 
     return true;
   } catch (e) {
@@ -490,7 +486,6 @@ export async function copyAllAgentsToProject(projectPath: string): Promise<CopyA
     // Check if global agents directory exists
     const globalExists = await exists(globalAgentsDir);
     if (!globalExists) {
-      console.log('[Graph] No global agents directory found');
       return result;
     }
 
@@ -515,7 +510,6 @@ export async function copyAllAgentsToProject(projectPath: string): Promise<CopyA
 
         const agentName = entry.name.replace('.md', '');
         result.agentsCopied.push(agentName);
-        console.log(`[Graph] Agent copied: ${agentName}`);
       } catch (e) {
         const error = `Failed to copy ${entry.name}: ${e}`;
         result.errors.push(error);
@@ -523,7 +517,6 @@ export async function copyAllAgentsToProject(projectPath: string): Promise<CopyA
       }
     }
 
-    console.log(`[Graph] Copied ${result.agentsCopied.length} agents to project`);
   } catch (e) {
     result.success = false;
     result.errors.push(`Failed to copy agents: ${e}`);
@@ -548,7 +541,6 @@ export async function copyAllSkillsToProject(projectPath: string): Promise<CopyA
     // Check if global skills directory exists
     const globalExists = await exists(globalSkillsDir);
     if (!globalExists) {
-      console.log('[Graph] No global skills directory found');
       return result;
     }
 
@@ -582,7 +574,6 @@ export async function copyAllSkillsToProject(projectPath: string): Promise<CopyA
           const content = await readTextFile(skillFilePath);
           await writeTextFile(`${destDir}/SKILL.md`, content);
           result.skillsCopied.push(skillName);
-          console.log(`[Graph] Skill copied: ${skillName}`);
         }
       } catch (e) {
         const error = `Failed to copy skill ${entry.name}: ${e}`;
@@ -591,7 +582,6 @@ export async function copyAllSkillsToProject(projectPath: string): Promise<CopyA
       }
     }
 
-    console.log(`[Graph] Copied ${result.skillsCopied.length} skills to project`);
   } catch (e) {
     result.success = false;
     result.errors.push(`Failed to copy skills: ${e}`);

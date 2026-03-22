@@ -103,12 +103,10 @@ export async function indexProject(projectPath: string): Promise<IndexStats | nu
   }
 
   dccState.indexingInProgress = true;
-  console.log(`[DCC] Indexing: ${projectPath}`);
   try {
     indexEvents.emit('indexing', { projectPath, timestamp: Date.now() });
 
     await callDccTool('cube_index_directory', { path: projectPath }, projectPath);
-    console.log('[DCC] cube_index_directory completed');
 
     const headCommit = await getCurrentCommit(projectPath);
     if (headCommit) {
@@ -117,19 +115,15 @@ export async function indexProject(projectPath: string): Promise<IndexStats | nu
         if (prevCommit) {
           const { modified } = await getChangedFiles(projectPath, prevCommit, headCommit);
           if (modified.length > 0) {
-            console.log(`[DCC] Initial delta detection: ${modified.length} files changed in last commit`);
-            let deltas = 0;
             for (const file of modified) {
               try {
-                const r = await callDccTool('cube_reindex', { path: `${projectPath}/${file}` }, projectPath);
-                if (r && typeof r === 'object' && (r as Record<string, unknown>).status === 'reindexed') deltas++;
+                await callDccTool('cube_reindex', { path: `${projectPath}/${file}` }, projectPath);
               } catch { /* skip */ }
             }
-            console.log(`[DCC] Initial deltas: ${deltas}`);
           }
         }
       } catch {
-        console.log('[DCC] No previous commit for initial delta detection');
+        // No previous commit for initial delta detection
       }
 
       await saveLastIndexedCommit(projectPath, headCommit);
@@ -168,7 +162,6 @@ export async function reindexProject(projectPath: string): Promise<IndexStats | 
   }
 
   dccState.indexingInProgress = true;
-  console.log(`[DCC] Reindexing: ${projectPath}`);
   try {
     indexEvents.emit('indexing', { projectPath, timestamp: Date.now() });
 
@@ -176,7 +169,6 @@ export async function reindexProject(projectPath: string): Promise<IndexStats | 
     const lastCommit = await getLastIndexedCommit(projectPath);
 
     if (!headCommit) {
-      console.log('[DCC] No git HEAD — falling back to full directory reindex');
       await callDccTool('cube_index_directory', { path: projectPath }, projectPath);
       const debtResult = await callDccTool('cube_get_debt', {}, projectPath);
       const stats = parseDebtResultForProject(debtResult, projectPath);
@@ -187,14 +179,12 @@ export async function reindexProject(projectPath: string): Promise<IndexStats | 
     }
 
     if (lastCommit === headCommit) {
-      console.log(`[DCC] Already indexed at commit ${headCommit.substring(0, 8)} — skipping`);
       dccState.indexingInProgress = false;
       const debtResult = await callDccTool('cube_get_debt', {}, projectPath);
       return parseDebtResultForProject(debtResult, projectPath);
     }
 
     if (!lastCommit) {
-      console.log('[DCC] No previous index — full directory reindex first');
       await callDccTool('cube_index_directory', { path: projectPath }, projectPath);
       await saveLastIndexedCommit(projectPath, headCommit);
       const debtResult = await callDccTool('cube_get_debt', {}, projectPath);
@@ -210,25 +200,15 @@ export async function reindexProject(projectPath: string): Promise<IndexStats | 
     const totalChanged = modified.length + added.length;
 
     if (totalChanged === 0) {
-      console.log(`[DCC] No source files changed between ${fromCommit.substring(0, 8)} and ${headCommit.substring(0, 8)}`);
       await saveLastIndexedCommit(projectPath, headCommit);
       dccState.indexingInProgress = false;
       const debtResult = await callDccTool('cube_get_debt', {}, projectPath);
       return parseDebtResultForProject(debtResult, projectPath);
     }
 
-    console.log(`[DCC] Commit diff ${fromCommit.substring(0, 8)}..${headCommit.substring(0, 8)}: ${modified.length} modified, ${added.length} added`);
-
-    let deltasFound = 0;
-    let tensionsFound = 0;
     for (const file of modified) {
       try {
-        const result = await callDccTool('cube_reindex', { path: `${projectPath}/${file}` }, projectPath);
-        if (result && typeof result === 'object') {
-          const r = result as Record<string, unknown>;
-          if (r.status === 'reindexed') deltasFound++;
-          if (Array.isArray(r.tensions)) tensionsFound += (r.tensions as unknown[]).length;
-        }
+        await callDccTool('cube_reindex', { path: `${projectPath}/${file}` }, projectPath);
       } catch {
         // Skip files that fail
       }
@@ -242,7 +222,6 @@ export async function reindexProject(projectPath: string): Promise<IndexStats | 
       }
     }
 
-    console.log(`[DCC] Commit-based reindex done: ${deltasFound} deltas, ${tensionsFound} tensions`);
     await saveLastIndexedCommit(projectPath, headCommit);
 
     const debtResult = await callDccTool('cube_get_debt', {}, projectPath);
@@ -283,12 +262,10 @@ export async function incrementalReindex(
 
   const totalFiles = changedFiles.length + addedFiles.length;
   if (totalFiles === 0) {
-    console.log('[DCC] No files to reindex incrementally');
     return null;
   }
 
   dccState.indexingInProgress = true;
-  console.log(`[DCC] Incremental reindex: ${changedFiles.length} modified, ${addedFiles.length} new`);
   try {
     indexEvents.emit('indexing', { projectPath, timestamp: Date.now() });
 
@@ -312,8 +289,6 @@ export async function incrementalReindex(
 
     const headCommit = await getCurrentCommit(projectPath);
     if (headCommit) await saveLastIndexedCommit(projectPath, headCommit);
-
-    console.log('[DCC] Incremental reindex done, fetching debt...');
     const debtResult = await callDccTool('cube_get_debt', {}, projectPath);
     const stats = parseDebtResultForProject(debtResult, projectPath);
 

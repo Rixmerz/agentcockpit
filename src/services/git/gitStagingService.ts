@@ -19,8 +19,6 @@ export async function stageFiles(projectPath: string, files: string[]): Promise<
   if (files.length === 0) return;
   // Quote file paths to handle spaces and special characters
   const quotedFiles = files.map(f => `"${f.replace(/"/g, '\\"')}"`).join(' ');
-  // DEBUG: Log the command being executed
-  console.log('[GitService] DEBUG stageFiles:', { files, quotedFiles, cmd: `add ${quotedFiles}` });
   await execGit(projectPath, `add ${quotedFiles}`);
 }
 

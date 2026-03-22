@@ -203,7 +203,6 @@ export function GitSettings({ projectPath, onGitInit }: GitSettingsProps) {
 
   // Load on mount and when project changes
   useEffect(() => {
-    console.log('[GitSettings] projectPath changed:', projectPath);
 
     // IMMEDIATELY reset all state when project changes
     setNewRemoteUrl('');

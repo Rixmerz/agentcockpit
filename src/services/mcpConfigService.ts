@@ -66,7 +66,6 @@ async function ensureConfigDir(): Promise<void> {
     const dirExists = await exists(dir);
     if (!dirExists) {
       await mkdir(dir, { recursive: true });
-      console.log('[McpConfig] Created config directory:', dir);
     }
   } catch (e) {
     console.error('[McpConfig] Error creating directory:', e);
@@ -91,11 +90,9 @@ function getDefaultConfig(): McpConfig {
 export async function loadMcpConfig(): Promise<McpConfig> {
   try {
     const configPath = await getConfigPath();
-    console.log('[McpConfig] Loading from:', configPath);
 
     const fileExists = await exists(configPath);
     if (!fileExists) {
-      console.log('[McpConfig] Config not found, returning defaults');
       return getDefaultConfig();
     }
 
@@ -106,7 +103,6 @@ export async function loadMcpConfig(): Promise<McpConfig> {
     );
 
     const config = JSON.parse(content) as McpConfig;
-    console.log('[McpConfig] Loaded', Object.keys(config.mcpServers).length, 'MCPs');
     return config;
   } catch (e) {
     console.error('[McpConfig] Load error:', e);
@@ -131,7 +127,6 @@ export async function saveMcpConfig(config: McpConfig): Promise<boolean> {
       'write mcps.json'
     );
 
-    console.log('[McpConfig] Saved', Object.keys(config.mcpServers).length, 'MCPs');
     return true;
   } catch (e) {
     console.error('[McpConfig] Save error:', e);
@@ -353,7 +348,6 @@ export async function addMcpToClaudeCode(name: string, config: McpServerConfig):
 
     // Write back
     await writeTextFile(codePath, JSON.stringify(claudeConfig, null, 2));
-    console.log(`[McpConfig] Added ${name} to Claude Code config`);
     return true;
   } catch (e) {
     console.error('[McpConfig] Error adding MCP to Claude Code:', e);
@@ -378,7 +372,6 @@ export async function removeMcpFromClaudeCode(name: string): Promise<boolean> {
     if (claudeConfig.mcpServers && claudeConfig.mcpServers[name]) {
       delete claudeConfig.mcpServers[name];
       await writeTextFile(codePath, JSON.stringify(claudeConfig, null, 2));
-      console.log(`[McpConfig] Removed ${name} from Claude Code config`);
     }
 
     return true;

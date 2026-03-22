@@ -193,7 +193,6 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
     if (!hasLocalRepo) {
       // DO NOT auto-initialize - user must explicitly init git
       // This prevents creating repos in wrong directories
-      console.log('[Snapshot] No local git repository - snapshots disabled. User must init git manually.');
       return null;
     }
 
@@ -202,7 +201,6 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
 
     // Skip if rebase/merge in progress
     if (status.isRebasing || status.isMerging) {
-      console.log('[Snapshot] Skipping - git operation in progress');
       return null;
     }
 
@@ -246,22 +244,13 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
       staged: status.stagedFiles.filter(f => !isExcludedPath(f)),
     };
 
-    const excludedCount =
-      (status.untrackedFiles.length - realChanges.untracked.length) +
-      (status.modifiedFiles.length - realChanges.modified.length) +
-      (status.stagedFiles.length - realChanges.staged.length);
-
     const hasRealChanges =
       realChanges.untracked.length > 0 ||
       realChanges.modified.length > 0 ||
       realChanges.staged.length > 0;
 
-    // Debug log showing real vs excluded changes
-    console.log(`[Snapshot] Changes: real=${realChanges.untracked.length + realChanges.modified.length + realChanges.staged.length}, excluded=${excludedCount}`);
-
     // Skip if no real uncommitted changes (tool/IDE files don't count)
     if (!hasRealChanges) {
-      console.log('[Snapshot] Skipping - only tool/IDE metadata changed, no real code changes');
       return null;
     }
 
@@ -279,10 +268,6 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
       ...realChanges.modified,
       ...realChanges.staged,
     ];
-
-    // DEBUG: Log files before passing to createCommit
-    console.log('[Snapshot] DEBUG filesToStage:', filesToStage);
-    console.log('[Snapshot] DEBUG filesToStage first chars:', filesToStage.map(f => ({ file: f, char0: f.charAt(0), code0: f.charCodeAt(0) })));
 
     // Create commit with only real changes (not tool/IDE metadata)
     const commitHash = await createCommit(projectPath, message, filesToStage);
@@ -321,8 +306,6 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
 
     // Save metadata
     await writeMetadata(projectPath, metadata);
-
-    console.log(`[Snapshot] Created V${version} (${commitHash.substring(0, 7)})`);
 
     return snapshot;
   } catch (error) {
@@ -427,7 +410,6 @@ export async function listSnapshots(projectPath: string): Promise<Snapshot[]> {
           filesChanged: tagInfo.filesChanged,
         };
         allSnapshots.push(discoveredSnapshot);
-        console.log(`[Snapshot] Discovered existing V${version} from git tag`);
       }
     }
   }
@@ -551,7 +533,6 @@ export async function restoreSnapshot(
     metadata.currentVersion = version;
     await writeMetadata(projectPath, metadata);
 
-    console.log(`[Snapshot] Restored to V${version}`);
   } finally {
     releaseLock();
   }
@@ -581,7 +562,6 @@ export async function deleteSnapshot(projectPath: string, version: number): Prom
     metadata.snapshots.splice(index, 1);
     await writeMetadata(projectPath, metadata);
 
-    console.log(`[Snapshot] Deleted V${version}`);
   } finally {
     releaseLock();
   }
@@ -610,7 +590,6 @@ export async function pruneSnapshots(projectPath: string, keepLast: number = MAX
 
     await writeMetadata(projectPath, metadata);
 
-    console.log(`[Snapshot] Pruned ${toRemove.length} old snapshots`);
     return toRemove.length;
   } finally {
     releaseLock();
@@ -647,12 +626,10 @@ export async function cleanupPushedSnapshots(projectPath: string): Promise<numbe
       remoteHead = result.trim() || null;
     } catch {
       // No remote or offline - can't cleanup
-      console.log('[Snapshot] No remote found, skipping pushed cleanup');
       return 0;
     }
 
     if (!remoteHead) {
-      console.log('[Snapshot] No remote HEAD, skipping pushed cleanup');
       return 0;
     }
 
@@ -696,7 +673,6 @@ export async function cleanupPushedSnapshots(projectPath: string): Promise<numbe
     }
 
     if (toRemove.length === 0) {
-      console.log('[Snapshot] No pushed snapshots to clean up');
       return 0;
     }
 
@@ -718,7 +694,6 @@ export async function cleanupPushedSnapshots(projectPath: string): Promise<numbe
 
     await writeMetadata(projectPath, metadata);
 
-    console.log(`[Snapshot] Cleaned up ${toRemove.length} pushed snapshots (backed up on remote)`);
     return toRemove.length;
   } finally {
     releaseLock();

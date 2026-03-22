@@ -83,7 +83,6 @@ async function doPoll(): Promise<void> {
     const removed = [..._lastFileSet].filter(f => !currentFileSet.has(f));
 
     if (added.length > 0 || removed.length > 0) {
-      console.log(`[GitWatcher] Files changed: +${added.length} -${removed.length}`, [...added, ...removed].slice(0, 5));
       gitWatcherEvents.emit('changed', {
         projectPath,
         changedFiles: [...added, ...removed],
@@ -95,7 +94,6 @@ async function doPoll(): Promise<void> {
 
     // Detect new commit (HEAD hash changed)
     if (headHash && _lastHeadHash !== null && headHash !== _lastHeadHash) {
-      console.log(`[GitWatcher] New commit detected: ${headHash.substring(0, 8)} (was ${_lastHeadHash.substring(0, 8)})`);
       gitWatcherEvents.emit('commit', {
         projectPath,
         commitHash: headHash,
@@ -126,7 +124,6 @@ function start(projectPath: string): void {
   _projectPath = projectPath;
   _lastFileSet = new Set();
   _lastHeadHash = null;
-  console.log(`[GitWatcher] Started watching: ${projectPath}`);
 
   // Immediate first poll (captures baseline, won't emit commit/changed)
   doPoll();
@@ -138,7 +135,6 @@ function stop(): void {
   if (_intervalId !== null) {
     clearInterval(_intervalId);
     _intervalId = null;
-    console.log(`[GitWatcher] Stopped`);
   }
   _projectPath = null;
   _isPolling = false;
