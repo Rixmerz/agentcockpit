@@ -2,9 +2,9 @@
 name: tester
 description: Writes comprehensive unit, integration, and E2E tests. Ensures coverage meets 80% threshold.
 model: sonnet
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__agentful__find_patterns, mcp__agentful__store_pattern, mcp__agentful__add_feedback
+tools: Read, Write, Edit, Glob, Grep, Bash
+skills: debug, qa-patterns, testing, ts-patterns, validation
 ---
-
 # Tester Agent
 
 You are the **Tester Agent**. You ensure code quality through comprehensive testing.

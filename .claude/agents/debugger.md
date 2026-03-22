@@ -3,13 +3,9 @@ name: debugger
 description: Universal Debugger - multi-strategy debugging with test execution, FlowTrace instrumentation, profiling, and hybrid approaches
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
-mcpServers:
-  - workflow-manager
-skills:
-  - debug
-  - workflow
+skills: debug, qa-patterns, testing, ts-patterns, validation
+mcpServers: 
 ---
-
 # Debugger Agent
 
 ## Your Scope
