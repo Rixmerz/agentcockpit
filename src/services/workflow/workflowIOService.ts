@@ -1,3 +1,18 @@
+/**
+ * workflowIOService.ts — Workflow I/O and graph parsing for the UI layer.
+ *
+ * Source-of-truth separation (MA1):
+ *   - Python MCP server (.workflow-manager) is the authoritative source for ALL
+ *     workflow state mutations: node transitions, visit counts, enforcer decisions,
+ *     and config writes. It owns graph_state.json and config.json.
+ *   - This TypeScript module is a READ-ONLY cache for UI rendering. It reads the
+ *     same files that Python writes so that the frontend can display current node,
+ *     execution path, and graph topology without duplicating mutation logic.
+ *
+ * Consequence: never write to graph_state.json from this file. State changes must
+ * go through the Python MCP server (via hookService / syncWorkflowHooks for config,
+ * or via the enforcer for state transitions). The UI reflects; it does not drive.
+ */
 import { readTextFile, writeTextFile, exists, mkdir } from '@tauri-apps/plugin-fs';
 import { getHomeDir } from '../homeDir';
 

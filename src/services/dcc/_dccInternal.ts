@@ -19,17 +19,46 @@ export const DCC_NAME = 'deltacodecube';
 // Mutable State (shared across all DCC modules)
 // =====================================================
 
-export const dccState = {
-  installedCache: undefined as boolean | undefined,
-  installedPromise: null as Promise<boolean> | null,
-  dccPathCache: undefined as string | null | undefined,
-  dccPathPromise: null as Promise<string | null> | null,
-  serverStartedForProject: null as string | null,
-  serverStartPromise: null as Promise<void> | null,
-  serverStartFailedAt: null as number | null,
-  indexingInProgress: false,
-  homeDirCache: null as string | null,
-};
+class DccStateManager {
+  private _installedCache: boolean | undefined = undefined;
+  private _installedPromise: Promise<boolean> | null = null;
+  private _dccPathCache: string | null | undefined = undefined;
+  private _dccPathPromise: Promise<string | null> | null = null;
+  private _serverStartedForProject: string | null = null;
+  private _serverStartPromise: Promise<void> | null = null;
+  private _serverStartFailedAt: number | null = null;
+  private _indexingInProgress = false;
+  private _homeDirCache: string | null = null;
+
+  get installedCache() { return this._installedCache; }
+  set installedCache(value: boolean | undefined) { this._installedCache = value; }
+
+  get installedPromise() { return this._installedPromise; }
+  set installedPromise(value: Promise<boolean> | null) { this._installedPromise = value; }
+
+  get dccPathCache() { return this._dccPathCache; }
+  set dccPathCache(value: string | null | undefined) { this._dccPathCache = value; }
+
+  get dccPathPromise() { return this._dccPathPromise; }
+  set dccPathPromise(value: Promise<string | null> | null) { this._dccPathPromise = value; }
+
+  get serverStartedForProject() { return this._serverStartedForProject; }
+  set serverStartedForProject(value: string | null) { this._serverStartedForProject = value; }
+
+  get serverStartPromise() { return this._serverStartPromise; }
+  set serverStartPromise(value: Promise<void> | null) { this._serverStartPromise = value; }
+
+  get serverStartFailedAt() { return this._serverStartFailedAt; }
+  set serverStartFailedAt(value: number | null) { this._serverStartFailedAt = value; }
+
+  get indexingInProgress() { return this._indexingInProgress; }
+  set indexingInProgress(value: boolean) { this._indexingInProgress = value; }
+
+  get homeDirCache() { return this._homeDirCache; }
+  set homeDirCache(value: string | null) { this._homeDirCache = value; }
+}
+
+export const dccState = new DccStateManager();
 
 // =====================================================
 // Timeout Helpers

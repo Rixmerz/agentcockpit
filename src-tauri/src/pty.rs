@@ -288,6 +288,106 @@ impl Drop for PtyManager {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- find_utf8_boundary ---
+
+    #[test]
+    fn utf8_boundary_empty() {
+        assert_eq!(find_utf8_boundary(b""), 0);
+    }
+
+    #[test]
+    fn utf8_boundary_pure_ascii() {
+        assert_eq!(find_utf8_boundary(b"hello"), 5);
+    }
+
+    #[test]
+    fn utf8_boundary_single_ascii_byte() {
+        assert_eq!(find_utf8_boundary(b"A"), 1);
+    }
+
+    #[test]
+    fn utf8_boundary_complete_2byte() {
+        // é = U+00E9 = 0xC3 0xA9
+        let bytes: &[u8] = &[0x68, 0xC3, 0xA9]; // "hé"
+        assert_eq!(find_utf8_boundary(bytes), 3);
+    }
+
+    #[test]
+    fn utf8_boundary_incomplete_2byte() {
+        // First byte of é (0xC3) present without its continuation byte
+        let bytes: &[u8] = &[0x68, 0xC3]; // "h" + first byte of é
+        assert_eq!(find_utf8_boundary(bytes), 1);
+    }
+
+    #[test]
+    fn utf8_boundary_complete_3byte() {
+        // € = U+20AC = 0xE2 0x82 0xAC
+        let bytes: &[u8] = &[0xE2, 0x82, 0xAC];
+        assert_eq!(find_utf8_boundary(bytes), 3);
+    }
+
+    #[test]
+    fn utf8_boundary_incomplete_3byte_missing_last() {
+        // € without the last continuation byte: 0xE2 0x82 only
+        let bytes: &[u8] = &[0x41, 0xE2, 0x82]; // "A" + 2 bytes of €
+        assert_eq!(find_utf8_boundary(bytes), 1);
+    }
+
+    #[test]
+    fn utf8_boundary_incomplete_3byte_missing_two() {
+        // € with only first byte present: 0xE2 only
+        let bytes: &[u8] = &[0x41, 0xE2]; // "A" + 1 byte of €
+        assert_eq!(find_utf8_boundary(bytes), 1);
+    }
+
+    #[test]
+    fn utf8_boundary_complete_4byte() {
+        // 𝄞 (musical symbol G clef) = U+1D11E = 0xF0 0x9D 0x84 0x9E
+        let bytes: &[u8] = &[0xF0, 0x9D, 0x84, 0x9E];
+        assert_eq!(find_utf8_boundary(bytes), 4);
+    }
+
+    #[test]
+    fn utf8_boundary_incomplete_4byte_one_continuation() {
+        // 4-byte char with only 2 bytes present
+        let bytes: &[u8] = &[0x41, 0xF0, 0x9D]; // "A" + first 2 bytes of 𝄞
+        assert_eq!(find_utf8_boundary(bytes), 1);
+    }
+
+    #[test]
+    fn utf8_boundary_incomplete_4byte_two_continuations() {
+        // 4-byte char with only 3 bytes present
+        let bytes: &[u8] = &[0x41, 0xF0, 0x9D, 0x84]; // "A" + first 3 bytes of 𝄞
+        assert_eq!(find_utf8_boundary(bytes), 1);
+    }
+
+    #[test]
+    fn utf8_boundary_incomplete_4byte_only_start() {
+        // 4-byte start byte with no continuations
+        let bytes: &[u8] = &[0x41, 0xF0]; // "A" + 4-byte start byte only
+        assert_eq!(find_utf8_boundary(bytes), 1);
+    }
+
+    #[test]
+    fn utf8_boundary_multiple_multibyte_complete() {
+        // "héllo€" — all complete
+        let s = "héllo€";
+        let bytes = s.as_bytes();
+        assert_eq!(find_utf8_boundary(bytes), bytes.len());
+    }
+
+    #[test]
+    fn utf8_boundary_ascii_then_incomplete_multibyte() {
+        // Several ASCII bytes followed by an incomplete 2-byte sequence
+        let bytes: &[u8] = &[0x61, 0x62, 0x63, 0xC3]; // "abc" + first byte of é
+        assert_eq!(find_utf8_boundary(bytes), 3);
+    }
+}
+
 // Tauri commands
 
 #[tauri::command]
