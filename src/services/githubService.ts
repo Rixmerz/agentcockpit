@@ -7,6 +7,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { withTimeout, TimeoutError } from '../core/utils/promiseTimeout';
+import { getHomeDir } from './homeDir';
 
 // Timeout for execute_command operations (prevents infinite hangs in bundled app)
 const GITHUB_TIMEOUT_MS = 5000;
@@ -66,29 +67,6 @@ export class GitHubAuthError extends Error {
     super(message);
     this.name = 'GitHubAuthError';
     this.code = code;
-  }
-}
-
-/**
- * Get the home directory path
- */
-async function getHomeDir(): Promise<string> {
-  try {
-    const result = await withTimeout(
-      invoke<string>('execute_command', {
-        cmd: 'echo $HOME',
-        cwd: '/',
-      }),
-      GITHUB_TIMEOUT_MS,
-      'echo $HOME'
-    );
-    return result.trim();
-  } catch (error) {
-    if (error instanceof TimeoutError) {
-      console.error('[GitHub] Timeout getting HOME dir:', error.message);
-    }
-    // Fallback for bundled app - use /tmp as safe default
-    return '/tmp';
   }
 }
 

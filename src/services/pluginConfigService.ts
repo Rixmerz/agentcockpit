@@ -5,9 +5,9 @@
  * Each plugin can have its own configuration section.
  */
 
-import { homeDir } from '@tauri-apps/api/path';
 import { readTextFile, writeTextFile, exists, mkdir } from '@tauri-apps/plugin-fs';
 import { withTimeout } from '../core/utils/promiseTimeout';
+import { getHomeDir } from './homeDir';
 
 const INVOKE_TIMEOUT_MS = 5000;
 const CONFIG_DIR = '.agentcockpit';
@@ -30,25 +30,13 @@ export interface PluginsConfig {
   claude?: ClaudePluginConfig;
 }
 
-// Cache
-let cachedHomePath: string | null = null;
-
-async function getHomePath(): Promise<string> {
-  if (!cachedHomePath) {
-    const home = await homeDir();
-    if (!home) throw new Error('Could not determine home directory');
-    cachedHomePath = home.endsWith('/') ? home.slice(0, -1) : home;
-  }
-  return cachedHomePath;
-}
-
 async function getConfigPath(): Promise<string> {
-  const home = await getHomePath();
+  const home = await getHomeDir();
   return `${home}/${CONFIG_DIR}/${CONFIG_FILE}`;
 }
 
 async function getConfigDir(): Promise<string> {
-  const home = await getHomePath();
+  const home = await getHomeDir();
   return `${home}/${CONFIG_DIR}`;
 }
 

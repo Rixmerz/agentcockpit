@@ -51,6 +51,7 @@ src-tauri/target/
 
 # Workflow manager runtime data (sessions, screenshots, DBs)
 .workflow-manager/data/
+.workflow-manager/.venv/
 
 # Obsolete agents directory
 .agents/

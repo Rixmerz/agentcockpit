@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
+const MODAL_TITLE_ID = 'modal-title';
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,10 +28,16 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-container"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={MODAL_TITLE_ID}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
-          <h2 className="modal-title">{title}</h2>
-          <button className="modal-close-btn" onClick={onClose}>
+          <h2 id={MODAL_TITLE_ID} className="modal-title">{title}</h2>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Close dialog">
             <X size={20} />
           </button>
         </div>

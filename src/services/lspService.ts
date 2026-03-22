@@ -4,7 +4,9 @@
 
 import { invoke } from '@tauri-apps/api/core';
 
-const SCRIPT_PATH = '/var/home/rixmerz/agentcockpit/scripts/claude-lsp-setup';
+const SCRIPT_PATH = import.meta.env.DEV
+  ? new URL('../../scripts/claude-lsp-setup', import.meta.url).pathname
+  : new URL('../scripts/claude-lsp-setup', import.meta.url).pathname;
 
 export interface LspStatus {
   plugin: string;

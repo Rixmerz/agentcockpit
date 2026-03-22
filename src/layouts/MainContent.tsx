@@ -5,20 +5,19 @@
  * and terminal views.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 import { useApp, useAppSettings } from '../contexts/AppContext';
 import { TerminalView } from '../components/terminal/TerminalView';
 import { TerminalHeader } from '../components/terminal/TerminalHeader';
 import { ControlBar, WorkflowStepsBar } from '../components/control-bar';
 import { TerminalSquare } from 'lucide-react';
+import type { WorkflowStatus } from '../services/workflow/index';
 
 interface MainContentAreaProps {
   selectedIDE: string | null;
   handleOpenInIDE: (path: string) => void;
-  isIdle: boolean;
   signalActivity: () => void;
-  anyModalOpen: boolean;
 }
 
 export function MainContentArea({
@@ -29,7 +28,11 @@ export function MainContentArea({
   const { state, activeProject, activeTerminal, removeTerminal } = useApp();
   const { terminalOpacity } = useAppSettings();
 
-  const [workflowRefreshKey, setWorkflowRefreshKey] = useState(0);
+  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus | null>(null);
+
+  const handleStatusChange = useCallback((status: WorkflowStatus | null) => {
+    setWorkflowStatus(status);
+  }, []);
 
   return (
     <main className="main-content">
@@ -39,12 +42,11 @@ export function MainContentArea({
           projectPath={activeProject?.path || null}
           onWorkflowChange={(name) => {
             console.log('[App] Workflow changed:', name);
-            setWorkflowRefreshKey(k => k + 1);
           }}
+          onStatusChange={handleStatusChange}
         />
         <WorkflowStepsBar
-          projectPath={activeProject?.path || null}
-          refreshKey={workflowRefreshKey}
+          status={workflowStatus}
           onNodeClick={(nodeId) => console.log('[App] Node clicked:', nodeId)}
         />
       </div>

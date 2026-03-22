@@ -7,10 +7,10 @@
  * The execute_mcp_tool in workflow-manager reads from this config.
  */
 
-import { homeDir } from '@tauri-apps/api/path';
 import { readTextFile, writeTextFile, exists, mkdir } from '@tauri-apps/plugin-fs';
 import { invoke } from '@tauri-apps/api/core';
 import { withTimeout } from '../core/utils/promiseTimeout';
+import { getHomeDir } from './homeDir';
 import { addCodeMcp, removeCodeMcp } from './mcpService';
 import { getClaudeDesktopConfigPath, getOpenCommand } from '../core/utils/platform';
 
@@ -47,25 +47,13 @@ export interface McpConfig {
   lastUpdated: string;
 }
 
-// Cache
-let cachedHomePath: string | null = null;
-
-async function getHomePath(): Promise<string> {
-  if (!cachedHomePath) {
-    const home = await homeDir();
-    if (!home) throw new Error('Could not determine home directory');
-    cachedHomePath = home.endsWith('/') ? home.slice(0, -1) : home;
-  }
-  return cachedHomePath;
-}
-
 async function getConfigPath(): Promise<string> {
-  const home = await getHomePath();
+  const home = await getHomeDir();
   return `${home}/${CONFIG_DIR}/${CONFIG_FILE}`;
 }
 
 async function getConfigDir(): Promise<string> {
-  const home = await getHomePath();
+  const home = await getHomeDir();
   return `${home}/${CONFIG_DIR}`;
 }
 
@@ -268,7 +256,7 @@ export async function toggleMcpDisabled(name: string): Promise<{ success: boolea
  */
 export async function loadDesktopMcps(): Promise<Record<string, McpServerConfig>> {
   try {
-    const home = await getHomePath();
+    const home = await getHomeDir();
     const desktopPath = await getClaudeDesktopConfigPath(home);
 
     const fileExists = await exists(desktopPath);
@@ -293,7 +281,7 @@ export async function loadDesktopMcps(): Promise<Record<string, McpServerConfig>
  */
 export async function loadCodeMcps(): Promise<Record<string, McpServerConfig>> {
   try {
-    const home = await getHomePath();
+    const home = await getHomeDir();
     const codePath = `${home}/.claude.json`;
 
     const fileExists = await exists(codePath);
@@ -318,7 +306,7 @@ export async function loadCodeMcps(): Promise<Record<string, McpServerConfig>> {
  */
 export async function loadGeminiMcps(): Promise<Record<string, McpServerConfig>> {
   try {
-    const home = await getHomePath();
+    const home = await getHomeDir();
     const geminiPath = `${home}/.gemini/settings.json`;
 
     const fileExists = await exists(geminiPath);
@@ -344,7 +332,7 @@ export async function loadGeminiMcps(): Promise<Record<string, McpServerConfig>>
  */
 export async function addMcpToClaudeCode(name: string, config: McpServerConfig): Promise<boolean> {
   try {
-    const home = await getHomePath();
+    const home = await getHomeDir();
     const codePath = `${home}/.claude.json`;
 
     // Read existing config
@@ -378,7 +366,7 @@ export async function addMcpToClaudeCode(name: string, config: McpServerConfig):
  */
 export async function removeMcpFromClaudeCode(name: string): Promise<boolean> {
   try {
-    const home = await getHomePath();
+    const home = await getHomeDir();
     const codePath = `${home}/.claude.json`;
 
     const fileExists = await exists(codePath);

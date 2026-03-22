@@ -29,6 +29,7 @@ import {
 import { DropdownPanel, DropdownItem, DropdownSection } from './DropdownPanel';
 import { Modal } from '../common/Modal';
 import { GitSettings } from '../sidebar-right/GitSettings';
+import type { WorkflowStatus } from '../../services/workflow/index';
 
 // Import services
 import { workflowService, copyAllAssetsToProject } from '../../services/workflowService';
@@ -85,6 +86,7 @@ function formatRelativeTime(timestamp: number): string {
 interface ControlBarProps {
   projectPath: string | null;
   onWorkflowChange?: (workflowName: string | null) => void;
+  onStatusChange?: (status: WorkflowStatus | null) => void;
 }
 
 interface WorkflowInfo {
@@ -120,7 +122,7 @@ const PORTS_TO_CHECK = [
   8000, 8080, 8888, 5432, 6379, 27017
 ];
 
-export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
+export function ControlBar({ projectPath, onWorkflowChange, onStatusChange }: ControlBarProps) {
   // Workflow state
   const [availableWorkflows, setAvailableWorkflows] = useState<string[]>([]);
   const [activeWorkflow, setActiveWorkflow] = useState<WorkflowInfo | null>(null);
@@ -351,6 +353,7 @@ export function ControlBar({ projectPath, onWorkflowChange }: ControlBarProps) {
         setAvailableWorkflows(workflows);
 
         const status = await workflowService.getStatus(projectPath);
+        onStatusChange?.(status);
         if (status) {
           setActiveWorkflow({
             name: status.graphName || 'Unknown',

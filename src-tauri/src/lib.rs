@@ -54,6 +54,7 @@ impl DccMcpClient {
 impl Drop for DccMcpClient {
     fn drop(&mut self) {
         let _ = self.child.kill();
+        let _ = self.child.wait();
     }
 }
 

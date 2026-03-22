@@ -32,6 +32,7 @@ import {
 } from '../../services/hookService';
 import { WorkflowModal } from './WorkflowModal';
 import { WorkflowTimeline } from './WorkflowTimeline';
+import { ErrorBanner } from '../common/ErrorBanner';
 import { reindexProject, isDeltaCodeCubeInstalled, isIndexing } from '../../services/deltacodecubeService';
 import {
   Workflow,
@@ -41,7 +42,6 @@ import {
   Settings,
   CheckCircle2,
   Circle,
-  AlertCircle,
   Download,
   Trash2,
   Power,
@@ -653,28 +653,7 @@ export function WorkflowPanel({ projectPath, onModalStateChange }: WorkflowPanel
 
           {/* Error state */}
           {!loading && error && (
-            <div style={{
-              padding: '12px',
-              color: '#ef4444',
-              fontSize: '11px',
-              background: 'rgba(239, 68, 68, 0.1)',
-              borderRadius: '6px',
-              marginBottom: '8px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <AlertCircle size={14} />
-                <span>Error loading workflow</span>
-              </div>
-              <div style={{ opacity: 0.8, fontSize: '10px', marginBottom: '8px' }}>{error}</div>
-              <button
-                className="workflow-action-btn"
-                onClick={loadData}
-                style={{ width: '100%' }}
-              >
-                <RotateCcw size={14} />
-                Retry
-              </button>
-            </div>
+            <ErrorBanner message={error} onClose={() => setError(null)} />
           )}
 
           {/* Success state */}

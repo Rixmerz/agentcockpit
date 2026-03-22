@@ -118,9 +118,7 @@ export function AppShell() {
       <MainContentArea
         selectedIDE={selectedIDE}
         handleOpenInIDE={handleOpenInIDE}
-        isIdle={isIdle}
         signalActivity={signalActivity}
-        anyModalOpen={actionsPanelModalOpen}
       />
 
       <SidebarRight

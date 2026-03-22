@@ -3,30 +3,18 @@
  */
 
 import { exists, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
-import { invoke } from '@tauri-apps/api/core';
 import { indexEvents } from '../../core/utils/indexEventBus';
 import type { IndexStats } from './dccTypes';
 import { dccState, callDccTool, getProjectDataDir, parseDebtResultForProject } from './_dccInternal';
+import { execGitSafe } from '../git/gitCore';
 
 // =====================================================
 // Git Helpers (local to indexing)
 // =====================================================
 
-async function gitCommand(projectPath: string, args: string): Promise<string> {
-  const result = await invoke<string>('execute_command', {
-    cmd: `git ${args}`,
-    cwd: projectPath,
-  });
-  return result.trim();
-}
-
 async function getCurrentCommit(projectPath: string): Promise<string | null> {
-  try {
-    const hash = await gitCommand(projectPath, 'rev-parse HEAD');
-    return hash || null;
-  } catch {
-    return null;
-  }
+  const hash = await execGitSafe(projectPath, 'rev-parse HEAD');
+  return hash || null;
 }
 
 async function getLastIndexedCommit(projectPath: string): Promise<string | null> {
@@ -62,7 +50,7 @@ async function getChangedFiles(
   const deleted: string[] = [];
 
   try {
-    const diffOutput = await gitCommand(
+    const diffOutput = await execGitSafe(
       projectPath,
       `diff --name-status ${fromCommit} ${toCommit}`,
     );
@@ -125,7 +113,7 @@ export async function indexProject(projectPath: string): Promise<IndexStats | nu
     const headCommit = await getCurrentCommit(projectPath);
     if (headCommit) {
       try {
-        const prevCommit = await gitCommand(projectPath, 'rev-parse HEAD~1');
+        const prevCommit = await execGitSafe(projectPath, 'rev-parse HEAD~1');
         if (prevCommit) {
           const { modified } = await getChangedFiles(projectPath, prevCommit, headCommit);
           if (modified.length > 0) {

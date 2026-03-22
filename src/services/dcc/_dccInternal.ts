@@ -5,6 +5,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
+import { withTimeout } from '../../core/utils/promiseTimeout';
 import {
   loadMcpConfig,
   getAgentcockpitPath,
@@ -38,18 +39,6 @@ export const DCC_RETRY_COOLDOWN_MS = 10_000;
 export const DCC_START_TIMEOUT_MS = 15_000;
 export const DCC_CALL_TIMEOUT_MS = 60_000;
 export const DCC_STOP_TIMEOUT_MS = 5_000;
-
-export function withDccTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`[DCC] ${label} timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-    promise.then(
-      (val) => { clearTimeout(timer); resolve(val); },
-      (err) => { clearTimeout(timer); reject(err); },
-    );
-  });
-}
 
 // =====================================================
 // Config
@@ -151,7 +140,7 @@ export async function ensureDccServer(projectPath: string): Promise<void> {
     if (dccState.serverStartedForProject !== null) {
       console.log(`[DCC] Switching project: ${dccState.serverStartedForProject} -> ${projectPath}`);
       try {
-        await withDccTimeout(invoke('dcc_stop'), DCC_STOP_TIMEOUT_MS, 'dcc_stop');
+        await withTimeout(invoke('dcc_stop'), DCC_STOP_TIMEOUT_MS, 'dcc_stop');
       } catch (e) {
         console.warn('[DCC] Stop failed during project switch:', e);
       }
@@ -162,7 +151,7 @@ export async function ensureDccServer(projectPath: string): Promise<void> {
     if (!dccPath) throw new Error('DCC path not found');
 
     const dataDir = await getProjectDataDir(projectPath);
-    await withDccTimeout(
+    await withTimeout(
       invoke('dcc_start', { dccPath, dataDir }),
       DCC_START_TIMEOUT_MS,
       'dcc_start'
@@ -190,7 +179,7 @@ export async function callDccTool(toolName: string, args: Record<string, unknown
     await ensureDccServer(projectPath);
   }
 
-  const response = await withDccTimeout(
+  const response = await withTimeout(
     invoke<string>('dcc_call', {
       toolName,
       arguments: JSON.stringify(args),

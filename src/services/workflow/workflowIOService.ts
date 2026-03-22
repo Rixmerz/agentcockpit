@@ -1,5 +1,5 @@
-import { homeDir } from '@tauri-apps/api/path';
 import { readTextFile, writeTextFile, exists, mkdir } from '@tauri-apps/plugin-fs';
+import { getHomeDir } from '../homeDir';
 
 // ============================================
 // Graph-Based Workflow Types (v2.0)
@@ -116,7 +116,6 @@ export const GRAPH_STATE_FILE = 'graph_state.json';
 export const GRAPH_FILE = 'graph.yaml';
 const AGENTCOCKPIT_CONFIG = '.agentcockpit/config.json';
 
-export let cachedHomeDir: string | null = null;
 export let cachedHubConfig: { hub_dir: string; workflows_dir: string; states_dir: string } | null = null;
 
 /**
@@ -144,13 +143,10 @@ export async function getHubConfig(): Promise<HubConfig | null> {
   if (cachedHubConfig) return cachedHubConfig;
 
   try {
-    if (!cachedHomeDir) {
-      const home = await homeDir();
-      if (!home) return null;
-      cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
-    }
+    const homeForConfig = await getHomeDir();
+    if (!homeForConfig) return null;
 
-    const configPath = `${cachedHomeDir}/${AGENTCOCKPIT_CONFIG}`;
+    const configPath = `${homeForConfig}/${AGENTCOCKPIT_CONFIG}`;
     const configExists = await exists(configPath);
     if (!configExists) return null;
 
@@ -181,13 +177,7 @@ export async function getLocalWorkflowDir(projectPath?: string | null): Promise<
     return `${normalizedPath}/${WORKFLOW_DIR}`;
   }
 
-  if (!cachedHomeDir) {
-    const home = await homeDir();
-    if (!home) throw new Error('Could not determine home directory');
-    cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
-  }
-
-  return `${cachedHomeDir}/${WORKFLOW_DIR}`;
+  return `${await getHomeDir()}/${WORKFLOW_DIR}`;
 }
 
 // Get centralized state dir (for graph_state.json, config.json)
@@ -242,13 +232,7 @@ export async function getGlobalWorkflowsDir(): Promise<string> {
   }
 
   // Fallback
-  if (!cachedHomeDir) {
-    const home = await homeDir();
-    if (!home) throw new Error('Could not determine home directory');
-    cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
-  }
-
-  return `${cachedHomeDir}/my_projects/agentcockpit/.claude/workflows`;
+  return `${await getHomeDir()}/my_projects/agentcockpit/.claude/workflows`;
 }
 
 export async function getGlobalAgentsDir(): Promise<string> {
@@ -260,13 +244,7 @@ export async function getGlobalAgentsDir(): Promise<string> {
   }
 
   // Fallback
-  if (!cachedHomeDir) {
-    const home = await homeDir();
-    if (!home) throw new Error('Could not determine home directory');
-    cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
-  }
-
-  return `${cachedHomeDir}/my_projects/agentcockpit/.claude/agents`;
+  return `${await getHomeDir()}/my_projects/agentcockpit/.claude/agents`;
 }
 
 export async function getGlobalSkillsDir(): Promise<string> {
@@ -278,13 +256,7 @@ export async function getGlobalSkillsDir(): Promise<string> {
   }
 
   // Fallback
-  if (!cachedHomeDir) {
-    const home = await homeDir();
-    if (!home) throw new Error('Could not determine home directory');
-    cachedHomeDir = home.endsWith('/') ? home.slice(0, -1) : home;
-  }
-
-  return `${cachedHomeDir}/my_projects/agentcockpit/.claude/skills`;
+  return `${await getHomeDir()}/my_projects/agentcockpit/.claude/skills`;
 }
 
 export async function getWorkflowPath(projectPath?: string | null): Promise<string> {

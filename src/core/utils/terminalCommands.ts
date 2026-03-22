@@ -108,13 +108,6 @@ export function escapeJsonForShell(json: object | string): string {
 }
 
 /**
- * Escape string for writing to config files via echo
- */
-export function escapeForConfigFile(content: string): string {
-  return content.replace(/'/g, "'\\''");
-}
-
-/**
  * Join multiple commands to run sequentially
  * Uses semicolon separator so all commands run regardless of exit status
  *
@@ -136,13 +129,6 @@ export function joinCommandsSequential(commands: string[]): string {
  */
 export function wrapCommandSafe(cmd: string): string {
   return `${cmd} 2>/dev/null || true`;
-}
-
-/**
- * Build a safe command that suppresses errors and continues
- */
-export function buildSafeCommand(cmd: string): string {
-  return wrapCommandSafe(cmd);
 }
 
 // ==================== Command Execution Patterns ====================
@@ -169,10 +155,3 @@ export async function executeCommandSequence(
 // ==================== Type Definitions ====================
 
 export type TerminalWriter = (data: string) => Promise<void>;
-
-export interface CommandExecutionOptions {
-  /** Whether to suppress errors (2>/dev/null || true) */
-  safe?: boolean;
-  /** Custom delay between operations */
-  delay?: number;
-}

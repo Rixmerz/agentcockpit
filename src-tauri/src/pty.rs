@@ -332,38 +332,46 @@ impl PtyManager {
 
     pub fn close(&mut self, id: u32) -> Result<(), String> {
         if let Some(mut instance) = self.instances.remove(&id) {
-            // Kill process group (shell + all descendants like Claude)
-            #[cfg(unix)]
-            {
-                if let Some(pid) = instance.child.process_id() {
-                    unsafe {
-                        // Send SIGTERM first for graceful shutdown
-                        libc::kill(-(pid as i32), libc::SIGTERM);
+            // Spawn cleanup in a separate thread so the PtyManager Mutex is
+            // released before any sleep — no other command can be blocked
+            // while we wait for the child process to exit.
+            std::thread::spawn(move || {
+                // Kill process group (shell + all descendants like Claude)
+                #[cfg(unix)]
+                {
+                    if let Some(pid) = instance.child.process_id() {
+                        // SAFETY: pid comes from portable_pty and is a valid process ID.
+                        // Negating it sends the signal to the entire process group, which
+                        // is the intended behavior for terminal cleanup.
+                        unsafe {
+                            // Send SIGTERM first for graceful shutdown
+                            libc::kill(-(pid as i32), libc::SIGTERM);
 
-                        // Wait longer for graceful shutdown (500ms instead of 100ms)
-                        // Gives Claude time to cleanup properly
-                        std::thread::sleep(std::time::Duration::from_millis(500));
+                            // Wait longer for graceful shutdown (500ms instead of 100ms)
+                            // Gives Claude time to cleanup properly
+                            std::thread::sleep(std::time::Duration::from_millis(500));
 
-                        // Check if process still exists before SIGKILL
-                        let still_alive = libc::kill(-(pid as i32), 0) == 0;
+                            // Check if process still exists before SIGKILL
+                            let still_alive = libc::kill(-(pid as i32), 0) == 0;
 
-                        if still_alive {
-                            // SIGKILL if still running
-                            libc::kill(-(pid as i32), libc::SIGKILL);
-                            std::thread::sleep(std::time::Duration::from_millis(100));
+                            if still_alive {
+                                // SIGKILL if still running
+                                libc::kill(-(pid as i32), libc::SIGKILL);
+                                std::thread::sleep(std::time::Duration::from_millis(100));
+                            }
                         }
                     }
                 }
-            }
 
-            #[cfg(windows)]
-            {
-                let _ = instance.child.kill();
-            }
+                #[cfg(windows)]
+                {
+                    let _ = instance.child.kill();
+                }
 
-            // Wait for child to prevent zombies
-            let _ = instance.child.wait();
-            drop(instance);
+                // Wait for child to prevent zombies
+                let _ = instance.child.wait();
+                drop(instance);
+            });
             Ok(())
         } else {
             Err("PTY not found".to_string())
