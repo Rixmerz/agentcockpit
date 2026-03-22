@@ -65,8 +65,8 @@ export function AppShell() {
   // IDE detection
   const { availableIDEs, selectedIDE, handleOpenInIDE } = useIDEDetection(defaultIDE);
 
-  // Modal tracking
-  const [actionsPanelModalOpen, setActionsPanelModalOpen] = useState(false);
+  // Track modal state for ActionsPanel (value consumed only by the callback)
+  const [, setActionsPanelModalOpen] = useState(false);
 
   const handleAddTerminal = useCallback((projectId: string) => {
     const project = state.projects.find(p => p.id === projectId);

@@ -3,7 +3,8 @@
 // ============================================
 
 // Re-export WorkflowStep from canonical source to avoid duplication
-export type { WorkflowStep } from '../services/workflow/workflowIOService';
+import type { WorkflowStep } from '../services/workflow/workflowIOService';
+export type { WorkflowStep };
 
 // Workflow settings
 export interface WorkflowSettings {
