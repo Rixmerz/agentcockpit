@@ -18,6 +18,7 @@ import os
 import sys
 import json
 import asyncio
+import shutil
 import subprocess
 import uuid
 from contextlib import asynccontextmanager
@@ -4034,7 +4035,6 @@ def deploy_project_agents(
         })
 
     # --- Deploy skills ---
-    import shutil
 
     for skill_name in skills_to_deploy:
         src_dir = hub_skills_dir / skill_name
