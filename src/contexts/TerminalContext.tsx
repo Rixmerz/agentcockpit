@@ -7,6 +7,7 @@
 
 import { useContext, useCallback, createContext } from 'react';
 import type { AppState, AppAction, AppContextType } from './types';
+import { TerminalActivityContext } from './TerminalActivityContext';
 
 // Internal context reference - set by AppContext orchestrator
 export const TerminalInternalContext = createContext<AppContextType | null>(null);
@@ -77,7 +78,13 @@ export function useTerminalActions() {
 }
 
 export function useTerminalActivityState() {
-  const { state, dispatch } = useAppInternal();
+  // Read terminalActivity from the isolated context — this way high-frequency
+  // updates only re-render components that consume this hook, not all AppContext consumers.
+  const activityCtx = useContext(TerminalActivityContext);
+  if (!activityCtx) {
+    throw new Error('useTerminalActivityState must be used within AppProvider');
+  }
+  const { terminalActivity, dispatch } = activityCtx;
 
   const setTerminalActivity = useCallback((terminalId: string, isFinished: boolean, lastOutputAt: number) => {
     dispatch({ type: 'SET_TERMINAL_ACTIVITY', payload: { terminalId, isFinished, lastOutputAt } });
@@ -88,11 +95,11 @@ export function useTerminalActivityState() {
   }, [dispatch]);
 
   const isTerminalFinished = useCallback((terminalId: string) => {
-    return state.terminalActivity.get(terminalId)?.isFinished ?? false;
-  }, [state.terminalActivity]);
+    return terminalActivity.get(terminalId)?.isFinished ?? false;
+  }, [terminalActivity]);
 
   return {
-    terminalActivity: state.terminalActivity,
+    terminalActivity,
     setTerminalActivity,
     clearTerminalActivity,
     isTerminalFinished,

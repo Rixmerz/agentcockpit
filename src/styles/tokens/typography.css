@@ -6,10 +6,13 @@
   /* ═══════════════════════════════════════════════════════════════
      FONT FAMILIES
      ═══════════════════════════════════════════════════════════════ */
-  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Space Grotesk / Plus Jakarta Sans are not loaded from Google Fonts (see base.css).
+   * The system-ui stack is the effective font. Add @font-face rules in base.css to
+   * restore the custom fonts using local .woff2 files in public/fonts/. */
+  --font-display: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, monospace;
-  --font-condensed: 'Space Grotesk', sans-serif; /* For BF3 style headers */
+  --font-condensed: 'Space Grotesk', system-ui, sans-serif; /* For BF3 style headers */
 
   /* ═══════════════════════════════════════════════════════════════
      FONT SIZES - Using clamp for responsive scaling

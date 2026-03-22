@@ -3,7 +3,7 @@
  * Contains: Workflow, MCPs, Ports, Git, Snapshots, DCC Index, LSP
  */
 
-import { useEffect } from 'react';
+import { useEffect, memo } from 'react';
 import {
   Workflow,
   Server,
@@ -63,7 +63,7 @@ interface ControlBarProps {
   onStatusChange?: (status: WorkflowStatus | null) => void;
 }
 
-export function ControlBar({ projectPath, onWorkflowChange, onStatusChange }: ControlBarProps) {
+export const ControlBar = memo(function ControlBar({ projectPath, onWorkflowChange, onStatusChange }: ControlBarProps) {
   // Domain hooks
   const {
     availableWorkflows,
@@ -653,4 +653,4 @@ export function ControlBar({ projectPath, onWorkflowChange, onStatusChange }: Co
       </Modal>
     </div>
   );
-}
+});

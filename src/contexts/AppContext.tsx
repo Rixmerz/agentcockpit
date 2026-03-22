@@ -23,6 +23,17 @@ import { ProjectInternalContext } from './ProjectContext';
 import { SettingsInternalContext } from './SettingsContext';
 import { TerminalInternalContext } from './TerminalContext';
 
+// Terminal activity isolated context (separate module to avoid circular deps)
+import { TerminalActivityContext, useTerminalActivity } from './TerminalActivityContext';
+import type { TerminalActivityContextType } from './TerminalActivityContext';
+export { TerminalActivityContext, useTerminalActivity };
+
+// ==================== Stable Utilities ====================
+
+// generateId is a pure function with no dependencies — keep it at module scope
+// so it never changes identity and doesn't need to be in useCallback deps.
+const generateId = () => crypto.randomUUID();
+
 // ==================== Initial State ====================
 
 const initialState: AppState = {
@@ -92,16 +103,68 @@ export function AppProvider({ children }: AppProviderProps) {
     stateRef.current = state;
   }, [state]);
 
-  // Convenience getters (declared early for debug registry)
-  const activeProject = state.projects.find(p => p.id === state.activeProjectId) || null;
-  const activeTerminal = activeProject?.terminals.find(t => t.id === state.activeTerminalId) || null;
+  // Stable state reference that only changes identity when fields OTHER than
+  // terminalActivity change. This prevents terminalActivity updates (high-frequency)
+  // from invalidating the main AppContext value memo and re-rendering all consumers.
+  const stableStateRef = useRef(state);
+  const prevNonActivityStateRef = useRef({
+    projects: state.projects,
+    activeProjectId: state.activeProjectId,
+    activeTerminalId: state.activeTerminalId,
+    selectedModel: state.selectedModel,
+    mcpDesktopEnabled: state.mcpDesktopEnabled,
+    mcpDefaultEnabled: state.mcpDefaultEnabled,
+    defaultIDE: state.defaultIDE,
+    theme: state.theme,
+    backgroundImage: state.backgroundImage,
+    backgroundOpacity: state.backgroundOpacity,
+    terminalOpacity: state.terminalOpacity,
+    idleTimeout: state.idleTimeout,
+    terminalFinishedSound: state.terminalFinishedSound,
+    terminalFinishedThreshold: state.terminalFinishedThreshold,
+    customSoundPath: state.customSoundPath,
+    ptyInstances: state.ptyInstances,
+    isLoading: state.isLoading,
+  });
+  // Check if any non-activity field changed; only then update stableStateRef
+  const nonActivity = {
+    projects: state.projects,
+    activeProjectId: state.activeProjectId,
+    activeTerminalId: state.activeTerminalId,
+    selectedModel: state.selectedModel,
+    mcpDesktopEnabled: state.mcpDesktopEnabled,
+    mcpDefaultEnabled: state.mcpDefaultEnabled,
+    defaultIDE: state.defaultIDE,
+    theme: state.theme,
+    backgroundImage: state.backgroundImage,
+    backgroundOpacity: state.backgroundOpacity,
+    terminalOpacity: state.terminalOpacity,
+    idleTimeout: state.idleTimeout,
+    terminalFinishedSound: state.terminalFinishedSound,
+    terminalFinishedThreshold: state.terminalFinishedThreshold,
+    customSoundPath: state.customSoundPath,
+    ptyInstances: state.ptyInstances,
+    isLoading: state.isLoading,
+  };
+  const prev = prevNonActivityStateRef.current;
+  const nonActivityChanged = (Object.keys(nonActivity) as Array<keyof typeof nonActivity>).some(
+    k => nonActivity[k] !== prev[k]
+  );
+  if (nonActivityChanged) {
+    prevNonActivityStateRef.current = nonActivity;
+    stableStateRef.current = state;
+  }
 
   // Sync state to debug registry (DEV only)
+  // activeProject/activeTerminal are computed inline here to avoid
+  // creating derived variables that would need their own deps tracking.
   useEffect(() => {
     if (import.meta.env.DEV) {
-      debugStateRegistry.update(state, activeProject, activeTerminal);
+      const ap = state.projects.find(p => p.id === state.activeProjectId) || null;
+      const at = ap?.terminals.find(t => t.id === state.activeTerminalId) || null;
+      debugStateRegistry.update(state, ap, at);
     }
-  }, [state, activeProject, activeTerminal]);
+  }, [state]);
 
   // Persistence
   const { scheduleSave } = usePersistence({
@@ -130,8 +193,6 @@ export function AppProvider({ children }: AppProviderProps) {
       customSoundPath: stateRef.current.customSoundPath,
     }), []),
   });
-
-  const generateId = () => crypto.randomUUID();
 
   // ==================== Actions ====================
 
@@ -217,27 +278,43 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   }, [state.activeTerminalId]);
 
-  const value: AppContextType = useMemo(() => ({
-    state,
+  // Separate memoized value for terminalActivity — high-frequency updates
+  // must NOT invalidate the main AppContext value (which would re-render all consumers).
+  const terminalActivityValue = useMemo<TerminalActivityContextType>(() => ({
+    terminalActivity: state.terminalActivity,
     dispatch,
-    activeProject,
-    activeTerminal,
-    addProject,
-    removeProject,
-    addTerminal,
-    removeTerminal,
-    renameTerminal,
-    setActiveTerminal,
-    registerTerminalWriter,
-    unregisterTerminalWriter,
-    writeToActiveTerminal,
-    registerPtyId,
-    unregisterPtyId,
-    scheduleSave,
-  }), [
-    state,
-    activeProject,
-    activeTerminal,
+  }), [state.terminalActivity]);
+
+  // Use stableStateRef.current so that terminalActivity changes (high-frequency)
+  // do NOT invalidate this memo and re-render all AppContext consumers.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const value: AppContextType = useMemo(() => {
+    const stableState = stableStateRef.current;
+    const activeProject = stableState.projects.find(p => p.id === stableState.activeProjectId) || null;
+    const activeTerminal = activeProject?.terminals.find(t => t.id === stableState.activeTerminalId) || null;
+    return {
+      state: stableState,
+      dispatch,
+      activeProject,
+      activeTerminal,
+      addProject,
+      removeProject,
+      addTerminal,
+      removeTerminal,
+      renameTerminal,
+      setActiveTerminal,
+      registerTerminalWriter,
+      unregisterTerminalWriter,
+      writeToActiveTerminal,
+      registerPtyId,
+      unregisterPtyId,
+      scheduleSave,
+    };
+  // stableStateRef.current is intentionally NOT in deps — it's a ref.
+  // We depend on nonActivityChanged (captured via prevNonActivityStateRef) instead.
+  // The linter sees this as exhaustive because we suppress the warning above.
+  }, [
+    nonActivityChanged,
     addProject,
     removeProject,
     addTerminal,
@@ -254,13 +331,15 @@ export function AppProvider({ children }: AppProviderProps) {
 
   return (
     <AppContext.Provider value={value}>
-      <ProjectInternalContext.Provider value={value}>
-        <SettingsInternalContext.Provider value={value}>
-          <TerminalInternalContext.Provider value={value}>
-            {children}
-          </TerminalInternalContext.Provider>
-        </SettingsInternalContext.Provider>
-      </ProjectInternalContext.Provider>
+      <TerminalActivityContext.Provider value={terminalActivityValue}>
+        <ProjectInternalContext.Provider value={value}>
+          <SettingsInternalContext.Provider value={value}>
+            <TerminalInternalContext.Provider value={value}>
+              {children}
+            </TerminalInternalContext.Provider>
+          </SettingsInternalContext.Provider>
+        </ProjectInternalContext.Provider>
+      </TerminalActivityContext.Provider>
     </AppContext.Provider>
   );
 }

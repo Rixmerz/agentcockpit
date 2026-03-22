@@ -2,8 +2,13 @@
  * Base Styles - Reset and global utilities
  */
 
-/* Import Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap');
+/* Fonts — Google Fonts import removed.
+ * Tauri desktop apps may not have internet access at runtime.
+ * To use Space Grotesk / Plus Jakarta Sans, place the .woff2 files in
+ * public/fonts/ and add @font-face rules here pointing to fonts/<file>.woff2.
+ * Current fallback: system-ui font stack.
+ */
+/* font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; */
 
 /* ═══════════════════════════════════════════════════════════════
    RESET

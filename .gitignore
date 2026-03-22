@@ -26,6 +26,10 @@ dist-ssr
 # Tauri build artifacts
 src-tauri/target/
 
+# Python cache
+__pycache__/
+*.pyc
+
 # CFA - Context First Architecture
 # Keep: cfa.yaml, map.md, decisions/*.md (valuable for devs)
 # Ignore: session-specific and generated files

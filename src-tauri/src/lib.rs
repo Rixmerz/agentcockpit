@@ -1,12 +1,15 @@
+mod env_utils;
 mod pty;
 #[cfg(debug_assertions)]
 mod debug_server;
 
+use env_utils::build_extended_path;
 use pty::PtyManager;
 use std::sync::Arc;
 use std::process::{Command, Stdio};
 use std::io::{BufRead, BufReader, Write};
 use std::thread;
+use std::time::Duration;
 use parking_lot::Mutex;
 use tauri::RunEvent;
 use tauri::Manager;
@@ -18,7 +21,7 @@ use tauri::Manager;
 struct DccMcpClient {
     child: std::process::Child,
     stdin: std::process::ChildStdin,
-    reader: BufReader<std::process::ChildStdout>,
+    reader: Option<BufReader<std::process::ChildStdout>>,
     next_id: u64,
 }
 
@@ -35,18 +38,43 @@ impl DccMcpClient {
         writeln!(self.stdin, "{}", msg).map_err(|e| format!("dcc write: {}", e))?;
         self.stdin.flush().map_err(|e| format!("dcc flush: {}", e))?;
 
+        let reader = self.reader.take().ok_or("DCC reader not available")?;
         let id_str = format!("\"id\":{}", id);
-        loop {
-            let mut line = String::new();
-            let bytes = self.reader.read_line(&mut line).map_err(|e| format!("dcc read: {}", e))?;
-            if bytes == 0 {
-                return Err("DCC process exited unexpectedly".to_string());
+        let (tx, rx) = std::sync::mpsc::channel::<Result<(String, BufReader<std::process::ChildStdout>), String>>();
+
+        thread::spawn(move || {
+            let mut reader = reader;
+            loop {
+                let mut line = String::new();
+                match reader.read_line(&mut line) {
+                    Ok(0) => {
+                        let _ = tx.send(Err("DCC process exited unexpectedly".to_string()));
+                        return;
+                    }
+                    Ok(_) => {
+                        let trimmed = line.trim().to_string();
+                        if trimmed.is_empty() { continue; }
+                        if trimmed.contains(&id_str) {
+                            let _ = tx.send(Ok((trimmed, reader)));
+                            return;
+                        }
+                        // Skip unrelated notifications/responses
+                    }
+                    Err(e) => {
+                        let _ = tx.send(Err(format!("dcc read: {}", e)));
+                        return;
+                    }
+                }
             }
-            let trimmed = line.trim();
-            if trimmed.is_empty() { continue; }
-            if trimmed.contains(&id_str) {
-                return Ok(trimmed.to_string());
+        });
+
+        match rx.recv_timeout(Duration::from_secs(30)) {
+            Ok(Ok((result, reader))) => {
+                self.reader = Some(reader);
+                Ok(result)
             }
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err("DCC tool call timed out after 30s".to_string()),
         }
     }
 }
@@ -165,7 +193,7 @@ async fn dcc_start(state: tauri::State<'_, Arc<Mutex<DccState>>>, dcc_path: Stri
             .map_err(|e| format!("dcc notify write: {}", e))?;
         stdin.flush().map_err(|e| format!("dcc notify flush: {}", e))?;
 
-        let client = DccMcpClient { child, stdin, reader, next_id: 2 };
+        let client = DccMcpClient { child, stdin, reader: Some(reader), next_id: 2 };
         st.client = Some(client);
         st.current_data_dir = Some(data_dir);
         Ok(r#"{"status":"started"}"#.to_string())
@@ -196,118 +224,6 @@ fn dcc_stop(state: tauri::State<'_, Arc<Mutex<DccState>>>) -> Result<String, Str
     st.client = None; // Drop kills child process
     st.current_data_dir = None;
     Ok(r#"{"status":"stopped"}"#.to_string())
-}
-
-/// Get the NVM node bin path, respecting user's default alias or falling back to latest version
-/// This ensures bundled apps use the same node version as the user's terminal
-fn get_nvm_node_bin(home: &str) -> Option<String> {
-    let nvm_dir = format!("{}/.nvm", home);
-    let versions_dir = format!("{}/versions/node", nvm_dir);
-
-    if !std::path::Path::new(&nvm_dir).exists() {
-        return None;
-    }
-
-    // Get all installed node versions
-    let mut versions: Vec<String> = match std::fs::read_dir(&versions_dir) {
-        Ok(entries) => entries
-            .filter_map(|e| e.ok())
-            .filter_map(|e| e.file_name().into_string().ok())
-            .filter(|name| name.starts_with('v'))
-            .collect(),
-        Err(_) => return None,
-    };
-
-    if versions.is_empty() {
-        return None;
-    }
-
-    // Try to read the default alias
-    let default_alias = std::fs::read_to_string(format!("{}/alias/default", nvm_dir))
-        .ok()
-        .map(|s| s.trim().to_string());
-
-    let selected_version = if let Some(alias) = default_alias {
-        // Find a version that matches the alias prefix (e.g., "22" matches "v22.16.0")
-        let matching = versions.iter().find(|v| {
-            let version_num = v.trim_start_matches('v');
-            version_num.starts_with(&alias) || version_num == alias
-        });
-
-        if let Some(v) = matching {
-            v.clone()
-        } else {
-            // No match for alias, fall back to sorting and picking latest
-            sort_versions_semver(&mut versions);
-            versions.last()?.clone()
-        }
-    } else {
-        // No default alias, sort and pick latest
-        sort_versions_semver(&mut versions);
-        versions.last()?.clone()
-    };
-
-    let node_bin = format!("{}/{}/bin", versions_dir, selected_version);
-    if std::path::Path::new(&node_bin).exists() {
-        Some(node_bin)
-    } else {
-        None
-    }
-}
-
-/// Sort node versions by semver (e.g., v18.20.8 < v20.19.5 < v22.16.0)
-fn sort_versions_semver(versions: &mut Vec<String>) {
-    versions.sort_by(|a, b| {
-        let parse_version = |v: &str| -> (u32, u32, u32) {
-            let nums: Vec<u32> = v.trim_start_matches('v')
-                .split('.')
-                .filter_map(|s| s.parse().ok())
-                .collect();
-            (
-                nums.first().copied().unwrap_or(0),
-                nums.get(1).copied().unwrap_or(0),
-                nums.get(2).copied().unwrap_or(0),
-            )
-        };
-        parse_version(a).cmp(&parse_version(b))
-    });
-}
-
-/// Build extended PATH with NVM, Homebrew (macOS only), and common locations
-/// Same logic as pty.rs for consistency across all command execution
-fn build_extended_path() -> String {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let current_path = std::env::var("PATH").unwrap_or_default();
-
-    let mut paths = vec![];
-
-    // macOS: Homebrew paths
-    #[cfg(target_os = "macos")]
-    {
-        paths.push("/opt/homebrew/bin".to_string());
-        paths.push("/opt/homebrew/sbin".to_string());
-    }
-
-    // Common Unix paths
-    paths.push("/usr/local/bin".to_string());
-    paths.push("/usr/local/sbin".to_string());
-    paths.push(format!("{}/.local/bin", home));
-    paths.push(format!("{}/.cargo/bin", home));
-    paths.push("/usr/bin".to_string());
-    paths.push("/bin".to_string());
-    paths.push("/usr/sbin".to_string());
-    paths.push("/sbin".to_string());
-
-    // Add NVM node bin if available (respects user's default alias)
-    if let Some(nvm_bin) = get_nvm_node_bin(&home) {
-        paths.insert(0, nvm_bin);
-    }
-
-    if !current_path.is_empty() {
-        paths.push(current_path);
-    }
-
-    paths.join(":")
 }
 
 /// Execute a shell command with proper environment variables

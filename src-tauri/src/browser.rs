@@ -1,3 +1,12 @@
+//! Browser module — CURRENTLY DISCONNECTED.
+//!
+//! This module implements multi-tab embedded browser via Tauri child webviews.
+//! It was disconnected in commit 4add862 due to Linux sizing issues (tauri#11452).
+//! The module compiles but is not registered in lib.rs (no `mod browser;`).
+//!
+//! To reconnect: add `mod browser;` to lib.rs, register BrowserState in
+//! app.manage(), and add browser commands to generate_handler!.
+
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -555,9 +564,10 @@ pub async fn media_send_command(
 
     if let Some(label) = browser_state.webviews.get(&tab_id) {
         if let Some(webview) = app.get_webview(label) {
+            let safe_command = serde_json::to_string(&command).unwrap_or_default();
             let js_command = format!(
-                r#"if (window.__executeMediaCommand) {{ window.__executeMediaCommand('{}'); }}"#,
-                command
+                r#"if (window.__executeMediaCommand) {{ window.__executeMediaCommand({}); }}"#,
+                safe_command
             );
             webview.eval(&js_command)
                 .map_err(|e| format!("Failed to execute media command: {}", e))?;

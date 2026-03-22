@@ -5,7 +5,7 @@
  * and GitHub login modal.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { useApp, useTerminalActivityState } from '../contexts/AppContext';
 import { ProjectOpener } from '../components/sidebar-left/ProjectOpener';
 import { GitHubLoginModal } from '../components/sidebar-left/GitHubLoginModal';
@@ -23,7 +23,7 @@ interface SidebarLeftProps {
   onAddTerminal: (projectId: string) => void;
 }
 
-export function SidebarLeft({ onAddTerminal }: SidebarLeftProps) {
+export const SidebarLeft = memo(function SidebarLeft({ onAddTerminal }: SidebarLeftProps) {
   const { state, addProject, removeProject, setActiveTerminal, removeTerminal, renameTerminal } = useApp();
   const { isTerminalFinished, clearTerminalActivity } = useTerminalActivityState();
 
@@ -181,4 +181,4 @@ export function SidebarLeft({ onAddTerminal }: SidebarLeftProps) {
       />
     </aside>
   );
-}
+});

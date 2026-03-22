@@ -308,7 +308,8 @@ def load_learned_weights() -> dict[str, dict[str, float]]:
             data = json.loads(LEARNED_WEIGHTS_FILE.read_text())
             _learned_weights = data.get("weights", {})
             return _learned_weights
-        except Exception:
+        except Exception as e:
+            print(f"[workflow-manager] Warning: failed to load learned weights: {e}", file=sys.stderr)
             pass
 
     _learned_weights = {}
@@ -784,6 +785,7 @@ def load_mcp_configs() -> dict[str, dict]:
             if result:
                 return result
     except Exception as e:
+        print(f"[workflow-manager] Warning: failed to read MCP config: {e}", file=sys.stderr)
         pass
 
     # Fallback to Claude Code config
@@ -791,7 +793,8 @@ def load_mcp_configs() -> dict[str, dict]:
         if CLAUDE_CODE_CONFIG.exists():
             config = json.loads(CLAUDE_CODE_CONFIG.read_text())
             return config.get("mcpServers", {})
-    except Exception:
+    except Exception as e:
+        print(f"[workflow-manager] Warning: failed to read Claude Code config: {e}", file=sys.stderr)
         pass
 
     return {}
@@ -882,7 +885,8 @@ def load_enforcer_config(project_dir: str) -> dict:
     if config_file.exists():
         try:
             return json.loads(config_file.read_text())
-        except Exception:
+        except Exception as e:
+            print(f"[workflow-manager] Warning: failed to load enforcer config: {e}", file=sys.stderr)
             pass
     return {"enforcer_enabled": True}
 
@@ -1049,7 +1053,8 @@ async def execute_mcp_tool(
             current_node = graph.nodes.get(current_node_id)
             if current_node:
                 enabled_mcps = current_node.mcps_enabled
-        except Exception:
+        except Exception as e:
+            print(f"[workflow-manager] Warning: failed to get enabled MCPs for node: {e}", file=sys.stderr)
             pass  # Fall back to allowing all MCPs
 
     # 2. Validate MCP is allowed in current node
@@ -1339,7 +1344,8 @@ async def close_mcp_connections() -> dict:
         try:
             await conn.stop()
             closed.append(name)
-        except Exception:
+        except Exception as e:
+            print(f"[workflow-manager] Warning: failed to close MCP connection '{name}': {e}", file=sys.stderr)
             pass
 
     _mcp_connections.clear()
@@ -1427,7 +1433,8 @@ def _summarize_stats(result: dict | None) -> str | None:
             grade = content.get("grade", "?")
             score = content.get("codebase_score", content.get("score", "?"))
             return f"Files: {total}, Grade: {grade}, Score: {score}/100"
-    except Exception:
+    except Exception as e:
+        print(f"[workflow-manager] Warning: failed to summarize stats: {e}", file=sys.stderr)
         pass
     return str(result)[:200]
 
@@ -1463,7 +1470,8 @@ def _summarize_smells(result: dict | None) -> str | None:
                 summary += f" — {', '.join(type_parts)}"
             summary += ". Use cube_detect_smells(smell_type=...) for details"
             return summary
-    except Exception:
+    except Exception as e:
+        print(f"[workflow-manager] Warning: failed to summarize smells: {e}", file=sys.stderr)
         pass
     return str(result)[:200]
 
@@ -1492,7 +1500,8 @@ def _summarize_tensions(result: dict | None) -> str | None:
                 types[tt] = types.get(tt, 0) + 1
             parts = [f"{c} {t}" for t, c in sorted(types.items())]
             return f"{total} tensions ({', '.join(parts)})"
-    except Exception:
+    except Exception as e:
+        print(f"[workflow-manager] Warning: failed to summarize tensions: {e}", file=sys.stderr)
         pass
     return str(result)[:200]
 
@@ -1516,7 +1525,8 @@ def _summarize_debt(result: dict | None) -> str | None:
             hotspots = content.get("all_files", [])
             n_hotspots = len([f for f in hotspots if isinstance(f, dict) and f.get("score", 0) > 60])
             return f"Grade: {grade}, Score: {score}/100, Hotspots: {n_hotspots} files"
-    except Exception:
+    except Exception as e:
+        print(f"[workflow-manager] Warning: failed to summarize debt: {e}", file=sys.stderr)
         pass
     return str(result)[:200]
 
@@ -1572,7 +1582,8 @@ def _extract_mcp_content(result: dict | None) -> dict | list | None:
                 if item.get("type") == "text":
                     return json.loads(item["text"])
         return result
-    except Exception:
+    except Exception as e:
+        print(f"[workflow-manager] Warning: failed to unwrap MCP result: {e}", file=sys.stderr)
         return result
 
 
@@ -1756,7 +1767,8 @@ def _extract_tensions(result: dict | None) -> list[dict]:
             return content.get("tensions", [])
         if isinstance(content, list):
             return content
-    except Exception:
+    except Exception as e:
+        print(f"[workflow-manager] Warning: failed to extract tensions: {e}", file=sys.stderr)
         pass
     return []
 
@@ -1781,7 +1793,8 @@ def _summarize_fix_suggestion(result: dict | None) -> str | None:
                     summary += f" (files: {', '.join(str(f) for f in files[:3])})"
                 return summary
         return str(content)[:300]
-    except Exception:
+    except Exception as e:
+        print(f"[workflow-manager] Warning: failed to summarize fix suggestion: {e}", file=sys.stderr)
         return str(result)[:200]
 
 
@@ -1827,7 +1840,8 @@ async def _check_tension_gate(node: "Node | None", project_dir: str) -> dict | N
         if gate_state["attempts"] > 0:
             try:
                 _collect_gate_resolved(project_dir, node.id, gate_state["attempts"])
-            except Exception:
+            except Exception as e:
+                print(f"[workflow-manager] Warning: failed to collect gate_resolved experience: {e}", file=sys.stderr)
                 pass
         return None
 
@@ -1836,7 +1850,8 @@ async def _check_tension_gate(node: "Node | None", project_dir: str) -> dict | N
     # Experience memory: record gate blocked
     try:
         _collect_gate_blocked(project_dir, node.id, blocking, min_severity)
-    except Exception:
+    except Exception as e:
+        print(f"[workflow-manager] Warning: failed to collect gate_blocked experience: {e}", file=sys.stderr)
         pass  # Non-fatal
 
     result = {
@@ -2080,7 +2095,8 @@ async def _run_impact_preview(node: "Node | None", project_dir: str) -> dict | N
                     if item.get("type") == "text":
                         try:
                             content = json.loads(item["text"])
-                        except Exception:
+                        except Exception as e:
+                            print(f"[workflow-manager] Warning: failed to parse wave data JSON: {e}", file=sys.stderr)
                             content = wave_data
                         break
 
@@ -2326,7 +2342,8 @@ async def graph_traverse(
     if dcc_raw:
         try:
             _collect_experiences_from_dcc(dcc_raw, resolved_dir)
-        except Exception:
+        except Exception as e:
+            print(f"[workflow-manager] Warning: failed to collect DCC experiences: {e}", file=sys.stderr)
             pass  # Non-fatal
 
     # Impact preview: simulate wave for nodes with impact_preview configured
@@ -2657,7 +2674,8 @@ async def graph_acknowledge_tensions(
     # Mark tensions as reviewed in DCC
     try:
         await _execute_dcc_tool("cube_get_tensions", {"status": "reviewed"}, resolved_dir)
-    except Exception:
+    except Exception as e:
+        print(f"[workflow-manager] Warning: failed to mark tensions as reviewed: {e}", file=sys.stderr)
         pass
 
     return {
@@ -2790,7 +2808,8 @@ async def graph_timeline(
                 "commit": commit_hash[:8],
                 "files": files[:10],
             })
-    except Exception:
+    except Exception as e:
+        print(f"[workflow-manager] Warning: failed to parse git log for timeline: {e}", file=sys.stderr)
         pass
 
     # 3. DCC tensions (if available)
@@ -2821,7 +2840,8 @@ async def graph_timeline(
                         if item.get("type") == "text":
                             try:
                                 smell_content = json.loads(item["text"])
-                            except Exception:
+                            except Exception as e:
+                                print(f"[workflow-manager] Warning: failed to parse smell JSON: {e}", file=sys.stderr)
                                 smell_content = raw_smells
                             break
 
@@ -2842,7 +2862,8 @@ async def graph_timeline(
                         "description": s.get("description", s.get("smell_type", s.get("type", "smell")))[:200],
                         "file": s.get("file", s.get("source", "?")),
                     })
-        except Exception:
+        except Exception as e:
+            print(f"[workflow-manager] Warning: failed to collect DCC timeline events: {e}", file=sys.stderr)
             pass
 
     # Sort by timestamp (events without timestamps go last)
@@ -3015,7 +3036,8 @@ def graph_list_available(project_dir: str | None = None, session_id: str | None 
                 "file": str(yaml_file),
                 "type": "graph"
             })
-        except Exception:
+        except Exception as e:
+            print(f"[workflow-manager] Warning: failed to parse graph YAML '{yaml_file}': {e}", file=sys.stderr)
             graphs.append({
                 "id": graph_name,
                 "name": graph_name,

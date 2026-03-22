@@ -5,7 +5,7 @@
  * a redundant polling interval — ControlBar already fetches status.
  */
 
-import { useCallback } from 'react';
+import { useCallback, memo } from 'react';
 import type { WorkflowStatus } from '../../services/workflow/index';
 
 interface WorkflowStepsBarProps {
@@ -13,7 +13,7 @@ interface WorkflowStepsBarProps {
   onNodeClick?: (nodeId: string) => void;
 }
 
-export function WorkflowStepsBar({ status, onNodeClick }: WorkflowStepsBarProps) {
+export const WorkflowStepsBar = memo(function WorkflowStepsBar({ status, onNodeClick }: WorkflowStepsBarProps) {
   const handleNodeClick = useCallback((nodeId: string) => {
     onNodeClick?.(nodeId);
   }, [onNodeClick]);
@@ -69,4 +69,4 @@ export function WorkflowStepsBar({ status, onNodeClick }: WorkflowStepsBarProps)
       })}
     </div>
   );
-}
+});
