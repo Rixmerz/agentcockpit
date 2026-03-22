@@ -165,7 +165,7 @@ export const SidebarLeft = memo(function SidebarLeft({ onAddTerminal }: SidebarL
       </div>
 
       <div className="navigator-section">
-        <div className="section-header" style={{ height: '32px', border: 'none', paddingLeft: '8px' }}>
+        <div className="section-header section-header--compact">
           OPEN PROJECT
         </div>
         <ProjectOpener

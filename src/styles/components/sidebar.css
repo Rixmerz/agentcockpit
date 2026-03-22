@@ -1,0 +1,10 @@
+/**
+ * Sidebar - Layout sidebar component styles
+ */
+
+/* Compact variant for section headers used in navigator sections */
+.section-header--compact {
+  height: var(--space-8);   /* 32px */
+  border: none;
+  padding-left: var(--space-2);  /* 8px */
+}
