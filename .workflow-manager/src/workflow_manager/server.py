@@ -3972,9 +3972,13 @@ def deploy_project_agents(
     hub_agents_dir = hub_dir / ".claude" / "agents"
     hub_skills_dir = hub_dir / ".claude" / "skills"
 
-    target = Path(project_path)
+    target = Path(project_path).resolve()
     if not target.exists():
         return {"error": True, "message": f"Project path does not exist: {project_path}"}
+
+    # Guard: never deploy to the hub itself (source == destination would corrupt files)
+    if target == hub_dir.resolve():
+        return {"error": True, "message": "Cannot deploy to the AgentCockpit hub itself. Deploy to a user project instead."}
 
     target_agents_dir = target / ".claude" / "agents"
     target_skills_dir = target / ".claude" / "skills"
