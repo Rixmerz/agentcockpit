@@ -11,7 +11,18 @@ import { resetWorkflow } from './workflowService';
 import workflowEnforcerTemplate from '../scripts/workflow_enforcer_template.py?raw';
 import reindexTriggerTemplate from '../scripts/reindex_trigger_template.py?raw';
 import dccFeedbackTemplate from '../scripts/dcc_feedback_template.py?raw';
-import { getHomeDir } from './homeDir';
+// Bundled defaults — imported at build time so they don't depend on filesystem paths
+import rulesCheckerPy from '../../.claude/hooks/rules_checker.py?raw';
+import experienceRecorderPy from '../../.claude/hooks/experience_recorder.py?raw';
+import experienceInjectorPy from '../../.claude/hooks/experience_injector.py?raw';
+import memoryInjectorPy from '../../.claude/hooks/memory_injector.py?raw';
+import commonPy from '../../.claude/hooks/_common.py?raw';
+import ruleAutonomousStrategy from '../../.claude/rules/autonomous-strategy.md?raw';
+import ruleWorkflowDiscipline from '../../.claude/rules/workflow-discipline.md?raw';
+import ruleSubagentDelegation from '../../.claude/rules/subagent-delegation.md?raw';
+import ruleQualityFeedback from '../../.claude/rules/quality-feedback.md?raw';
+import ruleCommitDiscipline from '../../.claude/rules/commit-discipline.md?raw';
+import commandSetupAgents from '../../.claude/commands/setup-agents.md?raw';
 
 // Claude settings.json structure
 export interface ClaudeHookConfig {
@@ -641,33 +652,34 @@ export async function installAsMarkdown(projectPath: string): Promise<void> {
 // Project Defaults Setup
 // ============================================
 
-const RULES_TO_COPY = [
-  'autonomous-strategy.md',
-  'workflow-discipline.md',
-  'subagent-delegation.md',
-  'quality-feedback.md',
-  'commit-discipline.md',
-];
+// Bundled file contents — no filesystem reads needed at runtime
+const BUNDLED_RULES: Record<string, string> = {
+  'autonomous-strategy.md': ruleAutonomousStrategy,
+  'workflow-discipline.md': ruleWorkflowDiscipline,
+  'subagent-delegation.md': ruleSubagentDelegation,
+  'quality-feedback.md': ruleQualityFeedback,
+  'commit-discipline.md': ruleCommitDiscipline,
+};
 
-const HOOKS_TO_COPY = [
-  'rules_checker.py',
-  'experience_recorder.py',
-  'experience_injector.py',
-  'memory_injector.py',
-];
+const BUNDLED_HOOKS: Record<string, string> = {
+  'rules_checker.py': rulesCheckerPy,
+  'experience_recorder.py': experienceRecorderPy,
+  'experience_injector.py': experienceInjectorPy,
+  'memory_injector.py': memoryInjectorPy,
+  '_common.py': commonPy,
+};
 
-const COMMANDS_TO_COPY = [
-  'setup-agents.md',
-];
+const BUNDLED_COMMANDS: Record<string, string> = {
+  'setup-agents.md': commandSetupAgents,
+};
 
 /**
- * Copy a file from src to dst only if dst does not already exist.
- * Returns true if the file was copied, false if it was skipped.
+ * Write bundled content to dst only if dst does not already exist.
+ * Returns true if the file was written, false if skipped.
  */
-async function copyIfAbsent(src: string, dst: string): Promise<boolean> {
+async function writeIfAbsent(dst: string, content: string): Promise<boolean> {
   const dstExists = await exists(dst);
   if (dstExists) return false;
-  const content = await readTextFile(src);
   await writeTextFile(dst, content);
   return true;
 }
@@ -679,9 +691,6 @@ async function copyIfAbsent(src: string, dst: string): Promise<boolean> {
  */
 export async function setupProjectDefaults(projectPath: string): Promise<HookResult> {
   try {
-    const home = await getHomeDir();
-    const hubDir = `${home}/agentcockpit`;
-
     // Ensure target directories exist
     const rulesDir = `${projectPath}/.claude/rules`;
     const hooksDir = `${projectPath}/.claude/hooks`;
@@ -694,18 +703,16 @@ export async function setupProjectDefaults(projectPath: string): Promise<HookRes
       }
     }
 
-    // Copy rules
-    for (const file of RULES_TO_COPY) {
-      const src = `${hubDir}/.claude/rules/${file}`;
-      const dst = `${rulesDir}/${file}`;
+    // Write bundled rules (embedded at build time — no filesystem reads)
+    for (const [file, content] of Object.entries(BUNDLED_RULES)) {
       try {
-        await copyIfAbsent(src, dst);
+        await writeIfAbsent(`${rulesDir}/${file}`, content);
       } catch (e) {
-        console.warn(`[HookService] Could not copy rule ${file}:`, e);
+        console.warn(`[HookService] Could not write rule ${file}:`, e);
       }
     }
 
-    // Copy dcc_feedback.py with template replacement
+    // Write dcc_feedback.py with template replacement
     const dccDst = `${hooksDir}/dcc_feedback.py`;
     const dccDstExists = await exists(dccDst);
     if (!dccDstExists) {
@@ -713,25 +720,21 @@ export async function setupProjectDefaults(projectPath: string): Promise<HookRes
       await writeTextFile(dccDst, dccContent);
     }
 
-    // Copy other hooks
-    for (const file of HOOKS_TO_COPY) {
-      const src = `${hubDir}/.claude/hooks/${file}`;
-      const dst = `${hooksDir}/${file}`;
+    // Write bundled hooks
+    for (const [file, content] of Object.entries(BUNDLED_HOOKS)) {
       try {
-        await copyIfAbsent(src, dst);
+        await writeIfAbsent(`${hooksDir}/${file}`, content);
       } catch (e) {
-        console.warn(`[HookService] Could not copy hook ${file}:`, e);
+        console.warn(`[HookService] Could not write hook ${file}:`, e);
       }
     }
 
-    // Copy commands
-    for (const file of COMMANDS_TO_COPY) {
-      const src = `${hubDir}/.claude/commands/${file}`;
-      const dst = `${commandsDir}/${file}`;
+    // Write bundled commands
+    for (const [file, content] of Object.entries(BUNDLED_COMMANDS)) {
       try {
-        await copyIfAbsent(src, dst);
+        await writeIfAbsent(`${commandsDir}/${file}`, content);
       } catch (e) {
-        console.warn(`[HookService] Could not copy command ${file}:`, e);
+        console.warn(`[HookService] Could not write command ${file}:`, e);
       }
     }
 
