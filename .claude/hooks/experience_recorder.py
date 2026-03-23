@@ -183,8 +183,21 @@ def main():
         print(_APPROVE)
         return
 
-    # Resolve project dir
-    project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
+    # Resolve project dir from the command itself, fallback to env var
+    project_dir = ""
+    # Try git -C /path (e.g., "git -C /path/to/project commit ...")
+    if " -C " in command:
+        parts = command.split(" -C ", 1)
+        if len(parts) > 1:
+            rest = parts[1].strip()
+            project_dir = rest.split()[0].strip('"').strip("'") if rest else ""
+    # Try cd /path && git commit (e.g., "cd /path/to/project && git commit ...")
+    if not project_dir and command.strip().startswith("cd "):
+        cd_part = command.strip().split("&&")[0].strip()
+        if cd_part.startswith("cd "):
+            project_dir = cd_part[3:].strip().strip('"').strip("'")
+    if not project_dir:
+        project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
     if not project_dir:
         print(_APPROVE)
         return
