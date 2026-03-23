@@ -32,6 +32,7 @@ tauri-plugin-shell = "2"
 tiny_http = "0.12"
 png = "0.17"
 uuid = { version = "1", features = ["v4"] }
+notify = "7"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

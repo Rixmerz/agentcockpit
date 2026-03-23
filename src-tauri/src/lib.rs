@@ -1,4 +1,5 @@
 mod env_utils;
+mod file_watcher;
 mod pty;
 #[cfg(debug_assertions)]
 mod debug_server;
@@ -274,6 +275,8 @@ pub fn run() {
     let pty_manager = Arc::new(Mutex::new(PtyManager::new()));
     let pty_manager_for_shutdown = pty_manager.clone();
     let dcc_state = Arc::new(Mutex::new(DccState::new()));
+    let file_watcher_state = Arc::new(Mutex::new(file_watcher::FileWatcherState::new()));
+    let file_watcher_for_shutdown = file_watcher_state.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -282,6 +285,7 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .manage(pty_manager)
         .manage(dcc_state)
+        .manage(file_watcher_state)
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -335,6 +339,9 @@ pub fn run() {
                     pty::pty_write,
                     pty::pty_resize,
                     pty::pty_close,
+                    file_watcher::file_watcher_start,
+                    file_watcher::file_watcher_stop,
+                    file_watcher::file_watcher_status,
                     debug_server::debug_callback,
                 ]
             }
@@ -349,6 +356,9 @@ pub fn run() {
                     pty::pty_write,
                     pty::pty_resize,
                     pty::pty_close,
+                    file_watcher::file_watcher_start,
+                    file_watcher::file_watcher_stop,
+                    file_watcher::file_watcher_status,
                 ]
             }
         })
@@ -360,6 +370,12 @@ pub fn run() {
                 log::info!("App shutting down - cleaning up PTY processes");
                 let mut manager = pty_manager_for_shutdown.lock();
                 manager.close_all();
+
+                // Stop file watcher
+                {
+                    let mut fw = file_watcher_for_shutdown.lock();
+                    fw.stop();
+                }
             }
         });
 }

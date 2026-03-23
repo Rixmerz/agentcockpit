@@ -9,6 +9,7 @@
 import { gitWatcherEvents } from '../core/utils/gitWatcherEventBus';
 import { reindexProject, isDeltaCodeCubeInstalled, isIndexing } from './deltacodecubeService';
 import { indexEvents } from '../core/utils/indexEventBus';
+import { fileWatcherService } from './fileWatcherService';
 
 let _enabled = false;
 let _projectPath: string | null = null;
@@ -39,6 +40,13 @@ export function enableAutoReindex(projectPath: string): void {
 
     _debounceTimer = setTimeout(async () => {
       _debounceTimer = null;
+
+      // Skip commit-triggered reindex if native file watcher is active
+      // (watcher provides more granular, per-file reindexing)
+      const watcherActive = await fileWatcherService.isActive();
+      if (watcherActive) {
+        return;
+      }
 
       // Guard: DCC must be installed and not already indexing
       const installed = await isDeltaCodeCubeInstalled();

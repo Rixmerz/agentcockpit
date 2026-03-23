@@ -33,8 +33,22 @@ export interface TensionsDetectedEvent {
   timestamp: number;
 }
 
+export interface FileChangeEvent {
+  projectPath: string;
+  files: string[];
+  timestamp: number;
+}
+
+export interface MidPhaseResult {
+  projectPath: string;
+  smellsSummary: string | null;
+  tensionsSummary: string | null;
+  filesChecked: number;
+  timestamp: number;
+}
+
 // Event types
-type IndexEventType = 'indexing' | 'indexed' | 'error' | 'tensions_detected';
+type IndexEventType = 'indexing' | 'indexed' | 'error' | 'tensions_detected' | 'file_change' | 'mid_phase_result';
 
 // Combined event data type
 type IndexEventData<T extends IndexEventType> = T extends 'indexing'
@@ -43,7 +57,11 @@ type IndexEventData<T extends IndexEventType> = T extends 'indexing'
   ? IndexedEvent
   : T extends 'error'
   ? IndexErrorEvent
-  : TensionsDetectedEvent;
+  : T extends 'tensions_detected'
+  ? TensionsDetectedEvent
+  : T extends 'file_change'
+  ? FileChangeEvent
+  : MidPhaseResult;
 
 // Type-safe event handlers
 type IndexEventHandler<T extends IndexEventType> = (data: IndexEventData<T>) => void;

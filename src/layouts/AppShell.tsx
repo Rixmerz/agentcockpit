@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useApp, useAppSettings } from '../contexts/AppContext';
 import { hasLocalGitRepo, initRepository } from '../services/gitService';
 import { gitWatcherService } from '../services/gitWatcherService';
+import { fileWatcherService } from '../services/fileWatcherService';
 
 import { useIdleMode } from '../hooks/useIdleMode';
 import { useBackgroundImage } from '../hooks/useBackgroundImage';
@@ -44,6 +45,16 @@ export function AppShell() {
       gitWatcherService.stop();
     }
     return () => gitWatcherService.stop();
+  }, [activeProject?.path]);
+
+  // Native file watcher for real-time DCC feedback
+  useEffect(() => {
+    if (activeProject?.path) {
+      fileWatcherService.start(activeProject.path);
+    } else {
+      fileWatcherService.stop();
+    }
+    return () => { fileWatcherService.stop(); };
   }, [activeProject?.path]);
 
   // DCC auto-reindex toggle
