@@ -20,45 +20,11 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+from _common import _DOMAIN_MAP, extract_keywords, guess_domain
+
 
 _APPROVE = json.dumps({"decision": "approve"})
-
-
-# ---------------------------------------------------------------------------
-# Domain map (matches experience_injector.py)
-# ---------------------------------------------------------------------------
-_DOMAIN_MAP = {
-    "auth": ["auth", "login", "session", "token", "jwt"],
-    "api": ["api", "endpoint", "route", "controller", "handler", "middleware"],
-    "ui": ["component", "page", "view", "layout", "modal", "form", "panel"],
-    "config": ["config", "setting", "env", "constant"],
-    "data": ["model", "schema", "entity", "migration", "repository", "store"],
-    "style": ["style", "css", "theme"],
-    "util": ["util", "helper", "lib", "common", "shared"],
-}
-
-
-def _extract_keywords(path: str) -> list:
-    """Extract keywords from a file path (matches experience_injector.py)."""
-    stem = Path(path).stem.lower()
-    words = re.split(r'(?<=[a-z])(?=[A-Z])|[-_./\\]', stem)
-    words = [w.lower() for w in words if len(w) > 1]
-    parent = Path(path).parent.name.lower()
-    if parent and len(parent) > 1 and parent not in (".", "src"):
-        words.append(parent)
-    return list(dict.fromkeys(words))  # dedupe preserving order
-
-
-def _guess_domain(path: str) -> str:
-    """Guess domain from file path (matches experience_injector.py)."""
-    lower = path.lower()
-    best, best_score = "", 0
-    for domain, kws in _DOMAIN_MAP.items():
-        score = sum(1 for kw in kws if kw in lower)
-        if score > best_score:
-            best_score = score
-            best = domain
-    return best or "general"
 
 
 def _generalize_path(path: str) -> str:
@@ -266,8 +232,8 @@ def main():
         entry = {
             "type": commit_type,
             "file_pattern": _generalize_path(file_path),
-            "keywords": _extract_keywords(file_path),
-            "domain": _guess_domain(file_path),
+            "keywords": extract_keywords(file_path),
+            "domain": guess_domain(file_path),
             "description": commit_subject,
             "resolution": commit_body,
             "severity": "medium",

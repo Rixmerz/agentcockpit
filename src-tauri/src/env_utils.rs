@@ -56,7 +56,7 @@ pub fn get_nvm_node_bin(home: &str) -> Option<String> {
 }
 
 /// Sort node versions by semver (e.g., v18.20.8 < v20.19.5 < v22.16.0).
-pub fn sort_versions_semver(versions: &mut Vec<String>) {
+pub fn sort_versions_semver(versions: &mut [String]) {
     versions.sort_by(|a, b| {
         let parse_version = |v: &str| -> (u32, u32, u32) {
             let nums: Vec<u32> = v.trim_start_matches('v')
