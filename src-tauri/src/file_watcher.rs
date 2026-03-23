@@ -271,3 +271,153 @@ pub fn file_watcher_status(
         "path": st.watched_path,
     }))
 }
+
+// =====================================================
+// Tests
+// =====================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    // ---- should_ignore_path ----
+
+    #[test]
+    fn ignore_path_regular_source_file_returns_false() {
+        assert!(!should_ignore_path(Path::new("src/components/App.tsx")));
+    }
+
+    #[test]
+    fn ignore_path_node_modules_returns_true() {
+        assert!(should_ignore_path(Path::new("node_modules/react/index.js")));
+    }
+
+    #[test]
+    fn ignore_path_git_objects_returns_true() {
+        assert!(should_ignore_path(Path::new(".git/objects/abc")));
+    }
+
+    #[test]
+    fn ignore_path_target_debug_returns_true() {
+        assert!(should_ignore_path(Path::new("target/debug/build")));
+    }
+
+    #[test]
+    fn ignore_path_pycache_returns_true() {
+        assert!(should_ignore_path(Path::new("__pycache__/module.pyc")));
+    }
+
+    #[test]
+    fn ignore_path_deltacodecube_returns_true() {
+        assert!(should_ignore_path(Path::new(".deltacodecube/src/file.py")));
+    }
+
+    #[test]
+    fn ignore_path_claude_returns_true() {
+        // .claude is in IGNORED_DIRS
+        assert!(should_ignore_path(Path::new("src/.claude/hooks/test.py")));
+    }
+
+    #[test]
+    fn ignore_path_workflow_manager_returns_true() {
+        assert!(should_ignore_path(Path::new(".workflow-manager/state.json")));
+    }
+
+    #[test]
+    fn ignore_path_dist_returns_true() {
+        assert!(should_ignore_path(Path::new("dist/bundle.js")));
+    }
+
+    #[test]
+    fn ignore_path_venv_returns_true() {
+        assert!(should_ignore_path(Path::new(".venv/lib/python3.11/site.py")));
+    }
+
+    // ---- is_source_file ----
+
+    #[test]
+    fn source_file_ts_returns_true() {
+        assert!(is_source_file(Path::new("src/main.ts")));
+    }
+
+    #[test]
+    fn source_file_tsx_returns_true() {
+        assert!(is_source_file(Path::new("src/app.tsx")));
+    }
+
+    #[test]
+    fn source_file_rs_returns_true() {
+        assert!(is_source_file(Path::new("lib.rs")));
+    }
+
+    #[test]
+    fn source_file_py_returns_true() {
+        assert!(is_source_file(Path::new("main.py")));
+    }
+
+    #[test]
+    fn source_file_go_returns_true() {
+        assert!(is_source_file(Path::new("main.go")));
+    }
+
+    #[test]
+    fn source_file_js_returns_true() {
+        assert!(is_source_file(Path::new("index.js")));
+    }
+
+    #[test]
+    fn source_file_jsx_returns_true() {
+        assert!(is_source_file(Path::new("App.jsx")));
+    }
+
+    #[test]
+    fn source_file_java_returns_true() {
+        assert!(is_source_file(Path::new("Main.java")));
+    }
+
+    #[test]
+    fn source_file_readme_returns_false() {
+        assert!(!is_source_file(Path::new("README.md")));
+    }
+
+    #[test]
+    fn source_file_package_json_returns_false() {
+        assert!(!is_source_file(Path::new("package.json")));
+    }
+
+    #[test]
+    fn source_file_image_png_returns_false() {
+        assert!(!is_source_file(Path::new("image.png")));
+    }
+
+    #[test]
+    fn source_file_no_extension_returns_false() {
+        assert!(!is_source_file(Path::new("no_extension")));
+    }
+
+    #[test]
+    fn source_file_toml_returns_false() {
+        assert!(!is_source_file(Path::new("Cargo.toml")));
+    }
+
+    // ---- FileWatcherState::new ----
+
+    #[test]
+    fn file_watcher_state_new_has_no_watcher() {
+        let state = FileWatcherState::new();
+        assert!(state.watcher.is_none());
+    }
+
+    #[test]
+    fn file_watcher_state_new_has_no_watched_path() {
+        let state = FileWatcherState::new();
+        assert!(state.watched_path.is_none());
+    }
+
+    #[test]
+    fn file_watcher_state_new_has_no_shutdown_tx() {
+        let state = FileWatcherState::new();
+        assert!(state.shutdown_tx.is_none());
+    }
+}
