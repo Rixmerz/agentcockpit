@@ -71,3 +71,4 @@ __pycache__/
 .claude/workflows/testing-demo.yaml
 .claude/workflows/xpteam-*
 .claude/workflows/dcc-*
+.claude/hooks/.dcc_batch.json
