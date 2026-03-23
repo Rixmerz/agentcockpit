@@ -84,6 +84,54 @@ def _score_entry(entry: dict, target_path: str, target_kws: list[str],
     return path_score * 0.30 + kw_score * 0.25 + domain_score * 0.20 + conf * 0.15
 
 
+def _get_embedding_cache():
+    """Load embedding cache from global DCC DB. Returns dict {entry_id: np.ndarray} or None."""
+    try:
+        import sqlite3
+        db_path = Path.home() / ".deltacodecube" / "embeddings.db"
+        if not db_path.exists():
+            return None
+        conn = sqlite3.connect(str(db_path), timeout=2)
+        rows = conn.execute(
+            "SELECT id, embedding FROM embeddings WHERE source='experience'"
+        ).fetchall()
+        conn.close()
+        if not rows:
+            return None
+        import numpy as np
+        return {row[0]: np.array(json.loads(row[1]), dtype=np.float32) for row in rows}
+    except Exception:
+        return None
+
+
+def _embed_text(text: str) -> "np.ndarray | None":
+    """Embed text via Ollama. Returns 768D array or None."""
+    try:
+        import urllib.request
+        import numpy as np
+        payload = json.dumps({"model": "nomic-embed-text", "input": text}).encode()
+        req = urllib.request.Request(
+            "http://localhost:11434/api/embed",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read())
+            embs = data.get("embeddings", [])
+            return np.array(embs[0], dtype=np.float32) if embs else None
+    except Exception:
+        return None
+
+
+def _cosine_sim(a, b) -> float:
+    """Cosine similarity between two numpy arrays."""
+    import numpy as np
+    na, nb = np.linalg.norm(a), np.linalg.norm(b)
+    if na == 0 or nb == 0:
+        return 0.0
+    return float(np.dot(a, b) / (na * nb))
+
+
 def _load_entries(path: Path) -> list[dict]:
     """Load entries from a memory JSON file."""
     if not path.exists():
@@ -138,9 +186,30 @@ def main():
     target_kws = _extract_keywords(file_path)
     target_domain = _guess_domain(file_path)
 
+    # Try embedding-based scoring (upgrade from keyword matching)
+    embedding_cache = _get_embedding_cache()
+    target_embedding = None
+    use_embeddings = False
+    if embedding_cache:
+        # Build context string for embedding: filename + parent dir + domain
+        embed_text = f"{Path(file_path).stem} {Path(file_path).parent.name} {target_domain}"
+        target_embedding = _embed_text(embed_text)
+        if target_embedding is not None:
+            use_embeddings = True
+
     scored = []
     for entry in all_entries:
-        score = _score_entry(entry, file_path, target_kws, target_domain)
+        # Base score from keywords + path + domain
+        base_score = _score_entry(entry, file_path, target_kws, target_domain)
+
+        # Upgrade with embedding similarity if available
+        if use_embeddings and entry.get("id") in embedding_cache:
+            emb_score = _cosine_sim(target_embedding, embedding_cache[entry["id"]])
+            # Blend: 60% embedding, 40% keyword (embeddings are more reliable)
+            score = emb_score * 0.60 + base_score * 0.40
+        else:
+            score = base_score
+
         if score > 0.10:
             scored.append((entry, score))
 

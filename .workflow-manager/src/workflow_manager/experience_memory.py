@@ -238,14 +238,17 @@ def _temporal_decay_factor(last_seen: str) -> float:
         return 1.0
 
 
-def compute_relevance(entry: ExperienceEntry, target_path: str) -> float:
+def compute_relevance(entry: ExperienceEntry, target_path: str,
+                      query_embedding=None) -> float:
     """Compute relevance score for an entry against a target file.
 
-    score = path_match * 0.3 + keyword_overlap * 0.25 + domain_match * 0.2
-            + confidence * decay * 0.15 + recency * 0.1
+    score = path_match * 0.25 + semantic * 0.30 + domain_match * 0.20
+            + confidence * decay * 0.15 + recency * 0.10
 
-    The confidence component is multiplied by a temporal decay factor
-    (6-month half-life, floored at 0.3) so older entries contribute less.
+    The semantic score is embedding cosine similarity when available,
+    otherwise keyword Jaccard overlap. The confidence component is
+    multiplied by a temporal decay factor (6-month half-life, floored
+    at 0.3) so older entries contribute less.
     """
     target_keywords = extract_file_keywords(target_path)
     target_domain = guess_domain(target_path)
@@ -257,9 +260,28 @@ def compute_relevance(entry: ExperienceEntry, target_path: str) -> float:
     confidence_score = entry.confidence * decay
     recency_score = _score_recency(entry.last_seen)
 
+    # Try embedding-based similarity (replaces keyword_score if available)
+    embedding_score = None
+    try:
+        from deltacodecube.embeddings.cache import EmbeddingCache
+        cache = EmbeddingCache()
+        entry_emb = cache.get(entry.id, "experience")
+        if entry_emb is not None and query_embedding is not None:
+            import numpy as np
+            na = np.linalg.norm(entry_emb)
+            nb = np.linalg.norm(query_embedding)
+            if na > 0 and nb > 0:
+                embedding_score = float(np.dot(entry_emb, query_embedding) / (na * nb))
+        cache.close()
+    except Exception:
+        pass
+
+    # Use embedding score if available, otherwise keyword score
+    semantic_score = embedding_score if embedding_score is not None else keyword_score
+
     return (
-        path_score * 0.30
-        + keyword_score * 0.25
+        path_score * 0.25
+        + semantic_score * 0.30
         + domain_score * 0.20
         + confidence_score * 0.15
         + recency_score * 0.10
@@ -283,6 +305,7 @@ class ExperienceMemoryStore:
         self._scope: str = "global"
         self._project_name: str | None = None
         self._file_path: Path | None = None
+        self._query_embedding = None
 
     def _resolve_path(self, scope: str, project_name: str | None) -> Path:
         if scope == "project" and project_name:
@@ -363,13 +386,35 @@ class ExperienceMemoryStore:
         # New entry
         entry.confidence = update_confidence(0.0, 1)
         self.entries.append(entry)
+        self.save()
+
+        # Cache embedding for semantic search
+        try:
+            from deltacodecube.embeddings.client import OllamaEmbedder
+            from deltacodecube.embeddings.cache import EmbeddingCache
+
+            embed_text = f"{entry.description} {entry.resolution} {' '.join(entry.keywords)}"
+            embedder = OllamaEmbedder()
+            embedding = embedder.embed(embed_text)
+            if embedding:
+                cache = EmbeddingCache()
+                content_hash = EmbeddingCache.content_hash(embed_text)
+                cache.put(entry.id, "experience", content_hash, embedding)
+                cache.close()
+        except Exception:
+            pass  # Ollama unavailable — skip embedding
+
         return entry
+
+    def set_query_embedding(self, embedding) -> None:
+        """Set the query embedding for semantic scoring in compute_relevance()."""
+        self._query_embedding = embedding
 
     def query(self, file_path: str, top_n: int = 5) -> list[tuple[ExperienceEntry, float]]:
         """Return entries ranked by relevance to the given file path."""
         scored = []
         for entry in self.entries:
-            score = compute_relevance(entry, file_path)
+            score = compute_relevance(entry, file_path, self._query_embedding)
             if score > 0.05:  # Minimum threshold
                 scored.append((entry, score))
 
