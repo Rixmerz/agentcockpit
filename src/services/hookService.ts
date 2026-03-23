@@ -10,6 +10,7 @@ import type { WorkflowStep } from '../types';
 import { resetWorkflow } from './workflowService';
 import workflowEnforcerTemplate from '../scripts/workflow_enforcer_template.py?raw';
 import reindexTriggerTemplate from '../scripts/reindex_trigger_template.py?raw';
+import dccFeedbackTemplate from '../scripts/dcc_feedback_template.py?raw';
 
 // Claude settings.json structure
 export interface ClaudeHookConfig {
@@ -183,6 +184,13 @@ export async function installWorkflowHooks(
     const enforcerScript = generateWorkflowEnforcerScript(projectPath);
     await writeTextFile(enforcerPath, enforcerScript);
 
+    // 2.1. Write DCC feedback PostToolUse hook
+    const dccFeedbackScript = dccFeedbackTemplate.replace(
+      /\{\{PROJECT_PATH\}\}/g,
+      projectPath
+    );
+    await writeTextFile(`${hooksDir}/dcc_feedback.py`, dccFeedbackScript);
+
     // 2.5. Initialize workflow state (state.json at step 0)
     await resetWorkflow(projectPath);
 
@@ -224,6 +232,25 @@ export async function installWorkflowHooks(
     // Add workflow matcher
     settings.hooks.PreToolUse = [...existingPreToolUse, workflowMatcher];
     settings._workflow_managed = true;
+
+    // Initialize PostToolUse array if it doesn't exist
+    if (!settings.hooks.PostToolUse) {
+      settings.hooks.PostToolUse = [];
+    }
+
+    // Add DCC feedback hook for Edit|Write (filter out any previous dcc_feedback hooks first)
+    const existingPostToolUse = settings.hooks.PostToolUse.filter(
+      matcher => !matcher.hooks.some(h => h.command.includes('dcc_feedback'))
+    );
+    existingPostToolUse.push({
+      matcher: 'Edit|Write',
+      hooks: [{
+        type: 'command',
+        command: `python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/dcc_feedback.py"`,
+        timeout: 5,
+      }],
+    });
+    settings.hooks.PostToolUse = existingPostToolUse;
 
     // 5. Write settings
     const success = await writeClaudeSettings(projectPath, settings);

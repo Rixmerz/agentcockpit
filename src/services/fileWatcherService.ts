@@ -10,9 +10,11 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { indexEvents } from '../core/utils/indexEventBus';
 import { isDeltaCodeCubeInstalled } from './deltacodecubeService';
 import { isIndexing, incrementalReindex } from './dcc/dccIndexService';
+import { callDccTool } from './dcc/_dccInternal';
 
 // =====================================================
 // Constants
@@ -55,6 +57,42 @@ async function _triggerReindex(projectPath: string, files: string[]): Promise<vo
   if (relativeFiles.length === 0) return;
 
   await incrementalReindex(projectPath, relativeFiles, []);
+
+  // Write smells cache after reindex (non-fatal)
+  void _writeSmellsCache(projectPath);
+}
+
+async function _writeSmellsCache(projectPath: string): Promise<void> {
+  try {
+    const result = await callDccTool('cube_detect_smells', { summary_only: false, limit: 50 });
+    if (!result || typeof result !== 'object') return;
+
+    const data = result as Record<string, unknown>;
+    const smells = Array.isArray(data.smells) ? data.smells : [];
+
+    const byType: Record<string, number> = {};
+    const bySeverity: Record<string, number> = {};
+    for (const smell of smells) {
+      const s = smell as Record<string, unknown>;
+      const type = String(s.type || '');
+      const severity = String(s.severity || '');
+      if (type) byType[type] = (byType[type] ?? 0) + 1;
+      if (severity) bySeverity[severity] = (bySeverity[severity] ?? 0) + 1;
+    }
+
+    const cache = {
+      timestamp: Date.now(),
+      smells,
+      by_type: byType,
+      by_severity: bySeverity,
+      total: smells.length,
+    };
+
+    const cachePath = `${projectPath}/.claude/hooks/.dcc_smells_cache.json`;
+    await writeTextFile(cachePath, JSON.stringify(cache, null, 2));
+  } catch {
+    // Non-fatal: reindex already succeeded, cache is best-effort
+  }
 }
 
 // =====================================================
