@@ -199,6 +199,9 @@ def main():
     if not project_dir:
         project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
     if not project_dir:
+        # Last resort: use cwd (Claude Code runs hooks from the project root)
+        project_dir = os.getcwd()
+    if not project_dir or project_dir == "/":
         print(_APPROVE)
         return
 
