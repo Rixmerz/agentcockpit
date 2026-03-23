@@ -183,7 +183,7 @@ fn handle_request(mut request: tiny_http::Request, pending: &PendingCallbacks, w
                 }}
             }})()"#,
             action = serde_json::to_string(action).unwrap_or_default(),
-            params = params.to_string(),
+            params = params,
             cb_id = callback_id,
         );
 
