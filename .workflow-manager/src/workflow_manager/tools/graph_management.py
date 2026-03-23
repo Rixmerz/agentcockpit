@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 from ..session import resolve_project_dir
-from ..hub_config import get_workflows_library_dir
+from ..hub_config import get_workflows_library_dir, load_enforcer_config
 from ..graph_engine import Graph, GraphState, generate_mermaid
 from ..graph_parser import load_graph_from_file, GraphParseError
 from ..graph_state import (
@@ -16,6 +16,7 @@ from ..graph_state import (
 )
 from ..dcc_integration import (
     _is_dcc_available, _execute_dcc_tool, _extract_tensions,
+    _resolve_dcc_config, _run_dcc_analysis,
 )
 
 
@@ -102,7 +103,7 @@ def register_graph_management_tools(mcp):
         }
 
     @mcp.tool()
-    def graph_activate(
+    async def graph_activate(
         graph_name: str,
         project_dir: str | None = None,
         session_id: str | None = None
@@ -111,6 +112,7 @@ def register_graph_management_tools(mcp):
         """Activate a graph from the workflows library.
 
         Copies the graph YAML to graph.yaml and initializes state.
+        Runs a DCC baseline analysis on the start node if DCC is configured.
 
         Args:
             graph_name: Name of the graph file (without -graph.yaml extension)
@@ -155,6 +157,17 @@ def register_graph_management_tools(mcp):
         state = initialize_graph_state(resolved_dir, graph, graph_name)
         start_node = graph.get_start_node()
 
+        # Run DCC baseline analysis on start node (non-fatal if DCC unavailable)
+        dcc_baseline = None
+        try:
+            enforcer_config = load_enforcer_config(resolved_dir)
+            should_run, analyses, token_budget = _resolve_dcc_config(start_node, enforcer_config)
+            if should_run:
+                dcc_result, _ = await _run_dcc_analysis(analyses, token_budget, resolved_dir)
+                dcc_baseline = dcc_result
+        except Exception as e:
+            print(f"[workflow-manager] DCC baseline on activate failed (non-fatal): {e}", file=sys.stderr)
+
         return {
             "success": True,
             "session_id": sid,
@@ -167,6 +180,7 @@ def register_graph_management_tools(mcp):
                 "name": start_node.name if start_node else None
             },
             "prompt_injection": start_node.prompt_injection if start_node else None,
+            "dcc_baseline": dcc_baseline,
             "project_dir": resolved_dir
         }
 

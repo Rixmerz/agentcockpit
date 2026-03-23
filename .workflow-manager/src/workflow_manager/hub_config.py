@@ -170,7 +170,8 @@ def load_enforcer_config(project_dir: str) -> dict:
         except Exception as e:
             print(f"[workflow-manager] Warning: failed to load enforcer config: {e}", file=sys.stderr)
             pass
-    return {"enforcer_enabled": True}
+    defaults = {"enforcer_enabled": True, "mid_phase_dcc": False}
+    return defaults
 
 
 def save_enforcer_config(project_dir: str, config: dict):

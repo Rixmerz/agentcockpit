@@ -204,6 +204,7 @@ class PathEntry:
     edge_id: Optional[str]
     timestamp: str
     reason: str
+    commit_sha: Optional[str] = None
 
 
 @dataclass
@@ -217,6 +218,9 @@ class GraphState:
         active_graph: Name of the active graph file
         max_visits_default: Default max visits for nodes without explicit limit
         total_transitions: Total number of transitions made
+        tension_gate_state: Persisted tension gate state per node (key: node_id)
+        last_dcc_result: Last DCC analysis result dict
+        last_dcc_timestamp: ISO timestamp of last DCC analysis
     """
     current_nodes: list[str] = field(default_factory=list)
     node_visits: dict[str, int] = field(default_factory=dict)
@@ -225,6 +229,9 @@ class GraphState:
     max_visits_default: int = 10
     total_transitions: int = 0
     last_activity: Optional[str] = None
+    tension_gate_state: dict[str, dict] = field(default_factory=dict)
+    last_dcc_result: Optional[dict] = None
+    last_dcc_timestamp: Optional[str] = None
 
     def get_current_node(self) -> Optional[str]:
         """Get the primary current node (first in list)."""

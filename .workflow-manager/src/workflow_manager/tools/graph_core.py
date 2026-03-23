@@ -2,7 +2,9 @@
 graph_reset, graph_set_node, graph_acknowledge_tensions.
 """
 
+import subprocess
 import sys
+from datetime import datetime
 
 from ..session import resolve_project_dir
 from ..hub_config import load_enforcer_config
@@ -20,7 +22,10 @@ from ..dcc_integration import (
     _collect_experiences_from_dcc, _check_tension_gate,
     _clear_tension_gate_state, _get_tension_gate_info,
     _run_impact_preview, _execute_dcc_tool,
-    acknowledge_tension_gate,
+    acknowledge_tension_gate, _query_relevant_experiences,
+    _detect_project_languages, _enrich_smells_with_skills,
+    _select_skills_for_context, _record_skill_references,
+    _run_mid_phase_check, _run_pre_transition_check,
 )
 
 
@@ -134,7 +139,11 @@ def register_graph_core_tools(mcp):
                 "enabled": enforcer_config.get("dcc_injection_enabled", True),
                 "node_override": current_node.dcc_context if current_node and current_node.dcc_context else None,
             },
-            "tension_gate": _get_tension_gate_info(current_node, resolved_dir, current_node_id),
+            "tension_gate": _get_tension_gate_info(current_node, resolved_dir, current_node_id, state),
+            "dcc_status": {
+                "last_analysis": state.last_dcc_result,
+                "timestamp": state.last_dcc_timestamp,
+            },
             "last_activity": state.last_activity,
             "project_dir": resolved_dir
         }
@@ -199,8 +208,10 @@ def register_graph_core_tools(mcp):
 
         # Tension gate: check if current node blocks exit due to unresolved tensions
         current_node = graph.nodes.get(current_node_id)
-        gate_result = await _check_tension_gate(current_node, resolved_dir)
+        gate_result = await _check_tension_gate(current_node, resolved_dir, state)
         if gate_result and gate_result.get("blocked"):
+            # Persist updated gate state (attempt count was incremented)
+            save_graph_state(resolved_dir, state)
             return {
                 "error": True,
                 "tension_gate_blocked": True,
@@ -216,9 +227,37 @@ def register_graph_core_tools(mcp):
                 "project_dir": resolved_dir
             }
 
+        # Pre-transition DCC check (optional, configured per-node)
+        pre_check_result = None
+        try:
+            pre_check_result = await _run_pre_transition_check(current_node, resolved_dir)
+        except Exception:
+            pass  # Non-fatal
+
+        if pre_check_result and pre_check_result.get("blocked"):
+            return {
+                "error": f"Pre-transition DCC check failed: {pre_check_result.get('reason', 'quality gate blocked')}",
+                "pre_check_details": pre_check_result,
+            }
+
+        # Capture current HEAD SHA before transition (for 1C impact preview and entry tracking)
+        entry_commit_sha: str | None = None
+        try:
+            sha_result = subprocess.run(
+                ["git", "-C", resolved_dir, "rev-parse", "HEAD"],
+                capture_output=True, text=True, timeout=5
+            )
+            if sha_result.returncode == 0:
+                entry_commit_sha = sha_result.stdout.strip()
+        except Exception:
+            pass
+
         # Execute transition
         try:
             state = take_transition(graph, state, edge, reason)
+            # Attach commit SHA to the PathEntry just recorded
+            if entry_commit_sha and state.execution_path:
+                state.execution_path[-1].commit_sha = entry_commit_sha
             save_graph_state(resolved_dir, state)
         except MaxVisitsExceeded as e:
             # Get alternative edges
@@ -253,18 +292,56 @@ def register_graph_core_tools(mcp):
             except Exception as e:
                 dcc_result = {"error": str(e)}
 
+        # Store DCC result in persisted state (1G)
+        if dcc_result is not None:
+            state.last_dcc_result = dcc_result
+            state.last_dcc_timestamp = datetime.now().isoformat()
+            save_graph_state(resolved_dir, state)
+
         # Experience memory: auto-collect from DCC results
+        experience_context: list[dict] = []
         if dcc_raw:
             try:
                 _collect_experiences_from_dcc(dcc_raw, resolved_dir)
             except Exception as e:
                 print(f"[workflow-manager] Warning: failed to collect DCC experiences: {e}", file=sys.stderr)
                 pass  # Non-fatal
+            try:
+                experience_context = _query_relevant_experiences(dcc_raw, resolved_dir)
+            except Exception as e:
+                print(f"[workflow-manager] Warning: failed to query relevant experiences: {e}", file=sys.stderr)
+
+        # Enrich with skill recommendations (2A, 2B, 2C)
+        skill_recs = None
+        if dcc_raw:
+            try:
+                detected_langs = await _detect_project_languages(resolved_dir)
+                skill_recs = _enrich_smells_with_skills(dcc_raw, detected_langs)
+                contextual = _select_skills_for_context(
+                    skill_recs if skill_recs else {}, new_node, detected_langs
+                )
+                if contextual:
+                    skill_recs["contextual_skills"] = contextual
+            except Exception:
+                pass
+
+        # Feedback loop: record skill references (4C)
+        if skill_recs:
+            try:
+                _record_skill_references(skill_recs, resolved_dir)
+            except Exception:
+                pass
 
         # Impact preview: simulate wave for nodes with impact_preview configured
+        # Pass the previous node's entry commit SHA so diff is accurate (1C)
+        prev_entry_sha: str | None = None
+        if len(state.execution_path) >= 2:
+            prev_entry = state.execution_path[-2]
+            prev_entry_sha = prev_entry.commit_sha if hasattr(prev_entry, 'commit_sha') else None
+
         impact_result = None
         try:
-            impact_result = await _run_impact_preview(new_node, resolved_dir)
+            impact_result = await _run_impact_preview(new_node, resolved_dir, entry_sha=prev_entry_sha)
         except Exception as e:
             impact_result = {"error": str(e)}
 
@@ -290,6 +367,12 @@ def register_graph_core_tools(mcp):
 
         if impact_result:
             result["impact_preview"] = impact_result
+
+        if experience_context:
+            result["experience_context"] = experience_context
+
+        if skill_recs:
+            result["skill_recommendations"] = skill_recs
 
         return result
 
@@ -457,7 +540,7 @@ def register_graph_core_tools(mcp):
             }
 
         state = reset_graph_state(resolved_dir, graph)
-        _clear_tension_gate_state(resolved_dir)
+        _clear_tension_gate_state(state)
         start_node = graph.get_start_node()
 
         return {
@@ -516,7 +599,7 @@ def register_graph_core_tools(mcp):
             reason=f"Admin jump to {node_id}"
         )
         save_graph_state(resolved_dir, state)
-        _clear_tension_gate_state(resolved_dir, node_id)
+        _clear_tension_gate_state(state, node_id)
 
         node = graph.nodes[node_id]
         return {
@@ -582,7 +665,8 @@ def register_graph_core_tools(mcp):
                 "project_dir": resolved_dir
             }
 
-        gate_state = acknowledge_tension_gate(resolved_dir, current_node_id)
+        gate_state = acknowledge_tension_gate(resolved_dir, current_node_id, state)
+        save_graph_state(resolved_dir, state)
 
         # Mark tensions as reviewed in DCC
         try:
@@ -599,3 +683,37 @@ def register_graph_core_tools(mcp):
             "attempts_before_ack": gate_state["attempts"],
             "project_dir": resolved_dir
         }
+
+    @mcp.tool()
+    async def graph_mid_phase_dcc(
+        files: list[str],
+        project_dir: str | None = None,
+    ) -> dict:
+        """[CATEGORY: analysis] Run lightweight DCC analysis on specific files between workflow traversals.
+
+        Use this tool when you want DCC feedback on files you've modified without
+        advancing the workflow. Provides continuous quality feedback similar to
+        IDE-integrated analysis.
+
+        Args:
+            files: List of file paths that were recently modified
+            project_dir: Project directory (uses session default if not specified)
+        """
+        resolved_dir, _sid = resolve_project_dir(project_dir)
+
+        if not _is_dcc_available():
+            return {"error": "DCC (deltacodecube) MCP not configured"}
+
+        enforcer_config = load_enforcer_config(resolved_dir)
+
+        if not enforcer_config.get("mid_phase_dcc", False):
+            return {"error": "mid_phase_dcc not enabled in config"}
+
+        if not enforcer_config.get("dcc_injection_enabled", True):
+            return {"error": "dcc_injection_enabled is False in config"}
+
+        result = await _run_mid_phase_check(resolved_dir, files)
+        if result is None:
+            return {"error": "DCC mid-phase check returned no result"}
+
+        return result

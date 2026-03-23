@@ -26,6 +26,7 @@ VALID_TYPES = frozenset({
     "smell_introduced", "smell_fixed",
     "gate_blocked", "gate_resolved",
     "impact_high",
+    "skill_referenced",
 })
 
 VALID_SEVERITIES = frozenset({"low", "medium", "high", "critical"})
@@ -220,11 +221,31 @@ def _score_recency(last_seen: str) -> float:
         return 0.0
 
 
+def _temporal_decay_factor(last_seen: str) -> float:
+    """6-month half-life, floored at 0.3.
+
+    Entries older than ~180 days contribute less to relevance.
+    Recent entries (within a few days) have factor ~1.0.
+    """
+    try:
+        from datetime import timezone
+        last = datetime.fromisoformat(last_seen)
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        days = (datetime.now(timezone.utc) - last).days
+        return max(0.3, 1.0 - days / 180.0)
+    except (ValueError, TypeError):
+        return 1.0
+
+
 def compute_relevance(entry: ExperienceEntry, target_path: str) -> float:
     """Compute relevance score for an entry against a target file.
 
     score = path_match * 0.3 + keyword_overlap * 0.25 + domain_match * 0.2
-            + confidence * 0.15 + recency * 0.1
+            + confidence * decay * 0.15 + recency * 0.1
+
+    The confidence component is multiplied by a temporal decay factor
+    (6-month half-life, floored at 0.3) so older entries contribute less.
     """
     target_keywords = extract_file_keywords(target_path)
     target_domain = guess_domain(target_path)
@@ -232,7 +253,8 @@ def compute_relevance(entry: ExperienceEntry, target_path: str) -> float:
     path_score = _score_path_match(entry.file_pattern, target_path)
     keyword_score = _score_keyword_overlap(entry.keywords, target_keywords)
     domain_score = 1.0 if entry.domain == target_domain else 0.0
-    confidence_score = entry.confidence
+    decay = _temporal_decay_factor(entry.last_seen)
+    confidence_score = entry.confidence * decay
     recency_score = _score_recency(entry.last_seen)
 
     return (

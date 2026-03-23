@@ -96,7 +96,8 @@ def load_graph_state(project_dir: str) -> GraphState:
                 to_node=entry_data.get('to_node', ''),
                 edge_id=entry_data.get('edge_id'),
                 timestamp=entry_data.get('timestamp', ''),
-                reason=entry_data.get('reason', '')
+                reason=entry_data.get('reason', ''),
+                commit_sha=entry_data.get('commit_sha')
             )
             execution_path.append(entry)
 
@@ -107,7 +108,10 @@ def load_graph_state(project_dir: str) -> GraphState:
             active_graph=data.get('active_graph'),
             max_visits_default=data.get('max_visits_default', 10),
             total_transitions=data.get('total_transitions', 0),
-            last_activity=data.get('last_activity')
+            last_activity=data.get('last_activity'),
+            tension_gate_state=data.get('tension_gate_state', {}),
+            last_dcc_result=data.get('last_dcc_result'),
+            last_dcc_timestamp=data.get('last_dcc_timestamp')
         )
     except Exception:
         return GraphState()
@@ -133,7 +137,8 @@ def save_graph_state(project_dir: str, state: GraphState):
             'to_node': entry.to_node,
             'edge_id': entry.edge_id,
             'timestamp': entry.timestamp,
-            'reason': entry.reason
+            'reason': entry.reason,
+            'commit_sha': entry.commit_sha,
         })
 
     # Update last_activity
@@ -146,7 +151,10 @@ def save_graph_state(project_dir: str, state: GraphState):
         'active_graph': state.active_graph,
         'max_visits_default': state.max_visits_default,
         'total_transitions': state.total_transitions,
-        'last_activity': state.last_activity
+        'last_activity': state.last_activity,
+        'tension_gate_state': state.tension_gate_state,
+        'last_dcc_result': state.last_dcc_result,
+        'last_dcc_timestamp': state.last_dcc_timestamp,
     }
 
     state_file.write_text(json.dumps(data, indent=2))

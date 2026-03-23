@@ -18,6 +18,8 @@ _TECH_SKILL_MAP: dict[str, list[str]] = {
     "php": ["php-patterns", "qa-patterns"],
     "swift": ["swift-patterns", "qa-patterns"],
     "lua": ["lua-patterns", "qa-patterns"],
+    "csharp": ["csharp-patterns", "qa-patterns"],
+    "kotlin": ["kotlin-patterns", "qa-patterns"],
     # Frameworks / domains
     "react": ["ts-patterns", "ui-patterns", "ux-patterns"],
     "tauri": ["rs-patterns", "rust-backend"],
