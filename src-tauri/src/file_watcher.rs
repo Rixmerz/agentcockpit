@@ -15,6 +15,7 @@ use tauri::{AppHandle, Emitter};
 // =====================================================
 
 const BATCH_WINDOW_MS: u64 = 300;
+const MAX_BATCH_SIZE: usize = 500;
 
 const IGNORED_DIRS: &[&str] = &[
     ".git",
@@ -146,6 +147,10 @@ pub fn file_watcher_start(
     )
     .map_err(|e| format!("file_watcher: create watcher: {}", e))?;
 
+    // NOTE: notify follows symlinks by default with RecursiveMode::Recursive.
+    // If the project contains symlinks to external directories (e.g., node_modules),
+    // those directories will also be watched. The IGNORED_DIRS filter mitigates this
+    // for common cases, but custom symlinks may still be followed.
     watcher
         .watch(Path::new(&project_path), RecursiveMode::Recursive)
         .map_err(|e| format!("file_watcher: watch path: {}", e))?;
@@ -183,6 +188,20 @@ pub fn file_watcher_start(
                         }
                         if let Some(s) = path.to_str() {
                             batch.insert(s.to_owned());
+                        }
+                        // Cap batch size to avoid unbounded memory growth in very active repos.
+                        if batch.len() >= MAX_BATCH_SIZE {
+                            let files: Vec<String> = batch.drain().collect();
+                            let timestamp = SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis() as u64;
+                            let payload = FileChangePayload {
+                                project_path: path_for_thread.clone(),
+                                files,
+                                timestamp,
+                            };
+                            let _ = app.emit("dcc:files-changed", payload);
                         }
                     }
                 }

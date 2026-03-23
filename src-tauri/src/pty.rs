@@ -239,7 +239,16 @@ impl PtyManager {
                         // is the intended behavior for terminal cleanup.
                         unsafe {
                             // Send SIGTERM first for graceful shutdown
-                            libc::kill(-(pid as i32), libc::SIGTERM);
+                            // SAFETY: pid is a valid process ID from portable_pty.
+                            // Negating it targets the entire process group.
+                            let ret = libc::kill(-(pid as i32), libc::SIGTERM);
+                            if ret != 0 {
+                                log::warn!(
+                                    "Failed to send SIGTERM to PTY process group {}: {}",
+                                    pid,
+                                    std::io::Error::last_os_error()
+                                );
+                            }
 
                             // Wait longer for graceful shutdown (500ms instead of 100ms)
                             // Gives Claude time to cleanup properly
@@ -250,7 +259,14 @@ impl PtyManager {
 
                             if still_alive {
                                 // SIGKILL if still running
-                                libc::kill(-(pid as i32), libc::SIGKILL);
+                                let ret = libc::kill(-(pid as i32), libc::SIGKILL);
+                                if ret != 0 {
+                                    log::warn!(
+                                        "Failed to send SIGKILL to PTY process group {}: {}",
+                                        pid,
+                                        std::io::Error::last_os_error()
+                                    );
+                                }
                                 std::thread::sleep(std::time::Duration::from_millis(100));
                             }
                         }

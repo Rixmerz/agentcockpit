@@ -24,10 +24,17 @@ struct DccMcpClient {
     stdin: std::process::ChildStdin,
     reader: Option<BufReader<std::process::ChildStdout>>,
     next_id: u64,
+    /// Set to true when a call_tool() times out. The spawned reader thread may
+    /// still be running in the background holding the BufReader. The client must
+    /// be dropped and recreated — use dcc_start() to trigger that.
+    stale: bool,
 }
 
 impl DccMcpClient {
     fn call_tool(&mut self, name: &str, args: &str) -> Result<String, String> {
+        if self.stale {
+            return Err("DCC client is stale (previous call timed out). Call dcc_start() to restart.".to_string());
+        }
         let id = self.next_id;
         self.next_id += 1;
 
@@ -75,7 +82,15 @@ impl DccMcpClient {
                 Ok(result)
             }
             Ok(Err(e)) => Err(e),
-            Err(_) => Err("DCC tool call timed out after 30s".to_string()),
+            Err(_) => {
+                // The spawned reader thread is still running in the background
+                // and holds the BufReader — we cannot safely reclaim it.
+                // Mark this client as stale so the next call fails fast and the
+                // caller knows to drop and recreate the DCC process.
+                self.stale = true;
+                log::warn!("DCC tool call timed out after 30s — client marked stale, restart required");
+                Err("DCC tool call timed out after 30s. Client is stale — call dcc_start() to restart.".to_string())
+            }
         }
     }
 }
@@ -101,6 +116,16 @@ async fn dcc_start(state: tauri::State<'_, Arc<Mutex<DccState>>>, dcc_path: Stri
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let mut st = state.lock();
+
+        // If the existing client is stale (previous call timed out), drop it
+        // so we fall through and create a fresh one regardless of data_dir.
+        if let Some(ref client) = st.client {
+            if client.stale {
+                log::warn!("DCC client is stale, dropping and restarting...");
+                st.client = None;
+                st.current_data_dir = None;
+            }
+        }
 
         // If already running for this same data_dir, reuse
         if st.client.is_some() && st.current_data_dir.as_deref() == Some(&data_dir) {
@@ -194,7 +219,7 @@ async fn dcc_start(state: tauri::State<'_, Arc<Mutex<DccState>>>, dcc_path: Stri
             .map_err(|e| format!("dcc notify write: {}", e))?;
         stdin.flush().map_err(|e| format!("dcc notify flush: {}", e))?;
 
-        let client = DccMcpClient { child, stdin, reader: Some(reader), next_id: 2 };
+        let client = DccMcpClient { child, stdin, reader: Some(reader), next_id: 2, stale: false };
         st.client = Some(client);
         st.current_data_dir = Some(data_dir);
         Ok(r#"{"status":"started"}"#.to_string())

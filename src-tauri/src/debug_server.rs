@@ -148,6 +148,13 @@ fn handle_request(mut request: tiny_http::Request, pending: &PendingCallbacks, w
         let (tx, rx) = std::sync::mpsc::channel::<String>();
         {
             let mut map = pending.lock();
+            // Guard against unbounded growth if callbacks are never resolved
+            // (e.g. webview closed mid-request). 100 concurrent requests is
+            // far beyond normal usage; clearing resets any leaked entries.
+            if map.len() > 100 {
+                log::warn!("[DebugServer] pending callbacks exceeded 100, clearing stale entries");
+                map.clear();
+            }
             map.insert(callback_id.clone(), tx);
         }
 
