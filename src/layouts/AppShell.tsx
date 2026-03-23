@@ -10,6 +10,7 @@ import { useApp, useAppSettings } from '../contexts/AppContext';
 import { hasLocalGitRepo, initRepository } from '../services/gitService';
 import { gitWatcherService } from '../services/gitWatcherService';
 import { fileWatcherService } from '../services/fileWatcherService';
+import { ollamaService } from '../services/ollamaService';
 
 import { useIdleMode } from '../hooks/useIdleMode';
 import { useBackgroundImage } from '../hooks/useBackgroundImage';
@@ -56,6 +57,12 @@ export function AppShell() {
     }
     return () => { fileWatcherService.stop(); };
   }, [activeProject?.path]);
+
+  // Ollama auto-start for semantic embeddings
+  useEffect(() => {
+    ollamaService.start();
+    return () => { ollamaService.stop(); };
+  }, []);
 
   // DCC auto-reindex toggle
   useEffect(() => {

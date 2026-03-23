@@ -24,6 +24,8 @@ import {
   Database,
   Puzzle,
   Power,
+  Cpu,
+  Play,
 } from 'lucide-react';
 import { DropdownPanel, DropdownItem, DropdownSection } from './DropdownPanel';
 import { Modal } from '../common/Modal';
@@ -38,6 +40,7 @@ import { usePortsStatus } from '../../hooks/usePortsStatus';
 import { useDccStatus } from '../../hooks/useDccStatus';
 import { useLspStatus } from '../../hooks/useLspStatus';
 import { useSnapshotStatus } from '../../hooks/useSnapshotStatus';
+import { useOllamaStatus } from '../../hooks/useOllamaStatus';
 
 // Services used directly in JSX
 import { gitWatcherService } from '../../services/gitWatcherService';
@@ -130,6 +133,14 @@ export const ControlBar = memo(function ControlBar({ projectPath, onWorkflowChan
     loadSnapshots,
     handleRestoreSnapshot,
   } = useSnapshotStatus(projectPath);
+
+  const {
+    running: ollamaRunning,
+    model: ollamaModel,
+    loading: ollamaLoading,
+    loadStatus: loadOllamaStatus,
+    handleStart: handleStartOllama,
+  } = useOllamaStatus();
 
   // Load MCPs on mount
   useEffect(() => {
@@ -631,6 +642,48 @@ export const ControlBar = memo(function ControlBar({ projectPath, onWorkflowChan
                 />
               </DropdownSection>
             </>
+          )}
+        </DropdownPanel>
+
+        {/* Ollama Dropdown */}
+        <DropdownPanel
+          trigger="Ollama"
+          triggerIcon={<Cpu size={12} />}
+          label="Local Embedding Model"
+          statusDot={
+            ollamaRunning === true ? 'active'
+            : ollamaRunning === false ? 'error'
+            : 'none'
+          }
+          onOpen={loadOllamaStatus}
+        >
+          {ollamaRunning ? (
+            <>
+              <DropdownSection title="Status">
+                <DropdownItem
+                  icon={<Check size={14} />}
+                  label="Running"
+                  description={ollamaModel || 'nomic-embed-text'}
+                />
+              </DropdownSection>
+              <DropdownSection title="Info">
+                <DropdownItem
+                  icon={<Cpu size={14} />}
+                  label="Semantic Embeddings"
+                  description="768D vectors for code similarity"
+                />
+              </DropdownSection>
+            </>
+          ) : (
+            <DropdownSection title="Status">
+              <DropdownItem
+                icon={ollamaLoading ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                label={ollamaLoading ? 'Starting...' : 'Start Ollama'}
+                description="Auto-start local embedding model"
+                onClick={handleStartOllama}
+                disabled={ollamaLoading}
+              />
+            </DropdownSection>
           )}
         </DropdownPanel>
 
