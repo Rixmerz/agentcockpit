@@ -13,6 +13,7 @@ import { usePersistence } from '../hooks/usePersistence';
 import { debugStateRegistry } from '../core/debugStateRegistry';
 import { ptyClose } from '../services/tauriService';
 import { hasLocalGitRepo, initRepository } from '../services/gitService';
+import { setupProjectDefaults } from '../services/hookService';
 // Domain reducers
 import { projectReducer } from './ProjectContext';
 import { settingsReducer } from './SettingsContext';
@@ -211,6 +212,9 @@ export function AppProvider({ children }: AppProviderProps) {
     hasLocalGitRepo(path).then(hasRepo => {
       if (!hasRepo) initRepository(path).catch(console.warn);
     });
+
+    // Install AgentCockpit defaults (rules, hooks, commands)
+    setupProjectDefaults(path).catch(console.warn);
 
   }, [scheduleSave]);
 

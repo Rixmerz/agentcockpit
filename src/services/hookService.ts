@@ -11,6 +11,7 @@ import { resetWorkflow } from './workflowService';
 import workflowEnforcerTemplate from '../scripts/workflow_enforcer_template.py?raw';
 import reindexTriggerTemplate from '../scripts/reindex_trigger_template.py?raw';
 import dccFeedbackTemplate from '../scripts/dcc_feedback_template.py?raw';
+import { getHomeDir } from './homeDir';
 
 // Claude settings.json structure
 export interface ClaudeHookConfig {
@@ -633,6 +634,175 @@ export async function installAsMarkdown(projectPath: string): Promise<void> {
     }
   } catch (e) {
     console.error('[HookService] installAsMarkdown error:', e);
+  }
+}
+
+// ============================================
+// Project Defaults Setup
+// ============================================
+
+const RULES_TO_COPY = [
+  'autonomous-strategy.md',
+  'workflow-discipline.md',
+  'subagent-delegation.md',
+  'quality-feedback.md',
+  'commit-discipline.md',
+];
+
+const HOOKS_TO_COPY = [
+  'rules_checker.py',
+  'experience_recorder.py',
+  'experience_injector.py',
+  'memory_injector.py',
+];
+
+const COMMANDS_TO_COPY = [
+  'setup-agents.md',
+];
+
+/**
+ * Copy a file from src to dst only if dst does not already exist.
+ * Returns true if the file was copied, false if it was skipped.
+ */
+async function copyIfAbsent(src: string, dst: string): Promise<boolean> {
+  const dstExists = await exists(dst);
+  if (dstExists) return false;
+  const content = await readTextFile(src);
+  await writeTextFile(dst, content);
+  return true;
+}
+
+/**
+ * Setup AgentCockpit defaults for a new project.
+ * Copies behavioral rules, hooks, and commands to the project's .claude/ directory.
+ * Idempotent — safe to call multiple times (won't overwrite existing files).
+ */
+export async function setupProjectDefaults(projectPath: string): Promise<HookResult> {
+  try {
+    const home = await getHomeDir();
+    const hubDir = `${home}/agentcockpit`;
+
+    // Ensure target directories exist
+    const rulesDir = `${projectPath}/.claude/rules`;
+    const hooksDir = `${projectPath}/.claude/hooks`;
+    const commandsDir = `${projectPath}/.claude/commands`;
+
+    for (const dir of [rulesDir, hooksDir, commandsDir]) {
+      const dirExists = await exists(dir);
+      if (!dirExists) {
+        await mkdir(dir, { recursive: true });
+      }
+    }
+
+    // Copy rules
+    for (const file of RULES_TO_COPY) {
+      const src = `${hubDir}/.claude/rules/${file}`;
+      const dst = `${rulesDir}/${file}`;
+      try {
+        await copyIfAbsent(src, dst);
+      } catch (e) {
+        console.warn(`[HookService] Could not copy rule ${file}:`, e);
+      }
+    }
+
+    // Copy dcc_feedback.py with template replacement
+    const dccDst = `${hooksDir}/dcc_feedback.py`;
+    const dccDstExists = await exists(dccDst);
+    if (!dccDstExists) {
+      const dccContent = dccFeedbackTemplate.replace(/\{\{PROJECT_PATH\}\}/g, projectPath);
+      await writeTextFile(dccDst, dccContent);
+    }
+
+    // Copy other hooks
+    for (const file of HOOKS_TO_COPY) {
+      const src = `${hubDir}/.claude/hooks/${file}`;
+      const dst = `${hooksDir}/${file}`;
+      try {
+        await copyIfAbsent(src, dst);
+      } catch (e) {
+        console.warn(`[HookService] Could not copy hook ${file}:`, e);
+      }
+    }
+
+    // Copy commands
+    for (const file of COMMANDS_TO_COPY) {
+      const src = `${hubDir}/.claude/commands/${file}`;
+      const dst = `${commandsDir}/${file}`;
+      try {
+        await copyIfAbsent(src, dst);
+      } catch (e) {
+        console.warn(`[HookService] Could not copy command ${file}:`, e);
+      }
+    }
+
+    // Register hooks in settings.json
+    let settings = await readClaudeSettings(projectPath) || {};
+    if (!settings.hooks) {
+      settings.hooks = {};
+    }
+
+    // PostToolUse hooks to add
+    const postToolUseToAdd: ClaudeHookMatcher[] = [
+      {
+        matcher: 'Edit|Write',
+        hooks: [{ type: 'command', command: `python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/rules_checker.py"`, timeout: 5 }],
+      },
+      {
+        matcher: 'Edit|Write',
+        hooks: [{ type: 'command', command: `python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/dcc_feedback.py"`, timeout: 5 }],
+      },
+      {
+        matcher: 'Bash',
+        hooks: [{ type: 'command', command: `python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/experience_recorder.py"`, timeout: 5 }],
+      },
+    ];
+
+    // PreToolUse hooks to add
+    const preToolUseToAdd: ClaudeHookMatcher[] = [
+      {
+        matcher: 'Edit|Write',
+        hooks: [{ type: 'command', command: `python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/experience_injector.py"`, timeout: 3 }],
+      },
+      {
+        matcher: 'Edit|Write',
+        hooks: [{ type: 'command', command: `python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/memory_injector.py"`, timeout: 3 }],
+      },
+    ];
+
+    // Add PostToolUse hooks (skip duplicates by command)
+    const existingPost = settings.hooks.PostToolUse || [];
+    const existingPostCommands = new Set(existingPost.flatMap(m => m.hooks.map(h => h.command)));
+    for (const matcher of postToolUseToAdd) {
+      const cmd = matcher.hooks[0].command;
+      if (!existingPostCommands.has(cmd)) {
+        existingPost.push(matcher);
+        existingPostCommands.add(cmd);
+      }
+    }
+    settings.hooks.PostToolUse = existingPost;
+
+    // Add PreToolUse hooks (skip duplicates by command)
+    const existingPre = settings.hooks.PreToolUse || [];
+    const existingPreCommands = new Set(existingPre.flatMap(m => m.hooks.map(h => h.command)));
+    for (const matcher of preToolUseToAdd) {
+      const cmd = matcher.hooks[0].command;
+      if (!existingPreCommands.has(cmd)) {
+        existingPre.push(matcher);
+        existingPreCommands.add(cmd);
+      }
+    }
+    settings.hooks.PreToolUse = existingPre;
+
+    const success = await writeClaudeSettings(projectPath, settings);
+    if (!success) {
+      return { success: false, error: 'Failed to write settings.json' };
+    }
+
+    return { success: true };
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    console.error('[HookService] setupProjectDefaults error:', error);
+    return { success: false, error };
   }
 }
 
