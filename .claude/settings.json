@@ -94,11 +94,11 @@
         ]
       },
       {
-        "matcher": "Edit",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/cfa_validator.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/rules_checker.py\"",
             "timeout": 5
           }
         ]
@@ -108,7 +108,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/cfa_smart_suggestions.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/dcc_feedback.py\"",
             "timeout": 5
           }
         ]
