@@ -43,6 +43,65 @@ MAX_BATCH_FILES = 5    # Force analyze after this many distinct files
 _SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
 
+def _generate_smells_cache() -> dict | None:
+    """Generate smells cache by running DCC SmellDetector via subprocess.
+
+    Falls back to this when the frontend file watcher hasn't written
+    .dcc_smells_cache.json (e.g., DCC not indexed from UI yet).
+    """
+    try:
+        import subprocess
+        dcc_src = Path.home() / "agentcockpit" / ".deltacodecube" / "src"
+        if not dcc_src.exists():
+            return None
+
+        script = f"""
+import sys, json
+sys.path.insert(0, {str(dcc_src)!r})
+try:
+    from deltacodecube.db.database import get_connection
+    from deltacodecube.cube.smells import SmellDetector
+    with get_connection() as conn:
+        detector = SmellDetector(conn)
+        smells = detector.detect_all()
+        result = [s.to_dict() for s in smells[:50]]
+        print(json.dumps(result))
+except Exception as e:
+    print(json.dumps([]))
+"""
+        result = subprocess.run(
+            ["python3", "-c", script],
+            capture_output=True, text=True, timeout=4,
+            cwd=str(Path.home() / "agentcockpit" / ".deltacodecube"),
+        )
+        if result.returncode != 0:
+            return None
+
+        smells = json.loads(result.stdout.strip())
+        if not isinstance(smells, list):
+            return None
+
+        by_type: dict[str, int] = {}
+        by_severity: dict[str, int] = {}
+        for s in smells:
+            t = s.get("type", "")
+            sev = s.get("severity", "")
+            if t:
+                by_type[t] = by_type.get(t, 0) + 1
+            if sev:
+                by_severity[sev] = by_severity.get(sev, 0) + 1
+
+        return {
+            "timestamp": int(time.time() * 1000),
+            "smells": smells,
+            "by_type": by_type,
+            "by_severity": by_severity,
+            "total": len(smells),
+        }
+    except Exception:
+        return None
+
+
 def _load_json(path: Path, default):
     """Load JSON from path, returning default on any error."""
     try:
@@ -185,15 +244,16 @@ def main():
         return
 
     # ------------------------------------------------------------------
-    # 4. Load cache (current smells from file watcher)
+    # 4. Load smells — try cache first, fallback to running DCC inline
     # ------------------------------------------------------------------
-    if not _CACHE_FILE.exists():
-        # DCC not running — clear batch and exit silently
-        _save_json(_BATCH_FILE, {"files": [], "first_edit_ts": None, "last_edit_ts": None})
-        print(_APPROVE)
-        return
+    cache_data = _load_json(_CACHE_FILE, None) if _CACHE_FILE.exists() else None
 
-    cache_data = _load_json(_CACHE_FILE, None)
+    if not isinstance(cache_data, dict) or not cache_data.get("smells"):
+        # Cache missing or empty — generate smells by running DCC SmellDetector inline
+        cache_data = _generate_smells_cache()
+        if cache_data:
+            _save_json(_CACHE_FILE, cache_data)
+
     if not isinstance(cache_data, dict):
         _save_json(_BATCH_FILE, {"files": [], "first_edit_ts": None, "last_edit_ts": None})
         print(_APPROVE)
