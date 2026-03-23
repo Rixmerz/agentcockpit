@@ -130,8 +130,6 @@ AgentCockpit auto-installs hooks and rules in every project opened via "Create P
 | `dcc_feedback.py` | DCC delta injection — shows new smells after edits |
 | `rules_checker.py` | Language-specific code quality checks (8+ languages) |
 | `experience_recorder.py` | Captures lessons from git commits into experience memory |
-| `cfa_validator.py` | Cross-file analysis validation |
-| `cfa_smart_suggestions.py` | Smart refactoring suggestions |
 | `lsp_status_check.py` | LSP diagnostics check |
 
 ### PreToolUse Hooks (before Edit/Write)
