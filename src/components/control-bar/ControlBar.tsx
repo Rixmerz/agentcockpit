@@ -115,6 +115,7 @@ export const ControlBar = memo(function ControlBar({ projectPath, onWorkflowChan
     lspStatuses,
     lspDetection,
     lspInstalling,
+    lspLoaded,
     loadLspInfo,
     handleInstallLsp,
     handleUninstallLsp,
@@ -530,8 +531,10 @@ export const ControlBar = memo(function ControlBar({ projectPath, onWorkflowChan
           }
           onOpen={loadLspInfo}
         >
-          {lspStatuses.length === 0 ? (
+          {!lspLoaded ? (
             <div className="dropdown__empty">Loading...</div>
+          ) : lspStatuses.length === 0 ? (
+            <div className="dropdown__empty">No LSPs available</div>
           ) : (
             <>
               {/* Active (installed) LSPs */}

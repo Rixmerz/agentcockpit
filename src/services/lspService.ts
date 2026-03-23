@@ -3,10 +3,16 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { getHomeDir } from './homeDir';
 
-const SCRIPT_PATH = import.meta.env.DEV
-  ? new URL('../../scripts/claude-lsp-setup', import.meta.url).pathname
-  : new URL('../scripts/claude-lsp-setup', import.meta.url).pathname;
+let _scriptPath: string | null = null;
+
+async function getScriptPath(): Promise<string> {
+  if (_scriptPath) return _scriptPath;
+  const home = await getHomeDir();
+  _scriptPath = `${home}/agentcockpit/scripts/claude-lsp-setup`;
+  return _scriptPath;
+}
 
 export interface LspStatus {
   plugin: string;
@@ -36,8 +42,9 @@ export interface AutoSetupResult {
 }
 
 async function runLspSetup(args: string, cwd: string): Promise<string> {
+  const scriptPath = await getScriptPath();
   return invoke<string>('execute_command', {
-    cmd: `python3 ${SCRIPT_PATH} ${args}`,
+    cmd: `python3 ${scriptPath} ${args}`,
     cwd,
   });
 }

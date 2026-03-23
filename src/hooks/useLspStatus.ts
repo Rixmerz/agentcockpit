@@ -13,6 +13,7 @@ export interface UseLspStatusResult {
   lspStatuses: LspStatus[];
   lspDetection: LspDetection | null;
   lspInstalling: string | null;
+  lspLoaded: boolean;
   loadLspInfo: () => Promise<void>;
   handleInstallLsp: (plugin: string) => Promise<void>;
   handleUninstallLsp: (plugin: string) => Promise<void>;
@@ -23,6 +24,7 @@ export function useLspStatus(projectPath: string | null): UseLspStatusResult {
   const [lspStatuses, setLspStatuses] = useState<LspStatus[]>([]);
   const [lspDetection, setLspDetection] = useState<LspDetection | null>(null);
   const [lspInstalling, setLspInstalling] = useState<string | null>(null);
+  const [lspLoaded, setLspLoaded] = useState(false);
 
   // Auto-setup LSPs on project change: detect → install → enable → refresh
   useEffect(() => {
@@ -53,6 +55,8 @@ export function useLspStatus(projectPath: string | null): UseLspStatusResult {
         console.warn('[useLspStatus] LSP auto-setup failed:', err);
         // Fallback to just detection
         detectProjectLsps(projectPath).then(setLspDetection).catch(() => {});
+      } finally {
+        if (!cancelled) setLspLoaded(true);
       }
     })();
     return () => { cancelled = true; };
@@ -126,6 +130,7 @@ export function useLspStatus(projectPath: string | null): UseLspStatusResult {
     lspStatuses,
     lspDetection,
     lspInstalling,
+    lspLoaded,
     loadLspInfo,
     handleInstallLsp,
     handleUninstallLsp,
