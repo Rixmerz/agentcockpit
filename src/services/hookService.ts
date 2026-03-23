@@ -291,6 +291,18 @@ export async function uninstallWorkflowHooks(projectPath: string): Promise<HookR
         }
       }
 
+      // Remove DCC feedback hooks from PostToolUse
+      if (settings.hooks.PostToolUse) {
+        settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter(
+          matcher => !matcher.hooks.some(h => h.command.includes('dcc_feedback'))
+        );
+
+        // Clean up empty array
+        if (settings.hooks.PostToolUse.length === 0) {
+          delete settings.hooks.PostToolUse;
+        }
+      }
+
       // Clean up empty hooks object
       if (Object.keys(settings.hooks).length === 0) {
         delete settings.hooks;
@@ -307,6 +319,21 @@ export async function uninstallWorkflowHooks(projectPath: string): Promise<HookR
     const enforcerExists = await exists(enforcerPath);
     if (enforcerExists) {
       await remove(enforcerPath);
+    }
+
+    // 3. Remove DCC feedback script and cache files
+    const hooksDir = `${projectPath}/.claude/hooks`;
+    const dccFiles = [
+      `${hooksDir}/dcc_feedback.py`,
+      `${hooksDir}/.dcc_smells_cache.json`,
+      `${hooksDir}/.dcc_smells_baseline.json`,
+      `${hooksDir}/.dcc_batch.json`,
+    ];
+    for (const filePath of dccFiles) {
+      const fileExists = await exists(filePath);
+      if (fileExists) {
+        await remove(filePath);
+      }
     }
 
     return { success: true };
