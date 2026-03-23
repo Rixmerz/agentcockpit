@@ -1,6 +1,6 @@
 /**
  * Ollama Service — Manages local Ollama container for semantic embeddings.
- * Auto-starts on app launch, provides status for ControlBar.
+ * Auto-starts Podman container on app launch, provides status for ControlBar.
  */
 import { invoke } from '@tauri-apps/api/core';
 
