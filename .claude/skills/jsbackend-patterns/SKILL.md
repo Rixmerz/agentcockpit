@@ -61,3 +61,9 @@ Note: For TypeScript type system features (generics, conditional types, mapped t
 | `architecture.md` | Hexagonal, Event-Driven, CQRS, Clean Architecture |
 | `best-practices.md` | Error handling, async, logging, production readiness |
 | `language-features.md` | Runtime-specific APIs, TC39 proposals, feature comparison |
+
+## Related Skills
+- [ts-patterns](../ts-patterns/SKILL.md) — TypeScript type system and tooling
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles
+- [qa-patterns](../qa-patterns/SKILL.md) — Testing strategies and quality gates
+- [devops-patterns](../devops-patterns/SKILL.md) — CI/CD, containers, and infrastructure

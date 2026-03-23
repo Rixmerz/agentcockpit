@@ -59,3 +59,101 @@ Pragmatic recommendation:
 - `go test -bench=. -benchmem` for benchmarks
 - `import _ "net/http/pprof"` for production profiling
 - Go 1.24: `for b.Loop() { ... }` replaces `for range b.N`
+
+## Hexagonal with Wire DI
+Use when your project needs compile-time dependency injection:
+```go
+// wire.go (build tag: wireinject)
+//go:build wireinject
+
+func InitializeApp(cfg *Config) (*App, error) {
+    wire.Build(
+        NewPostgresPool,    // provides *pgxpool.Pool
+        NewUserRepo,        // provides UserRepository
+        NewOrderRepo,       // provides OrderRepository
+        NewUserService,     // provides *UserService
+        NewOrderService,    // provides *OrderService
+        NewHTTPHandler,     // provides *Handler
+        NewApp,             // provides *App
+    )
+    return nil, nil
+}
+```
+Wire generates the initialization code at compile time. No runtime reflection.
+
+## DDD in Go
+Use when modeling complex business domains with clear invariants:
+```go
+// Value Object — immutable, compared by value
+type Money struct {
+    Amount   int64    // cents
+    Currency string
+}
+func (m Money) Add(other Money) (Money, error) {
+    if m.Currency != other.Currency { return Money{}, ErrCurrencyMismatch }
+    return Money{Amount: m.Amount + other.Amount, Currency: m.Currency}, nil
+}
+
+// Aggregate — consistency boundary, owns child entities
+type Order struct {
+    id    OrderID
+    items []OrderItem
+    total Money
+}
+func (o *Order) AddItem(product ProductID, qty int, price Money) error {
+    if qty <= 0 { return ErrInvalidQuantity }
+    o.items = append(o.items, OrderItem{Product: product, Qty: qty, Price: price})
+    o.recalculateTotal()
+    return nil
+}
+
+// Domain Event — emitted after state change
+type OrderPlacedEvent struct {
+    OrderID   OrderID
+    Total     Money
+    Timestamp time.Time
+}
+```
+
+## Clean Architecture (Uncle Bob adapted)
+Use when you need strict dependency rules and testability:
+```
+internal/
+  domain/          <- entities + value objects (zero imports from other layers)
+  usecase/         <- application logic, depends only on domain interfaces
+  adapter/
+    http/           <- HTTP handlers (import usecase interfaces)
+    postgres/       <- DB implementations (import domain interfaces)
+    grpc/           <- gRPC handlers
+  port/            <- interface definitions consumed by usecases
+```
+Rule: dependencies point inward. Domain knows nothing about HTTP, DB, or gRPC.
+
+## Event-Driven with Channels
+Use when decoupling producers and consumers within a single service:
+```go
+type EventBus struct {
+    subscribers map[string][]chan Event
+    mu          sync.RWMutex
+}
+
+func (b *EventBus) Subscribe(topic string) <-chan Event {
+    b.mu.Lock()
+    defer b.mu.Unlock()
+    ch := make(chan Event, 64)
+    b.subscribers[topic] = append(b.subscribers[topic], ch)
+    return ch
+}
+
+func (b *EventBus) Publish(ctx context.Context, topic string, event Event) {
+    b.mu.RLock()
+    defer b.mu.RUnlock()
+    for _, ch := range b.subscribers[topic] {
+        select {
+        case ch <- event:
+        case <-ctx.Done(): return
+        }
+    }
+}
+```
+For cross-service events, use NATS or Watermill instead of in-process channels.

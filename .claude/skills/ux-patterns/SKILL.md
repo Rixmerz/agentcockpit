@@ -67,3 +67,7 @@ description: "UX design reference - research methods, design systems, accessibil
 - `architecture.md` -- Design systems and UX architecture
 - `best-practices.md` -- Research methods, accessibility compliance, performance UX, ethical design
 - `language-features.md` -- UX industry landscape, trends, salaries, certifications
+
+## Related Skills
+- [ui-patterns](../ui-patterns/SKILL.md) — Frontend architecture and component patterns
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles

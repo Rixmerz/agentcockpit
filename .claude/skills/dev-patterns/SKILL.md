@@ -66,3 +66,7 @@ Rule: Never start with microservices unless you have the team, tooling, and oper
 | `architecture.md` | Hexagonal, microservices, event-driven, CQRS, DDD, caching strategies |
 | `best-practices.md` | API design, database, security, observability, concurrency, code quality, ADRs |
 | `language-features.md` | CAP theorem, SQL vs NoSQL, polyglot persistence, AI patterns, 2024-2025 trends |
+
+## Related Skills
+- [qa-patterns](../qa-patterns/SKILL.md) — Testing strategies and quality gates
+- [devops-patterns](../devops-patterns/SKILL.md) — CI/CD, containers, and infrastructure

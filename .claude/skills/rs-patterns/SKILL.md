@@ -52,3 +52,8 @@ Comprehensive reference for Rust architectural decisions. Use `$ARGUMENTS` to fo
 | 1.88 | Let chains (`if let Some(x) = a && cond`) |
 
 Edition 2024: async closures, `unsafe extern` mandatory, Cargo resolver v3, `gen` keyword reserved.
+
+## Related Skills
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles
+- [qa-patterns](../qa-patterns/SKILL.md) — Testing strategies and quality gates
+- [devops-patterns](../devops-patterns/SKILL.md) — CI/CD, containers, and infrastructure

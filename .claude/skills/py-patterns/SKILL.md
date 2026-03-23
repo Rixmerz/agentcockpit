@@ -52,3 +52,8 @@ Comprehensive reference for Python architectural decisions. Use `$ARGUMENTS` to 
 | **Google** | YouTube backend, search algorithms, Gmail |
 | **JPMorgan** | Athena platform (pricing, risk management) |
 | **Uber** | Ludwig ML framework (FastAPI REST server) |
+
+## Related Skills
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles
+- [qa-patterns](../qa-patterns/SKILL.md) — Testing strategies and quality gates
+- [devops-patterns](../devops-patterns/SKILL.md) — CI/CD, containers, and infrastructure

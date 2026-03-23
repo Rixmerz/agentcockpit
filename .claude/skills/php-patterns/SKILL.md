@@ -62,3 +62,8 @@ argument-hint: "[frameworks|patterns|architecture|practices|features|all]"
 | Shopify (Liquid) | $236B GMV | Admin tooling |
 
 > **Minimum recommended version:** PHP 8.2 for new projects (readonly classes, DNF types). PHP 8.4 preferred for property hooks and lazy objects.
+
+## Related Skills
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles
+- [qa-patterns](../qa-patterns/SKILL.md) — Testing strategies and quality gates
+- [devops-patterns](../devops-patterns/SKILL.md) — CI/CD, containers, and infrastructure

@@ -49,3 +49,6 @@ Comprehensive language-agnostic reference for testing and quality assurance deci
 | **2 - Managed** | Consistent testing | CI pipeline, >60% coverage, test reviews |
 | **3 - Proactive** | Quality-first | TDD, >80% coverage, quality gates, mutation testing |
 | **4 - Optimized** | Continuous improvement | Metrics-driven, chaos engineering, shift-left security |
+
+## Related Skills
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles

@@ -15,6 +15,7 @@ Comprehensive reference for Go architectural decisions. Use `$ARGUMENTS` to focu
 - For concurrency patterns (goroutines, channels, pipelines, worker pools), see [concurrency.md](concurrency.md)
 - For design patterns (functional options, error handling, composition), see [design-patterns.md](design-patterns.md)
 - For architecture patterns (Clean, Hexagonal, Vertical Slice, DDD), see [architecture.md](architecture.md)
+- For best practices (error handling, testing, project layout, linting), see [best-practices.md](best-practices.md)
 
 ## Decision Framework
 
@@ -51,3 +52,8 @@ When asked to choose between options, evaluate:
 | **ByteDance/TikTok** | 70% of microservices |
 | **Docker/Kubernetes** | Entire container ecosystem |
 | **HashiCorp** | Terraform, Vault, Consul, Nomad |
+
+## Related Skills
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles
+- [qa-patterns](../qa-patterns/SKILL.md) — Testing strategies and quality gates
+- [devops-patterns](../devops-patterns/SKILL.md) — CI/CD, containers, and infrastructure

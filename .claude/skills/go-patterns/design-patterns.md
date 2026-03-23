@@ -89,3 +89,93 @@ Rob Pike: "The bigger the interface, the weaker the abstraction."
 | `panic` in library code | Return errors, never panic |
 | Forgetting `defer mu.Unlock()` | Always defer immediately after Lock() |
 | Barrel imports causing circular deps | Direct imports |
+
+## Result Type with Generics (Go 1.21+)
+Use when you need explicit success/error handling without exceptions:
+```go
+type Result[T any] struct {
+    Value T
+    Err   error
+}
+
+func NewOK[T any](v T) Result[T] { return Result[T]{Value: v} }
+func NewErr[T any](err error) Result[T] { return Result[T]{Err: err} }
+
+func (r Result[T]) Unwrap() (T, error) { return r.Value, r.Err }
+func (r Result[T]) Map(fn func(T) T) Result[T] {
+    if r.Err != nil { return r }
+    return NewOK(fn(r.Value))
+}
+```
+
+## Circuit Breaker
+Use when calling unreliable external services to prevent cascade failures:
+```go
+import "github.com/sony/gobreaker/v2"
+
+cb := gobreaker.NewCircuitBreaker[[]byte](gobreaker.Settings{
+    Name:        "external-api",
+    MaxRequests: 3,                          // half-open: allow 3 probes
+    Interval:    10 * time.Second,           // closed: reset counts every 10s
+    Timeout:     30 * time.Second,           // open -> half-open after 30s
+    ReadyToTrip: func(c gobreaker.Counts) bool { return c.ConsecutiveFailures > 5 },
+})
+body, err := cb.Execute(func() ([]byte, error) { return callAPI(ctx) })
+```
+
+## Rate Limiter
+Use when you need to throttle outgoing requests or protect endpoints:
+```go
+import "golang.org/x/time/rate"
+
+// 10 requests/second with burst of 30
+limiter := rate.NewLimiter(rate.Limit(10), 30)
+
+func handler(w http.ResponseWriter, r *http.Request) {
+    if !limiter.Allow() {
+        http.Error(w, "rate limited", http.StatusTooManyRequests)
+        return
+    }
+    // process request
+}
+```
+
+## Generic Repository Pattern
+Use when abstracting persistence for multiple entity types:
+```go
+type Repository[T any, ID comparable] interface {
+    GetByID(ctx context.Context, id ID) (*T, error)
+    List(ctx context.Context, offset, limit int) ([]T, error)
+    Store(ctx context.Context, entity *T) error
+    Delete(ctx context.Context, id ID) error
+}
+
+type pgRepo[T any, ID comparable] struct {
+    pool      *pgxpool.Pool
+    tableName string
+}
+// Implement per-entity with sqlc-generated queries
+```
+
+## Middleware Chain
+Use when composing HTTP handlers with cross-cutting concerns:
+```go
+type Middleware func(http.Handler) http.Handler
+
+func Chain(h http.Handler, mws ...Middleware) http.Handler {
+    for i := len(mws) - 1; i >= 0; i-- {
+        h = mws[i](h)
+    }
+    return h
+}
+
+func Logging(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        next.ServeHTTP(w, r)
+        slog.Info("request", "method", r.Method, "path", r.URL.Path, "dur", time.Since(start))
+    })
+}
+
+// Usage: handler := Chain(myHandler, Logging, Auth, RateLimit)
+```

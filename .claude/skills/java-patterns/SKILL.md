@@ -50,3 +50,8 @@ Comprehensive reference for Java architectural decisions. Use `$ARGUMENTS` to fo
 | Java 24 | Structured Concurrency (preview), Scoped Values (preview), Stream Gatherers (preview) |
 
 LTS releases (17, 21) are production defaults. Non-LTS (22, 23, 24) for early adoption of preview features.
+
+## Related Skills
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles
+- [qa-patterns](../qa-patterns/SKILL.md) — Testing strategies and quality gates
+- [devops-patterns](../devops-patterns/SKILL.md) — CI/CD, containers, and infrastructure

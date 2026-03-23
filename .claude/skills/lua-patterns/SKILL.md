@@ -61,3 +61,7 @@ argument-hint: "[frameworks|patterns|architecture|practices|features|all]"
 | NGINX/OpenResty | Millions of servers | Request handling, routing |
 | Adobe Lightroom | Millions of users | Plugin system |
 | VLC | Millions of users | Extension scripting |
+
+## Related Skills
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles
+- [qa-patterns](../qa-patterns/SKILL.md) — Testing strategies and quality gates

@@ -71,3 +71,8 @@ description: "UI/Frontend architecture reference - React 19, Next.js 15, Vue 3, 
 - `architecture.md` -- Frontend architecture patterns (FSD, Micro Frontends, Islands)
 - `best-practices.md` -- Performance, accessibility, security, TypeScript for UI
 - `language-features.md` -- Modern Web Platform features (View Transitions, Container Queries, etc.)
+
+## Related Skills
+- [ux-patterns](../ux-patterns/SKILL.md) — UX research, design systems, accessibility
+- [ts-patterns](../ts-patterns/SKILL.md) — TypeScript type system and tooling
+- [css-theming](../css-theming/SKILL.md) — CSS custom properties and theming

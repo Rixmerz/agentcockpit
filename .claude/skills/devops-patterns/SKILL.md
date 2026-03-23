@@ -45,3 +45,7 @@ Comprehensive reference for DevOps tooling, infrastructure configuration, and pr
 | `architecture.md` | Deployment strategies, GitOps, multi-cluster, DR, Istio traffic, SLI/SLO, DORA metrics, role comparison |
 | `best-practices.md` | Container security, K8s production checklist, Terraform, CI/CD, observability, shell scripting, systemd, Linux diagnostics, FinOps |
 | `language-features.md` | Prometheus alerting, PromQL, OTel Collector, OPA, Istio, External Secrets, Ansible, AWS CLI, CNCF table, emerging tools |
+
+## Related Skills
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles
+- [qa-patterns](../qa-patterns/SKILL.md) — Testing strategies and quality gates

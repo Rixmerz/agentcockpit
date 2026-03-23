@@ -69,3 +69,9 @@ When asked to choose between options, evaluate:
   }
 }
 ```
+
+## Related Skills
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles
+- [qa-patterns](../qa-patterns/SKILL.md) — Testing strategies and quality gates
+- [ui-patterns](../ui-patterns/SKILL.md) — Frontend architecture and component patterns
+- [jsbackend-patterns](../jsbackend-patterns/SKILL.md) — Node.js/Deno/Bun backend runtime concerns

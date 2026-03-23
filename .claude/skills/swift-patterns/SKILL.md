@@ -54,3 +54,8 @@ Rust architecture reference for Claude Code. Covers frameworks, design patterns,
 - `architecture.md` — Architecture patterns (TCA, MVVM, Clean)
 - `best-practices.md` — Concurrency, error handling, testing
 - `language-features.md` — Unique Swift features (actors, macros, protocols)
+
+## Related Skills
+- [dev-patterns](../dev-patterns/SKILL.md) — Language-agnostic design principles
+- [qa-patterns](../qa-patterns/SKILL.md) — Testing strategies and quality gates
+- [ui-patterns](../ui-patterns/SKILL.md) — Frontend architecture and component patterns
