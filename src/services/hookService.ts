@@ -22,6 +22,7 @@ import ruleWorkflowDiscipline from '../../.claude/rules/workflow-discipline.md?r
 import ruleSubagentDelegation from '../../.claude/rules/subagent-delegation.md?raw';
 import ruleQualityFeedback from '../../.claude/rules/quality-feedback.md?raw';
 import ruleCommitDiscipline from '../../.claude/rules/commit-discipline.md?raw';
+import ruleExecutionPhilosophy from '../../.claude/rules/execution-philosophy.md?raw';
 import commandSetupAgents from '../../.claude/commands/setup-agents.md?raw';
 
 // Claude settings.json structure
@@ -659,6 +660,7 @@ const BUNDLED_RULES: Record<string, string> = {
   'subagent-delegation.md': ruleSubagentDelegation,
   'quality-feedback.md': ruleQualityFeedback,
   'commit-discipline.md': ruleCommitDiscipline,
+  'execution-philosophy.md': ruleExecutionPhilosophy,
 };
 
 const BUNDLED_HOOKS: Record<string, string> = {
