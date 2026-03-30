@@ -3,12 +3,18 @@
 Handles DCC analysis execution, result summarization, tension gate logic,
 impact preview simulation, and experience collection from DCC results.
 """
+from __future__ import annotations
 
 import json
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .graph_engine import Node
 
 from .hub_config import load_mcp_configs, load_enforcer_config
 from .mcp_connection import get_mcp_connection, increment_request_counter
@@ -1222,6 +1228,160 @@ def _record_skill_references(skill_recommendations: dict | None, project_dir: st
 
 
 # ============================================================================
+# Smart Smell Filtering
+# ============================================================================
+
+def _get_new_files(project_dir: str) -> set[str]:
+    """Return set of file paths that are new (untracked or staged-new) in git.
+
+    Combines:
+    - Untracked files from ``git status --porcelain``
+    - Files added since HEAD~1 from ``git diff --name-only HEAD~1``
+
+    Handles edge cases: no HEAD~1 (initial commit), not a git repo.
+
+    Returns:
+        Set of absolute file paths that are considered "new".
+    """
+    new_files: set[str] = set()
+    project_path = Path(project_dir)
+
+    # 1. Untracked + newly staged files from git status --porcelain
+    try:
+        result = subprocess.run(
+            ["git", "-C", project_dir, "status", "--porcelain"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if not line:
+                    continue
+                xy = line[:2]
+                path_part = line[3:].strip()
+                # XY codes where the file is new: ?? (untracked), A? (added in index)
+                if xy[0] in ("?", "A") or xy[1] in ("?", "A"):
+                    # Handle renamed format "old -> new"
+                    if " -> " in path_part:
+                        path_part = path_part.split(" -> ")[-1]
+                    new_files.add(str(project_path / path_part))
+    except Exception as e:
+        print(f"[workflow-manager] Warning: git status failed in _get_new_files: {e}", file=sys.stderr)
+
+    # 2. Files added in the last commit (HEAD vs HEAD~1)
+    try:
+        result = subprocess.run(
+            ["git", "-C", project_dir, "diff", "--name-only", "--diff-filter=A", "HEAD~1"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if line:
+                    new_files.add(str(project_path / line))
+    except Exception as e:
+        print(f"[workflow-manager] Warning: git diff HEAD~1 failed in _get_new_files: {e}", file=sys.stderr)
+
+    return new_files
+
+
+def _filter_actionable_smells(
+    smells: list[dict],
+    project_dir: str,
+    baseline_smells: list[dict] | None = None,
+    max_age_minutes: int = 30,
+    filter_for_validate: bool = False,
+) -> tuple[list[dict], int]:
+    """Filter a raw smell list to remove noise during active development.
+
+    Filter criteria (applied in order):
+        a. ``orphan_file`` smells for files that are new in git (untracked or
+           added since HEAD~1) — reason: "new_file"
+        b. ``orphan_file`` smells for files whose mtime is less than
+           ``max_age_minutes`` old — reason: "recent_file"
+        c. Smells already present in ``baseline_smells`` (pre-existing
+           degradation) — reason: "baseline_existing"
+
+    When ``filter_for_validate`` is True, all filtering is skipped so that
+    Validate/Review phases see the complete picture.
+
+    Args:
+        smells: Raw smell list (each item is a dict with at least "type",
+                "file"/"source", and optionally "severity").
+        project_dir: Project root directory (used for git commands).
+        baseline_smells: Optional list of smells captured at workflow start.
+                         Only smells NOT in this list are surfaced.
+        max_age_minutes: How many minutes old a file must be to not be
+                         suppressed by the recency filter.
+        filter_for_validate: When True, skip all filtering (Validate phases).
+
+    Returns:
+        (filtered_smells, noise_filtered_count) where ``filtered_smells`` is
+        the actionable subset and ``noise_filtered_count`` is how many were
+        suppressed.
+    """
+    if filter_for_validate or not smells:
+        return smells, 0
+
+    try:
+        new_files = _get_new_files(project_dir)
+    except Exception as e:
+        print(f"[workflow-manager] Warning: _get_new_files failed: {e}", file=sys.stderr)
+        new_files = set()
+
+    now_real = time.time()
+    age_threshold_secs = max_age_minutes * 60
+
+    # Build a baseline key set for quick lookup: (type, normalized_file)
+    baseline_keys: set[tuple[str, str]] = set()
+    if baseline_smells:
+        for bs in baseline_smells:
+            btype = bs.get("type", bs.get("smell_type", ""))
+            bfile = bs.get("file", bs.get("source", ""))
+            if btype and bfile:
+                baseline_keys.add((btype, str(bfile)))
+
+    filtered: list[dict] = []
+    suppressed = 0
+
+    for smell in smells:
+        smell_type = smell.get("type", smell.get("smell_type", ""))
+        smell_file = smell.get("file", smell.get("source", ""))
+
+        # Filter (c): baseline-existing — applies to all smell types
+        if baseline_keys:
+            key = (smell_type, str(smell_file))
+            if key in baseline_keys:
+                suppressed += 1
+                continue
+
+        # Filters (a) and (b) only apply to orphan_file smells
+        if smell_type == "orphan_file" and smell_file:
+            # Resolve to absolute path for comparison
+            smell_path = Path(smell_file)
+            if not smell_path.is_absolute():
+                smell_path = Path(project_dir) / smell_path
+            abs_smell_file = str(smell_path)
+
+            # (a) New file in git
+            if abs_smell_file in new_files:
+                suppressed += 1
+                continue
+
+            # (b) Recently created file (mtime < max_age_minutes)
+            try:
+                file_mtime = smell_path.stat().st_mtime
+                if (now_real - file_mtime) < age_threshold_secs:
+                    suppressed += 1
+                    continue
+            except OSError:
+                pass  # File might not exist yet; don't suppress on error
+
+        filtered.append(smell)
+
+    return filtered, suppressed
+
+
+# ============================================================================
 # Mid-Phase DCC Check (3A)
 # ============================================================================
 
@@ -1229,6 +1389,8 @@ async def _run_mid_phase_check(
     project_dir: str,
     changed_files: list[str],
     token_budget: int = 200,
+    node_name: str | None = None,
+    baseline_smells: list[dict] | None = None,
 ) -> dict | None:
     """Run lightweight DCC analysis on specific changed files between traversals.
 
@@ -1239,12 +1401,21 @@ async def _run_mid_phase_check(
         project_dir: Project directory path.
         changed_files: List of file paths that were recently modified.
         token_budget: Approximate token budget for the combined output.
+        node_name: Current workflow node name. When it contains "validate" or
+                   "review", smart filtering is skipped to show the full picture.
+        baseline_smells: Optional list of smells captured at workflow start used
+                         to suppress pre-existing entries from feedback.
 
     Returns:
-        Dict with smells_summary, tensions_summary, and files_checked, or None if DCC unavailable.
+        Dict with smells_summary, tensions_summary, files_checked, and
+        noise_filtered, or None if DCC unavailable.
     """
     if not _is_dcc_available():
         return None
+
+    # Determine whether this is a validate/review phase (skip filtering if so)
+    node_lower = (node_name or "").lower()
+    is_validate_phase = any(kw in node_lower for kw in ("validate", "review"))
 
     # Index only the specified files (max 10)
     files_to_check = changed_files[:10]
@@ -1254,9 +1425,50 @@ async def _run_mid_phase_check(
         if result is not None:
             files_checked += 1
 
-    # Run smells analysis (summary only for compact output)
-    raw_smells = await _execute_dcc_tool("cube_detect_smells", {"summary_only": True}, project_dir)
-    smells_summary = _summarize_smells(raw_smells) or "No smells data"
+    # Run smells analysis — fetch full list so we can filter it before summarizing.
+    # In validate phases we still use summary_only for compactness (no filtering anyway).
+    noise_filtered = 0
+    if is_validate_phase:
+        raw_smells = await _execute_dcc_tool("cube_detect_smells", {"summary_only": True}, project_dir)
+        smells_summary = _summarize_smells(raw_smells) or "No smells data"
+    else:
+        raw_smells_full = await _execute_dcc_tool("cube_detect_smells", {}, project_dir)
+        raw_smells = raw_smells_full  # keep reference for summary fallback
+
+        # Extract smell list for filtering
+        smell_list: list[dict] = []
+        try:
+            content = _extract_mcp_content(raw_smells_full)
+            if isinstance(content, dict):
+                smell_list = content.get("smells", [])
+        except Exception as e:
+            print(f"[workflow-manager] Warning: failed to extract smell list in mid-phase: {e}", file=sys.stderr)
+
+        if smell_list:
+            filtered_smells, noise_filtered = _filter_actionable_smells(
+                smell_list, project_dir,
+                baseline_smells=baseline_smells,
+                filter_for_validate=False,
+            )
+            # Build a synthetic summary from the filtered list
+            if not filtered_smells:
+                smells_summary = "No actionable smells detected"
+            else:
+                by_severity: dict[str, int] = {}
+                by_type: dict[str, int] = {}
+                for s in filtered_smells:
+                    sev = s.get("severity", "low")
+                    by_severity[sev] = by_severity.get(sev, 0) + 1
+                    stype = s.get("type", s.get("smell_type", "unknown"))
+                    by_type[stype] = by_type.get(stype, 0) + 1
+                sev_order = ["critical", "high", "medium", "low"]
+                sev_parts = [f"{by_severity[s]} {s}" for s in sev_order if by_severity.get(s)]
+                type_parts = [f"{t}: {c}" for t, c in sorted(by_type.items())]
+                smells_summary = f"{len(filtered_smells)} smells ({', '.join(sev_parts)})"
+                if type_parts:
+                    smells_summary += f" — {', '.join(type_parts)}"
+        else:
+            smells_summary = _summarize_smells(raw_smells) or "No smells data"
 
     # Run tensions (limit to 5 for compact output)
     raw_tensions = await _execute_dcc_tool("cube_get_tensions", {"limit": 5}, project_dir)
@@ -1273,6 +1485,7 @@ async def _run_mid_phase_check(
         "smells_summary": smells_summary,
         "tensions_summary": tensions_summary,
         "files_checked": files_checked,
+        "noise_filtered": noise_filtered,
     }
 
 
@@ -1284,8 +1497,9 @@ _GRADE_ORDER = {"A": 0, "B": 1, "C": 2, "D": 3, "F": 4}
 
 
 async def _run_pre_transition_check(
-    node: object,
+    node: "Node | None",
     project_dir: str,
+    baseline_smells: list[dict] | None = None,
 ) -> dict | None:
     """Run DCC quality check before allowing a workflow transition.
 
@@ -1297,12 +1511,19 @@ async def _run_pre_transition_check(
         min_grade: str (A/B/C/D/F) — block if debt grade is worse than this
         max_critical_smells: int — block if more critical smells than this
 
+    Smart filtering is applied to critical smells before the count check so
+    that orphan smells on new/recent files do not cause false blocks.
+    In validate/review nodes filtering is disabled to show the full picture.
+
     Args:
         node: Current graph Node object (the FROM node of the edge being traversed).
         project_dir: Project directory path.
+        baseline_smells: Optional list of smells captured at workflow start used
+                         to suppress pre-existing entries when counting criticals.
 
     Returns:
         None if transition is allowed, or a dict with blocking details.
+        The dict always includes a ``noise_filtered`` key (int).
     """
     if not node or not node.dcc_context:
         return None
@@ -1316,6 +1537,11 @@ async def _run_pre_transition_check(
 
     min_grade = pre_check.get("min_grade", "D")
     max_critical_smells = pre_check.get("max_critical_smells", 10)
+
+    # Determine whether this is a validate/review phase (skip filtering if so)
+    node_id = getattr(node, "id", "") or ""
+    node_lower = node_id.lower()
+    is_validate_phase = any(kw in node_lower for kw in ("validate", "review"))
 
     # Get debt grade
     raw_debt = await _execute_dcc_tool("cube_get_debt", {}, project_dir)
@@ -1333,24 +1559,34 @@ async def _run_pre_transition_check(
         except Exception as e:
             print(f"[workflow-manager] Warning: failed to parse debt grade: {e}", file=sys.stderr)
 
-    # Get critical smells count
+    # Get critical smells — fetch full list so we can apply smart filtering
     raw_smells = await _execute_dcc_tool(
         "cube_detect_smells",
-        {"min_severity": "critical", "summary_only": True},
+        {"min_severity": "critical"},
         project_dir,
     )
     critical_smells_count = 0
+    noise_filtered = 0
     if raw_smells:
         try:
-            content = raw_smells
-            if isinstance(raw_smells, dict) and "content" in raw_smells:
-                for item in raw_smells["content"]:
-                    if item.get("type") == "text":
-                        content = json.loads(item["text"])
-                        break
+            content = _extract_mcp_content(raw_smells)
             if isinstance(content, dict):
-                by_severity = content.get("by_severity", {})
-                critical_smells_count = by_severity.get("critical", content.get("total_smells", 0))
+                smell_list: list[dict] = content.get("smells", [])
+                if smell_list and not is_validate_phase:
+                    # Apply smart filtering before counting
+                    filtered_smells, noise_filtered = _filter_actionable_smells(
+                        smell_list, project_dir,
+                        baseline_smells=baseline_smells,
+                        filter_for_validate=False,
+                    )
+                    critical_smells_count = len(filtered_smells)
+                elif smell_list:
+                    # Validate phase: count everything
+                    critical_smells_count = len(smell_list)
+                else:
+                    # Fallback: use pre-aggregated by_severity if smells list absent
+                    by_severity = content.get("by_severity", {})
+                    critical_smells_count = by_severity.get("critical", content.get("total_smells", 0))
         except Exception as e:
             print(f"[workflow-manager] Warning: failed to parse critical smells: {e}", file=sys.stderr)
 
@@ -1368,7 +1604,7 @@ async def _run_pre_transition_check(
         min_grade_level = _GRADE_ORDER.get(min_grade, 3)
         grade_blocked = current_grade_level > min_grade_level
 
-    # Compare critical smells count
+    # Compare critical smells count (against filtered count)
     smells_blocked = critical_smells_count > max_critical_smells
 
     if not grade_blocked and not smells_blocked:
@@ -1388,4 +1624,5 @@ async def _run_pre_transition_check(
         "critical_smells": critical_smells_count,
         "min_grade": min_grade,
         "max_critical_smells": max_critical_smells,
+        "noise_filtered": noise_filtered,
     }

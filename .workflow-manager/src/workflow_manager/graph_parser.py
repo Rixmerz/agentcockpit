@@ -330,6 +330,21 @@ def parse_graph_yaml(content: str) -> Graph:
         else:
             dcc_context = None
 
+        # Parse contracts (optional) — list of {"file": "...", "content": "..."}
+        contracts_raw = node_data.get('contracts')
+        contracts: list[dict] | None = None
+        if isinstance(contracts_raw, list):
+            contracts = []
+            for item in contracts_raw:
+                if not isinstance(item, dict):
+                    continue
+                file_val = item.get('file')
+                content_val = item.get('content')
+                if file_val and content_val is not None:
+                    contracts.append({"file": str(file_val), "content": str(content_val)})
+            if not contracts:
+                contracts = None
+
         node = Node(
             id=node_id,
             name=node_data.get('name', node_id),
@@ -339,7 +354,8 @@ def parse_graph_yaml(content: str) -> Graph:
             is_start=bool(node_data.get('is_start', False)),
             is_end=bool(node_data.get('is_end', False)),
             max_visits=int(node_data.get('max_visits', 10)),
-            dcc_context=dcc_context
+            dcc_context=dcc_context,
+            contracts=contracts
         )
 
         graph.add_node(node)

@@ -11,6 +11,7 @@ from ..hub_config import load_enforcer_config
 from ..graph_engine import (
     Graph, GraphState, MaxVisitsExceeded,
     evaluate_transitions, take_transition,
+    _write_contract_files, _cleanup_contract_files,
 )
 from ..graph_parser import load_graph_from_file, GraphParseError
 from ..graph_state import (
@@ -117,6 +118,13 @@ def register_graph_core_tools(mcp):
         # Get enforcer config
         enforcer_config = load_enforcer_config(resolved_dir)
 
+        # Collect outputs recorded on the current node's path entry
+        current_outputs: dict[str, str] = {}
+        if state.execution_path:
+            last_entry = state.execution_path[-1]
+            if last_entry.outputs:
+                current_outputs = last_entry.outputs
+
         return {
             "session_id": sid,
             "graph_name": state.active_graph or graph.metadata.get('name', 'unnamed'),
@@ -144,6 +152,7 @@ def register_graph_core_tools(mcp):
                 "last_analysis": state.last_dcc_result,
                 "timestamp": state.last_dcc_timestamp,
             },
+            "current_outputs": current_outputs,
             "last_activity": state.last_activity,
             "project_dir": resolved_dir
         }
@@ -252,6 +261,11 @@ def register_graph_core_tools(mcp):
         except Exception:
             pass
 
+        # Clean up contract stubs from the current node before leaving it.
+        # Stubs that have been superseded by real implementations are removed;
+        # stubs still containing original content are also removed (orphans).
+        _cleanup_contract_files(current_node, resolved_dir)
+
         # Execute transition
         try:
             state = take_transition(graph, state, edge, reason)
@@ -279,6 +293,11 @@ def register_graph_core_tools(mcp):
 
         # Get new node info
         new_node = graph.nodes.get(state.get_current_node())
+
+        # Write contract files for the new node before agents start working.
+        contracts_written: list[str] = []
+        if new_node:
+            contracts_written = _write_contract_files(new_node, resolved_dir)
 
         # Run DCC analysis (global injection -- auto-detects availability)
         enforcer_config = load_enforcer_config(resolved_dir)
@@ -345,6 +364,21 @@ def register_graph_core_tools(mcp):
         except Exception as e:
             impact_result = {"error": str(e)}
 
+        # Build prompt_injection, appending previous wave outputs if present
+        base_prompt = new_node.prompt_injection if new_node else None
+        prev_entry = state.execution_path[-2] if len(state.execution_path) >= 2 else None
+        if prev_entry and prev_entry.outputs:
+            output_lines = ["## Available from previous wave"]
+            for k, v in prev_entry.outputs.items():
+                output_lines.append(f"- **{k}**: {v}")
+            outputs_section = "\n".join(output_lines)
+            if base_prompt:
+                prompt_injection = f"{base_prompt}\n\n{outputs_section}"
+            else:
+                prompt_injection = outputs_section
+        else:
+            prompt_injection = base_prompt
+
         result = {
             "success": True,
             "session_id": sid,
@@ -359,8 +393,9 @@ def register_graph_core_tools(mcp):
                 "visits": state.get_visit_count(edge.to_node)
             },
             "total_transitions": state.total_transitions,
-            "prompt_injection": new_node.prompt_injection if new_node else None,
+            "prompt_injection": prompt_injection,
             "dcc_analysis": dcc_result,
+            "contracts_written": contracts_written,
             "reason": reason,
             "project_dir": resolved_dir
         }
@@ -717,3 +752,64 @@ def register_graph_core_tools(mcp):
             return {"error": "DCC mid-phase check returned no result"}
 
         return result
+
+    @mcp.tool()
+    def graph_record_output(
+        key: str,
+        value: str,
+        project_dir: str | None = None,
+        session_id: str | None = None,
+    ) -> dict:
+        """Record an output from the current workflow node.
+
+        Agents call this to register what they produced during a phase.
+        These outputs are injected into the next node's prompt when traversing.
+
+        Example: After discovering the next migration number, call:
+            graph_record_output(key="next_migration", value="000028")
+
+        The next wave's agents will receive:
+            "## Available from previous wave: next_migration = 000028"
+
+        Args:
+            key: Short identifier for the output (e.g., "migration_number", "types_file")
+            value: The value to record (string)
+            project_dir: Optional project directory
+            session_id: Optional session ID
+        """
+        resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
+        try:
+            graph, state = _load_active_graph(resolved_dir)
+        except (ValueError, GraphParseError) as e:
+            return {
+                "error": True,
+                "session_id": sid,
+                "message": str(e),
+                "project_dir": resolved_dir,
+            }
+
+        if not state.execution_path:
+            return {
+                "error": True,
+                "session_id": sid,
+                "message": "No active path entry to record output on",
+                "project_dir": resolved_dir,
+            }
+
+        last_entry = state.execution_path[-1]
+        if last_entry.outputs is None:
+            last_entry.outputs = {}
+        last_entry.outputs[key] = value
+
+        save_graph_state(resolved_dir, state)
+
+        return {
+            "success": True,
+            "session_id": sid,
+            "key": key,
+            "value": value,
+            "current_outputs": last_entry.outputs,
+            "node": state.get_current_node(),
+            "project_dir": resolved_dir,
+        }

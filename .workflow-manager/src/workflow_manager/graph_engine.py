@@ -6,6 +6,7 @@ directed graphs with conditional edges, supporting loops and multiple transition
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 
@@ -82,6 +83,7 @@ class Node:
     is_end: bool = False
     max_visits: int = 10
     dcc_context: Optional[dict] = None
+    contracts: list[dict] | None = None  # list of {"file": "path", "content": "..."}
 
 
 @dataclass
@@ -205,6 +207,7 @@ class PathEntry:
     timestamp: str
     reason: str
     commit_sha: Optional[str] = None
+    outputs: dict[str, str] | None = None  # key-value outputs from this node
 
 
 @dataclass
@@ -261,6 +264,79 @@ class GraphState:
         self.current_nodes = [to_node]
         self.total_transitions += 1
         self.last_activity = entry.timestamp
+
+
+def _write_contract_files(node: Node, project_dir: str) -> list[str]:
+    """Write contract files defined in a node before agents start.
+
+    Contract files are interface/type-only files that agents can import from
+    instead of waiting for each other's output.  They are written before the
+    wave begins so all parallel agents see consistent type definitions.
+
+    Args:
+        node: The node whose contracts should be written
+        project_dir: Absolute path to the project directory
+
+    Returns:
+        List of absolute file paths that were written
+    """
+    if not node.contracts:
+        return []
+
+    written: list[str] = []
+    for contract in node.contracts:
+        file_path = Path(project_dir) / contract["file"]
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(contract["content"], encoding="utf-8")
+        written.append(str(file_path))
+
+    return written
+
+
+def _cleanup_contract_files(node: Node, project_dir: str) -> list[str]:
+    """Delete contract stubs after a wave completes.
+
+    A contract file is only deleted when it is still the original stub (i.e.
+    no agent has written real code to that path yet).  If an agent has
+    overwritten the path with a real implementation the file is left untouched.
+
+    Per spec: never delete a contract file if a real implementation exists at
+    the same path — a real implementation is detected by content differing from
+    the original stub.
+
+    Args:
+        node: The node whose contracts should be cleaned up
+        project_dir: Absolute path to the project directory
+
+    Returns:
+        List of absolute file paths that were deleted
+    """
+    if not node.contracts:
+        return []
+
+    deleted: list[str] = []
+    for contract in node.contracts:
+        file_path = Path(project_dir) / contract["file"]
+        if not file_path.exists():
+            continue
+        try:
+            current_content = file_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+
+        if current_content != contract["content"]:
+            # Content changed — a real implementation now lives at this path;
+            # leave it alone.
+            continue
+
+        # Still the original stub — delete it (orphan placeholder).
+        try:
+            file_path.unlink()
+            deleted.append(str(file_path))
+        except OSError:
+            pass
+
+    return deleted
 
 
 class MaxVisitsExceeded(Exception):

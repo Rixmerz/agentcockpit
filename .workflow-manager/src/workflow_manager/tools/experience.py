@@ -9,6 +9,7 @@ from ..experience_memory import (
     ExperienceEntry, merge_stores,
     generalize_path, extract_file_keywords, guess_domain,
     compute_relevance, GLOBAL_MEMORY_FILE, PROJECT_MEMORIES_DIR,
+    derive_implementation_checklist, format_checklist_for_prompt,
 )
 from ..dcc_integration import (
     get_experience_store, get_project_experience_store,
@@ -257,3 +258,57 @@ def register_experience_tools(mcp):
             "session_id": sid,
             "project_dir": resolved_dir,
         }
+
+    @mcp.tool()
+    def experience_derive_checklist(
+        project_dir: str | None = None,
+        task_type: str = "bounded_context",
+        session_id: str | None = None,
+    ) -> dict:
+        # readOnlyHint: True
+        """Derive an implementation checklist from experience memory.
+
+        Analyzes past implementations to produce a checklist of files and patterns
+        needed for a given task type. Most useful before starting a new bounded
+        context, feature, or migration.
+
+        The checklist is derived by scanning all experience entries (global +
+        project-specific) for recurring file patterns that match the requested
+        task type.  Each pattern must appear at least twice to be included.
+
+        Args:
+            project_dir: Project directory (optional after set_session)
+            task_type: One of: bounded_context, feature, migration, api_endpoint
+            session_id: Optional session ID
+
+        Returns a dict with:
+            - task_type: echoed back
+            - derived_from: number of experience entries analyzed
+            - checklist: list of {pattern, description, occurrences, examples}
+            - notes: short convention hints from high-confidence entries
+            - prompt_text: markdown-formatted version, ready for prompt injection
+        """
+        resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
+        valid_task_types = {"bounded_context", "feature", "migration", "api_endpoint"}
+        if task_type not in valid_task_types:
+            return {
+                "error": True,
+                "message": (
+                    f"Invalid task_type '{task_type}'. "
+                    f"Valid options: {', '.join(sorted(valid_task_types))}"
+                ),
+                "session_id": sid,
+                "project_dir": resolved_dir,
+            }
+
+        result = derive_implementation_checklist(
+            project_dir=resolved_dir,
+            task_type=task_type,
+        )
+
+        result["prompt_text"] = format_checklist_for_prompt(result)
+        result["session_id"] = sid
+        result["project_dir"] = resolved_dir
+
+        return result

@@ -97,7 +97,8 @@ def load_graph_state(project_dir: str) -> GraphState:
                 edge_id=entry_data.get('edge_id'),
                 timestamp=entry_data.get('timestamp', ''),
                 reason=entry_data.get('reason', ''),
-                commit_sha=entry_data.get('commit_sha')
+                commit_sha=entry_data.get('commit_sha'),
+                outputs=entry_data.get('outputs') or None,
             )
             execution_path.append(entry)
 
@@ -132,14 +133,17 @@ def save_graph_state(project_dir: str, state: GraphState):
     # Serialize execution path
     execution_path_data = []
     for entry in state.execution_path:
-        execution_path_data.append({
+        entry_dict: dict = {
             'from_node': entry.from_node,
             'to_node': entry.to_node,
             'edge_id': entry.edge_id,
             'timestamp': entry.timestamp,
             'reason': entry.reason,
             'commit_sha': entry.commit_sha,
-        })
+        }
+        if entry.outputs is not None:
+            entry_dict['outputs'] = entry.outputs
+        execution_path_data.append(entry_dict)
 
     # Update last_activity
     state.last_activity = datetime.now().isoformat()

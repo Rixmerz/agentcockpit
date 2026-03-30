@@ -10,6 +10,8 @@ from .graph_builder import register_graph_builder_tools
 from .proxy import register_proxy_tools
 from .deployment import register_deployment_tools
 from .experience import register_experience_tools
+from .project_metadata_tools import register_project_metadata_tools
+from .pattern_catalog_tools import register_pattern_catalog_tools
 
 
 def register_all_tools(mcp):
@@ -21,3 +23,5 @@ def register_all_tools(mcp):
     register_proxy_tools(mcp)
     register_deployment_tools(mcp)
     register_experience_tools(mcp)
+    register_project_metadata_tools(mcp)
+    register_pattern_catalog_tools(mcp)

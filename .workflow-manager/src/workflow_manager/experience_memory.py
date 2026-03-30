@@ -465,3 +465,265 @@ def merge_stores(global_store: ExperienceMemoryStore,
             merged[key] = entry
 
     return list(merged.values())
+
+
+# ============================================================================
+# Implementation Checklist Derivation
+# ============================================================================
+
+# Regex segments that identify each layer/group per task type.
+# Each entry is (group_label, description, regex_pattern).
+_TASK_TYPE_GROUPS: dict[str, list[tuple[str, str, str]]] = {
+    "bounded_context": [
+        ("domain",        "Domain entities and value objects",     r"internal/[^/]+/domain/"),
+        ("application",   "Use cases / application services",      r"internal/[^/]+/application/"),
+        ("infrastructure","Repository implementations",            r"internal/[^/]+/infrastructure/"),
+        ("handlers",      "HTTP handlers",                         r"internal/[^/]+/handlers"),
+        ("ports",         "Ports / interfaces",                    r"internal/[^/]+/ports/"),
+        ("tests",         "Tests for the context",                 r"internal/[^/]+/(domain|application|infrastructure).*(test|_test)"),
+    ],
+    "feature": [
+        ("components",    "UI components",                         r"src/features/[^/]+/components/"),
+        ("hooks",         "Custom hooks",                          r"src/features/[^/]+/hooks/"),
+        ("services",      "Feature services / API calls",          r"src/features/[^/]+/services?/"),
+        ("store",         "State management",                      r"src/features/[^/]+/(store|slice|state)"),
+        ("types",         "TypeScript types / interfaces",         r"src/features/[^/]+/types"),
+        ("tests",         "Feature tests",                         r"src/features/[^/]+/.*\.(test|spec)\."),
+    ],
+    "migration": [
+        ("migration_file","Migration file",                        r"(migrations?|db/migrate)/[^/]+"),
+        ("model",         "Updated model/entity",                  r"(models?|entities?)/[^/]+"),
+        ("repository",    "Updated repository",                    r"(repositories?|repos?)/[^/]+"),
+        ("seeds",         "Seed / fixture data",                   r"(seeds?|fixtures?)/[^/]+"),
+    ],
+    "api_endpoint": [
+        ("handler",       "HTTP handler / controller",             r"(handlers?|controllers?)/[^/]+"),
+        ("route",         "Route registration",                    r"(routes?|router)/[^/]+"),
+        ("service",       "Service / use-case",                    r"(services?|usecases?|use_cases?)/[^/]+"),
+        ("dto",           "Request / response DTOs",               r"(dto|request|response|schema)/[^/]+"),
+        ("validation",    "Input validation",                      r"(valid|validator|middleware)/[^/]+"),
+        ("tests",         "Endpoint tests",                        r".*\.(test|spec)\."),
+    ],
+}
+
+
+def _generalize_context_name(pattern: str, task_type: str) -> str:
+    """Replace specific context names with {name} placeholder.
+
+    "internal/sales/domain/*.go"      → "internal/{name}/domain/*.go"
+    "src/features/auth/components/*"  → "src/features/{name}/components/*"
+    """
+    if task_type == "bounded_context":
+        return re.sub(r"(internal/)[^/]+(/.+)", r"\1{name}\2", pattern)
+    if task_type == "feature":
+        return re.sub(r"(src/features/)[^/]+(/.+)", r"\1{name}\2", pattern)
+    return pattern
+
+
+def _classify_pattern(file_pattern: str, task_type: str) -> str | None:
+    """Return the group label for a file_pattern, or None if it doesn't fit."""
+    groups = _TASK_TYPE_GROUPS.get(task_type, [])
+    for label, _description, regex in groups:
+        if re.search(regex, file_pattern, re.IGNORECASE):
+            return label
+    return None
+
+
+def _extract_notes_from_entries(entries: list[ExperienceEntry]) -> list[str]:
+    """Pull short, useful hints from high-confidence entries' resolution text.
+
+    Only considers entries with confidence >= 0.65.  Returns at most 5 notes,
+    each a single line of up to 120 characters.
+    """
+    notes: list[str] = []
+    seen: set[str] = set()
+
+    for entry in sorted(entries, key=lambda e: e.confidence, reverse=True):
+        if entry.confidence < 0.65:
+            break
+        resolution = (entry.resolution or "").strip()
+        if not resolution or len(resolution) < 10:
+            continue
+        # Collapse newlines, then take first sentence up to 120 chars
+        single_line = " ".join(resolution.splitlines()).strip()
+        first_sentence = single_line.split(".")[0][:120].strip()
+        if first_sentence and first_sentence not in seen:
+            seen.add(first_sentence)
+            notes.append(first_sentence)
+        if len(notes) >= 5:
+            break
+
+    return notes
+
+
+def derive_implementation_checklist(
+    project_dir: str,
+    task_type: str = "bounded_context",
+    min_occurrences: int = 2,
+) -> dict:
+    """Derive a checklist of files needed for a task type based on experience memory.
+
+    Analyzes experience_memory.json entries to find recurring file patterns
+    for a given type of task (e.g., "bounded_context", "feature", "migration").
+
+    Args:
+        project_dir: Project directory to find experience store.
+        task_type: Type of task to derive checklist for.
+            "bounded_context" - groups by internal/*/domain, application, infrastructure
+            "feature"         - groups by src/features/*/
+            "migration"       - groups by migration patterns
+            "api_endpoint"    - groups by handler/route patterns
+        min_occurrences: Minimum times a pattern must appear to be included.
+
+    Returns:
+        {
+            "task_type": "bounded_context",
+            "derived_from": 9,
+            "checklist": [
+                {
+                    "pattern": "internal/{name}/domain/*.go",
+                    "description": "Domain entities and value objects",
+                    "occurrences": 9,
+                    "examples": ["internal/sales/domain/order.go"],
+                },
+                ...
+            ],
+            "notes": ["ID pattern: type XxxID string (not uuid)"],
+        }
+    """
+    # ── Load stores ──────────────────────────────────────────────────────────
+    global_store = ExperienceMemoryStore()
+    global_store.load(scope="global")
+
+    project_store = ExperienceMemoryStore()
+    project_name = Path(project_dir).name
+    project_store.load(scope="project", project_name=project_name)
+
+    all_entries = merge_stores(global_store, project_store)
+
+    if not all_entries:
+        return {
+            "task_type": task_type,
+            "derived_from": 0,
+            "checklist": [],
+            "notes": [],
+        }
+
+    # ── Group entries by generalized pattern ─────────────────────────────────
+    # key: generalized pattern string  →  {occurrences, examples, group_label, raw_entries}
+    pattern_map: dict[str, dict] = {}
+
+    for entry in all_entries:
+        raw_pattern = entry.file_pattern
+        if not raw_pattern:
+            continue
+
+        group_label = _classify_pattern(raw_pattern, task_type)
+        if group_label is None:
+            continue
+
+        generalized = _generalize_context_name(raw_pattern, task_type)
+
+        if generalized not in pattern_map:
+            pattern_map[generalized] = {
+                "occurrences": 0,
+                "examples": [],
+                "group_label": group_label,
+                "raw_entries": [],
+            }
+
+        bucket = pattern_map[generalized]
+        bucket["occurrences"] += entry.occurrences
+        # Keep up to 3 concrete examples from related_files or the raw pattern
+        for ex in entry.related_files[:3]:
+            if ex not in bucket["examples"] and len(bucket["examples"]) < 3:
+                bucket["examples"].append(ex)
+        # Also keep the raw (non-generalized) pattern as an example if it differs
+        if raw_pattern != generalized and raw_pattern not in bucket["examples"] and len(bucket["examples"]) < 3:
+            bucket["examples"].append(raw_pattern)
+        bucket["raw_entries"].append(entry)
+
+    # ── Build checklist items using group metadata for descriptions ───────────
+    group_desc_map = {
+        label: desc
+        for label, desc, _ in _TASK_TYPE_GROUPS.get(task_type, [])
+    }
+
+    checklist_items = []
+    for generalized_pattern, bucket in pattern_map.items():
+        if bucket["occurrences"] < min_occurrences:
+            continue
+        label = bucket["group_label"]
+        checklist_items.append({
+            "pattern": generalized_pattern,
+            "description": group_desc_map.get(label, label),
+            "occurrences": bucket["occurrences"],
+            "examples": bucket["examples"],
+        })
+
+    # ── Sort by occurrences desc, then pattern alphabetically ────────────────
+    checklist_items.sort(key=lambda x: (-x["occurrences"], x["pattern"]))
+
+    # ── Extract notes from high-confidence entries ────────────────────────────
+    notes = _extract_notes_from_entries(all_entries)
+
+    return {
+        "task_type": task_type,
+        "derived_from": len(all_entries),
+        "checklist": checklist_items,
+        "notes": notes,
+    }
+
+
+def format_checklist_for_prompt(checklist: dict) -> str:
+    """Format a checklist dict (from derive_implementation_checklist) as markdown.
+
+    Suitable for prompt injection. Output is capped at 3000 characters.
+    """
+    task_type = checklist.get("task_type", "unknown")
+    derived_from = checklist.get("derived_from", 0)
+    items = checklist.get("checklist", [])
+    notes = checklist.get("notes", [])
+
+    lines: list[str] = []
+    lines.append(f"## Implementation Checklist: {task_type}")
+    lines.append(f"_Derived from {derived_from} past experience entries._")
+    lines.append("")
+
+    if not items:
+        lines.append("_No recurring patterns found. Proceed without a checklist._")
+    else:
+        lines.append("### Files to create")
+        lines.append("")
+        for item in items:
+            pattern = item.get("pattern", "")
+            description = item.get("description", "")
+            occurrences = item.get("occurrences", 0)
+            examples = item.get("examples", [])
+
+            # Primary line: checkbox + pattern + description
+            line = f"- [ ] `{pattern}` — {description} _(seen {occurrences}x)_"
+            lines.append(line)
+
+            # Sub-bullet examples (max 2 to stay concise)
+            for ex in examples[:2]:
+                lines.append(f"  - e.g. `{ex}`")
+
+    if notes:
+        lines.append("")
+        lines.append("### Conventions observed")
+        lines.append("")
+        for note in notes:
+            lines.append(f"- {note}")
+
+    output = "\n".join(lines)
+
+    # Hard cap at 3000 chars; truncate gracefully at a newline boundary
+    if len(output) > 3000:
+        truncated = output[:2970]
+        last_newline = truncated.rfind("\n")
+        if last_newline > 0:
+            truncated = truncated[:last_newline]
+        output = truncated + "\n\n_(checklist truncated)_"
+
+    return output

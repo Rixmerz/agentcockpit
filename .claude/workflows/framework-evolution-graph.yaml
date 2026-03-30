@@ -1,0 +1,228 @@
+metadata:
+  name: "Framework Evolution Sprint"
+  description: "Implement 8 improvements to AgentCockpit framework based on real production feedback: DCC smart filtering, project metadata store, pattern catalog, contract files, experience memory checklists, sprint rule template, agent output forwarding, DAG task enhancements."
+  version: "1.0.0"
+  type: "graph"
+
+nodes:
+  - id: "wave1"
+    name: "Wave 1 — Foundation (no dependencies)"
+    is_start: true
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      ## Wave 1 — Foundation
+      
+      Three independent tasks, launch as parallel subagents:
+      
+      ### 1A. DCC Smart Filtering (backend — Python)
+      File: `.workflow-manager/src/workflow_manager/dcc_integration.py`
+      Problem: DCC reports 633 orphan smells for new files = noise. Not actionable during implementation.
+      Fix: Add `_filter_actionable_smells()` that:
+      - Suppresses `orphan_file` smells for files created in the current workflow session (check git diff --name-only against graph state's changed files)
+      - Suppresses smells for files less than N minutes old (configurable, default 30min)
+      - Only surfaces smells that existed BEFORE the current sprint started (baseline comparison)
+      - Add a `noise_filtered: N` count to DCC output so the user knows filtering happened
+      - Keep full unfiltered data in `last_dcc_result` for Validate phases
+      
+      ### 1B. Project Metadata Store (backend — Python)
+      New file: `.workflow-manager/src/workflow_manager/project_metadata.py`
+      Problem: Agents do `ls migrations/ | sort | tail` to discover state. Migration numbers, ID patterns, file counts should be metadata.
+      Implement:
+      - `ProjectMetadata` class with auto-discovery methods
+      - `discover_migration_number(project_dir)` — finds highest migration number
+      - `discover_id_patterns(project_dir)` — scans domain files for ID types (string vs uuid)
+      - `discover_bounded_contexts(project_dir)` — lists existing contexts from internal/
+      - `discover_tech_stack(project_dir)` — languages, frameworks, test patterns
+      - Store as `.workflow-manager/state/{hash}/metadata.json`
+      - Refresh on workflow activation and on-demand via MCP tool `project_metadata_refresh`
+      - Expose via MCP tool `project_metadata_get`
+      
+      ### 1C. Sprint Rule Template (just a file)
+      New file: `.claude/rules/sprint-execution.md`
+      Problem: The sprint-execution rule was the most effective rule in real usage but it's custom per project, not bundled.
+      Create a generic version covering:
+      - Workflow-first for multi-step tasks
+      - Wave-based execution with dependency analysis
+      - Maximum parallelization with specialized subagents
+      - Main context = orchestrator only, never implement directly
+      - Post-implementation testing in dedicated wave
+      - Validate wave before any commit
+      - Docs wave after validation
+      Bundle it in hookService.ts BUNDLED_RULES.
+      
+      After all 3 complete, traverse to Wave 2.
+
+  - id: "wave2"
+    name: "Wave 2 — Core Features (depends on Wave 1)"
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      ## Wave 2 — Core Features
+      
+      Three tasks, launch as parallel subagents. These depend on Wave 1 outputs.
+      
+      ### 2A. Pattern Catalog (backend — Python)
+      File: `.workflow-manager/src/workflow_manager/pattern_catalog.py`
+      New MCP tools: `pattern_catalog_generate`, `pattern_catalog_get`
+      Problem: Every agent reads 2-3 reference files to understand project patterns. ~30% of agent context wasted.
+      Implement:
+      - `PatternCatalog` class that generates condensed pattern snippets from project code
+      - Auto-detect patterns: repo pattern, handler/endpoint pattern, test pattern, domain entity pattern, migration pattern, frontend page/hook pattern
+      - For each pattern: extract a minimal representative example (interface + 1 method, not full file)
+      - Store as `.workflow-manager/state/{hash}/patterns.yaml`
+      - Generate on workflow activation (reads metadata from 1B)
+      - Inject pattern snippets into `prompt_injection` when graph_traverse enters implementation nodes
+      - Max 2000 chars per pattern to fit in prompt injection
+      
+      ### 2B. Experience Memory Checklist Derivation (backend — Python)
+      File: `.workflow-manager/src/workflow_manager/experience_memory.py` (extend existing)
+      Problem: "When you implement a new bounded context, here are the 12 files you need" — derivable from previous sprints.
+      Implement:
+      - `derive_implementation_checklist(project_dir, task_type)` function
+      - Reads experience_memory.json entries grouped by domain
+      - Groups by file_pattern to find recurring patterns (e.g., "every bounded context has domain/*.go, application/*.go, infrastructure/*.go, handlers.go")
+      - Outputs a checklist: "Based on 9 previous bounded contexts, you need: [list of file patterns with descriptions]"
+      - New MCP tool: `experience_derive_checklist`
+      - Inject into prompt when workflow enters implementation phases
+      
+      ### 2C. Contract Files Between Agents (frontend — TypeScript + backend — Python)
+      Problem: Agent 2 needs types that Agent 1 is creating concurrently → TypeScript errors.
+      Implement contract file mechanism:
+      - When a workflow node's prompt_injection mentions parallel agents that have dependencies:
+        - Before launching dependent agents, generate a `.contracts/{wave}-contracts.ts` (or `.go`) file with interfaces/types only (no implementation)
+        - The orchestrator creates this file BEFORE launching the wave's agents
+        - Agents import from the contract file instead of from each other's output
+      - Add `contracts` field to graph node schema (list of {file, content} pairs)
+      - When graph_traverse enters a node with contracts, write the contract files first
+      - After wave completion, contracts are superseded by real implementations
+      
+      After all 3 complete, traverse to Wave 3.
+
+  - id: "wave3"
+    name: "Wave 3 — Agent Orchestration (depends on Wave 2)"
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      ## Wave 3 — Agent Orchestration
+      
+      Two tasks in parallel.
+      
+      ### 3A. Agent Output Forwarding
+      File: `.workflow-manager/src/workflow_manager/graph_engine.py` + `tools/graph_core.py`
+      Problem: "If the workflow could serialize Agent 1 outputs → Agent 2 receives them as input"
+      Implement:
+      - Add `outputs` field to PathEntry in graph state (dict of key-value pairs)
+      - New MCP tool: `graph_record_output(key, value)` — agents call this to register what they produced (e.g., "types_file": "/path/to/types.ts", "migration_number": "000027")
+      - When graph_traverse enters next node, inject previous node's outputs into prompt as "## Available from previous wave: {outputs}"
+      - This enables: Wave 1 agent records migration_number → Wave 2 agent receives it without ls|sort|tail
+      - Outputs persist in state.json for session continuity
+      
+      ### 3B. Bundle New Rules + Rebuild hookService
+      File: `src/services/hookService.ts`
+      - Add `sprint-execution.md` from Wave 1C to BUNDLED_RULES
+      - Verify all imports compile
+      - Run `pnpm build` to validate
+      
+      After both complete, traverse to Wave 4.
+
+  - id: "wave4"
+    name: "Wave 4 — Tests"
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      ## Wave 4 — Tests
+      
+      Launch test agents in parallel:
+      
+      ### 4A. Python Tests
+      - test_dcc_smart_filtering.py — test _filter_actionable_smells with mock git data
+      - test_project_metadata.py — test discovery methods with fixture directories
+      - test_pattern_catalog.py — test pattern extraction
+      - test_experience_checklist.py — test derive_implementation_checklist
+      
+      ### 4B. Integration Validation
+      - Verify MCP tools are registered and callable
+      - Test graph_record_output + output forwarding in traverse
+      - Test contract file writing on traverse
+      
+      After tests pass, traverse to Validate.
+
+  - id: "validate"
+    name: "Validate — Build + Quality"
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      ## Validate
+      
+      Run in parallel:
+      1. `pnpm build` — frontend compiles
+      2. `python -m pytest` on all new test files
+      3. Full Tauri build from distrobox
+      4. DCC analysis on changed files (use the NEW smart filtering)
+      
+      All must pass before proceeding to Docs.
+
+  - id: "docs"
+    name: "Docs — Commit + Push"
+    is_end: true
+    mcps_enabled:
+      - "*"
+    max_visits: 10
+    prompt_injection: |
+      ## Docs + Ship
+      
+      1. Update CLAUDE.md if any new state files or conventions were added
+      2. Commit all changes with conventional commit format
+      3. Push to master
+
+edges:
+  - id: "w1-to-w2"
+    from: "wave1"
+    to: "wave2"
+    condition:
+      type: "phrase"
+      phrases:
+        - "wave 1 complete"
+        - "foundation complete"
+
+  - id: "w2-to-w3"
+    from: "wave2"
+    to: "wave3"
+    condition:
+      type: "phrase"
+      phrases:
+        - "wave 2 complete"
+        - "core features complete"
+
+  - id: "w3-to-w4"
+    from: "wave3"
+    to: "wave4"
+    condition:
+      type: "phrase"
+      phrases:
+        - "wave 3 complete"
+        - "orchestration complete"
+
+  - id: "w4-to-validate"
+    from: "wave4"
+    to: "validate"
+    condition:
+      type: "phrase"
+      phrases:
+        - "tests pass"
+        - "wave 4 complete"
+
+  - id: "validate-to-docs"
+    from: "validate"
+    to: "docs"
+    condition:
+      type: "phrase"
+      phrases:
+        - "validation pass"
+        - "all green"
