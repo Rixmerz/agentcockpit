@@ -160,6 +160,44 @@ def _compute_delta(
     return new_smells
 
 
+def _filter_actionable_smells(smells: list, project_dir: str) -> list:
+    """Filter out orphan_file smells for new/untracked files. Standalone version."""
+    import subprocess
+    new_files: set = set()
+    try:
+        r = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=project_dir, capture_output=True, text=True, timeout=2
+        )
+        if r.returncode == 0:
+            for line in r.stdout.strip().split("\n"):
+                if line and line[0] in ("?", "A"):
+                    new_files.add(line[3:].strip())
+    except Exception:
+        pass
+    try:
+        r2 = subprocess.run(
+            ["git", "diff", "--name-only", "--diff-filter=A", "HEAD~1"],
+            cwd=project_dir, capture_output=True, text=True, timeout=2
+        )
+        if r2.returncode == 0:
+            for line in r2.stdout.strip().split("\n"):
+                if line.strip():
+                    new_files.add(line.strip())
+    except Exception:
+        pass
+    if not new_files:
+        return smells
+    filtered = []
+    for smell in smells:
+        if smell.get("type") == "orphan_file" or smell.get("smell_type") == "orphan":
+            fp = smell.get("file_path", smell.get("file", ""))
+            if fp in new_files:
+                continue
+        filtered.append(smell)
+    return filtered
+
+
 def _truncate_path(path: str, max_len: int = 60) -> str:
     """Shorten a path so each line stays under 100 chars."""
     if len(path) <= max_len:
@@ -275,6 +313,7 @@ def main():
     # ------------------------------------------------------------------
     edited_files = set(batch["files"])
     new_smells = _compute_delta(current_smells, baseline_smells, edited_files)
+    new_smells = _filter_actionable_smells(new_smells, _PROJECT_PATH)
 
     # ------------------------------------------------------------------
     # 7. Update baseline and clear batch

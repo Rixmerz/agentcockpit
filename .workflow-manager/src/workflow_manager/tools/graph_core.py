@@ -239,7 +239,9 @@ def register_graph_core_tools(mcp):
         # Pre-transition DCC check (optional, configured per-node)
         pre_check_result = None
         try:
-            pre_check_result = await _run_pre_transition_check(current_node, resolved_dir)
+            pre_check_result = await _run_pre_transition_check(
+                current_node, resolved_dir, baseline_smells=state.baseline_smells
+            )
         except Exception:
             pass  # Non-fatal
 
@@ -378,6 +380,73 @@ def register_graph_core_tools(mcp):
                 prompt_injection = outputs_section
         else:
             prompt_injection = base_prompt
+
+        # Conditionally inject patterns, checklist, metadata for implementation nodes
+        _IMPL_KEYWORDS = {"implement", "execute", "wave", "build", "code"}
+        _node_id_lower = (new_node.id if new_node else "").lower()
+        if any(kw in _node_id_lower for kw in _IMPL_KEYWORDS):
+            _injections: list[str] = []
+            _budget = 6000
+
+            try:
+                from ..graph_state import _get_centralized_state_dir
+                _state_dir = str(_get_centralized_state_dir(resolved_dir))
+            except Exception:
+                _state_dir = ""
+
+            if _state_dir:
+                # Pattern catalog
+                try:
+                    from ..pattern_catalog import PatternCatalog
+                    _pc = PatternCatalog.load(resolved_dir, _state_dir)
+                    if _pc:
+                        _snippet = _pc.to_prompt_injection()
+                        if _snippet and len(_snippet) <= 2500:
+                            _injections.append(_snippet)
+                            _budget -= len(_snippet)
+                except Exception:
+                    pass
+
+                # Experience checklist
+                try:
+                    from ..experience_memory import derive_implementation_checklist, format_checklist_for_prompt
+                    _task_type = "bounded_context"
+                    if "feature" in _node_id_lower:
+                        _task_type = "feature"
+                    elif "migration" in _node_id_lower:
+                        _task_type = "migration"
+                    elif "endpoint" in _node_id_lower or "api" in _node_id_lower:
+                        _task_type = "api_endpoint"
+                    _checklist = derive_implementation_checklist(resolved_dir, task_type=_task_type)
+                    if _checklist and _checklist.get("checklist"):
+                        _cl_text = format_checklist_for_prompt(_checklist)
+                        if _cl_text and len(_cl_text) <= min(3000, _budget):
+                            _injections.append(_cl_text)
+                            _budget -= len(_cl_text)
+                except Exception:
+                    pass
+
+                # Project metadata (key sections only)
+                try:
+                    from ..project_metadata import ProjectMetadata
+                    _pm = ProjectMetadata.load(resolved_dir, _state_dir)
+                    if _pm:
+                        _meta = _pm.get()
+                        _sections = []
+                        for _key in ("migration_number", "id_patterns", "bounded_contexts"):
+                            if _key in _meta and _meta[_key]:
+                                import json as _json
+                                _sections.append(f"- **{_key}**: `{_json.dumps(_meta[_key], default=str)[:500]}`")
+                        if _sections:
+                            _meta_text = "## Project Metadata\n" + "\n".join(_sections)
+                            if len(_meta_text) <= _budget:
+                                _injections.append(_meta_text)
+                except Exception:
+                    pass
+
+            if _injections:
+                _extra = "\n\n".join(_injections)
+                prompt_injection = f"{prompt_injection}\n\n{_extra}" if prompt_injection else _extra
 
         result = {
             "success": True,
@@ -747,7 +816,14 @@ def register_graph_core_tools(mcp):
         if not enforcer_config.get("dcc_injection_enabled", True):
             return {"error": "dcc_injection_enabled is False in config"}
 
-        result = await _run_mid_phase_check(resolved_dir, files)
+        baseline_smells = None
+        try:
+            _, _mid_state = _load_active_graph(resolved_dir)
+            baseline_smells = _mid_state.baseline_smells
+        except Exception:
+            pass
+
+        result = await _run_mid_phase_check(resolved_dir, files, baseline_smells=baseline_smells)
         if result is None:
             return {"error": "DCC mid-phase check returned no result"}
 

@@ -235,6 +235,7 @@ class GraphState:
     tension_gate_state: dict[str, dict] = field(default_factory=dict)
     last_dcc_result: Optional[dict] = None
     last_dcc_timestamp: Optional[str] = None
+    baseline_smells: list[dict] | None = None
 
     def get_current_node(self) -> Optional[str]:
         """Get the primary current node (first in list)."""

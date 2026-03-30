@@ -112,7 +112,8 @@ def load_graph_state(project_dir: str) -> GraphState:
             last_activity=data.get('last_activity'),
             tension_gate_state=data.get('tension_gate_state', {}),
             last_dcc_result=data.get('last_dcc_result'),
-            last_dcc_timestamp=data.get('last_dcc_timestamp')
+            last_dcc_timestamp=data.get('last_dcc_timestamp'),
+            baseline_smells=data.get('baseline_smells'),
         )
     except Exception:
         return GraphState()
@@ -159,6 +160,7 @@ def save_graph_state(project_dir: str, state: GraphState):
         'tension_gate_state': state.tension_gate_state,
         'last_dcc_result': state.last_dcc_result,
         'last_dcc_timestamp': state.last_dcc_timestamp,
+        **({'baseline_smells': state.baseline_smells} if state.baseline_smells is not None else {}),
     }
 
     state_file.write_text(json.dumps(data, indent=2))

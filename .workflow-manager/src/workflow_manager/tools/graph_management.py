@@ -5,6 +5,7 @@ graph_timeline, graph_validate, graph_override_max_visits.
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 from ..session import resolve_project_dir
 from ..hub_config import get_workflows_library_dir, load_enforcer_config
@@ -12,7 +13,7 @@ from ..graph_engine import Graph, GraphState, generate_mermaid
 from ..graph_parser import load_graph_from_file, GraphParseError
 from ..graph_state import (
     load_graph_state, initialize_graph_state,
-    get_graph_file,
+    get_graph_file, save_graph_state,
 )
 from ..dcc_integration import (
     _is_dcc_available, _execute_dcc_tool, _extract_tensions,
@@ -157,6 +158,29 @@ def register_graph_management_tools(mcp):
         state = initialize_graph_state(resolved_dir, graph, graph_name)
         start_node = graph.get_start_node()
 
+        # Auto-refresh project metadata and pattern catalog on activation
+        try:
+            from ..graph_state import _get_centralized_state_dir
+            state_dir = str(_get_centralized_state_dir(resolved_dir))
+        except Exception:
+            state_dir = str(Path(resolved_dir) / ".claude" / "workflow")
+
+        try:
+            from ..project_metadata import ProjectMetadata
+            pm = ProjectMetadata(resolved_dir)
+            pm.discover_all()
+            pm.save(state_dir)
+        except Exception as e:
+            print(f"[workflow-manager] Metadata refresh failed (non-fatal): {e}", file=sys.stderr)
+
+        try:
+            from ..pattern_catalog import PatternCatalog
+            pc = PatternCatalog(resolved_dir)
+            pc.discover_all()
+            pc.save(state_dir)
+        except Exception as e:
+            print(f"[workflow-manager] Pattern catalog refresh failed (non-fatal): {e}", file=sys.stderr)
+
         # Run DCC baseline analysis on start node (non-fatal if DCC unavailable)
         dcc_baseline = None
         try:
@@ -167,6 +191,14 @@ def register_graph_management_tools(mcp):
                 dcc_baseline = dcc_result
         except Exception as e:
             print(f"[workflow-manager] DCC baseline on activate failed (non-fatal): {e}", file=sys.stderr)
+
+        # Store baseline smells for smart filtering in subsequent transitions
+        if dcc_baseline:
+            state.baseline_smells = dcc_baseline.get("smells", [])
+            try:
+                save_graph_state(resolved_dir, state)
+            except Exception as e:
+                print(f"[workflow-manager] Failed to save baseline smells (non-fatal): {e}", file=sys.stderr)
 
         return {
             "success": True,
