@@ -2,19 +2,18 @@
  * Snapshot Service
  *
  * Manages automatic git snapshots before agent interactions.
- * Creates V1, V2, V3... versioned commits with git tags.
+ * Creates V1, V2, V3... versioned commits as detached objects (not on any branch).
+ * Snapshots are reachable only via tags — the working branch stays clean.
  */
 
 import { invoke } from '@tauri-apps/api/core';
 import { withTimeout, TimeoutError } from '../core/utils/promiseTimeout';
 import {
   hasLocalGitRepo,
-  createCommit,
   createTag,
   deleteTag,
   listTags,
   getTagCommit,
-  resetHard,
   getCommitFiles,
   getGitStatus,
   listCommits,
@@ -269,45 +268,105 @@ export async function createSnapshot(projectPath: string): Promise<Snapshot | nu
       ...realChanges.staged,
     ];
 
-    // Create commit with only real changes (not tool/IDE metadata)
-    const commitHash = await createCommit(projectPath, message, filesToStage);
+    // Create a DETACHED commit (not on any branch) using git plumbing.
+    // This keeps the working branch clean — snapshots are only reachable via tags.
+    const tmpIndex = `${projectPath}/.git/snapshot-index`;
+    const escapedFiles = filesToStage.map(f => `"${f.replace(/"/g, '\\"')}"`).join(' ');
 
-    // Create tag for this snapshot
-    await createTag(projectPath, tag, commitHash);
+    try {
+      // 1. Build a tree from the files using a temporary index
+      await withTimeout(
+        invoke<string>('execute_command', {
+          cmd: `GIT_INDEX_FILE="${tmpIndex}" git add -- ${escapedFiles}`,
+          cwd: projectPath,
+        }),
+        INVOKE_TIMEOUT_MS,
+        'snapshot: stage files'
+      );
 
-    // Get files changed in this commit
-    const filesChanged = await getCommitFiles(projectPath, commitHash);
+      // 2. Write the tree object from the temp index
+      const treeHash = (await withTimeout(
+        invoke<string>('execute_command', {
+          cmd: `GIT_INDEX_FILE="${tmpIndex}" git write-tree`,
+          cwd: projectPath,
+        }),
+        INVOKE_TIMEOUT_MS,
+        'snapshot: write-tree'
+      )).trim();
 
-    // Create snapshot record
-    const snapshot: Snapshot = {
-      version,
-      commitHash,
-      tag,
-      timestamp: Date.now(),
-      message,
-      filesChanged,
-    };
-
-    // Update metadata
-    metadata.snapshots.push(snapshot);
-    metadata.nextVersion = version + 1;
-    metadata.currentVersion = version;
-
-    // Prune old snapshots if needed
-    if (metadata.snapshots.length > MAX_SNAPSHOTS) {
-      const toRemove = metadata.snapshots.slice(0, metadata.snapshots.length - MAX_SNAPSHOTS);
-      metadata.snapshots = metadata.snapshots.slice(-MAX_SNAPSHOTS);
-
-      // Delete old tags
-      for (const old of toRemove) {
-        await deleteTag(projectPath, old.tag);
+      // 3. Find parent: previous snapshot tag's commit (for linked history)
+      let parentFlag = '';
+      if (metadata.snapshots.length > 0) {
+        const prevTag = metadata.snapshots[metadata.snapshots.length - 1].tag;
+        const prevHash = await getTagCommit(projectPath, prevTag);
+        if (prevHash) {
+          parentFlag = `-p ${prevHash}`;
+        }
       }
+
+      // 4. Create the detached commit object
+      const commitHash = (await withTimeout(
+        invoke<string>('execute_command', {
+          cmd: `git commit-tree ${treeHash} ${parentFlag} -m "${message}"`,
+          cwd: projectPath,
+        }),
+        INVOKE_TIMEOUT_MS,
+        'snapshot: commit-tree'
+      )).trim();
+
+      // 5. Tag it (the tag is the only reference keeping this commit alive)
+      await createTag(projectPath, tag, commitHash);
+
+      // 6. Clean up temp index
+      await withTimeout(
+        invoke<string>('execute_command', {
+          cmd: `rm -f "${tmpIndex}"`,
+          cwd: projectPath,
+        }),
+        2000,
+        'snapshot: cleanup'
+      ).catch(() => {}); // Non-fatal
+
+      // Get files list from the commit
+      const filesChanged = await getCommitFiles(projectPath, commitHash);
+
+      // Create snapshot record
+      const snapshot: Snapshot = {
+        version,
+        commitHash,
+        tag,
+        timestamp: Date.now(),
+        message,
+        filesChanged,
+      };
+
+      // Update metadata
+      metadata.snapshots.push(snapshot);
+      metadata.nextVersion = version + 1;
+      metadata.currentVersion = version;
+
+      // Prune old snapshots if needed
+      if (metadata.snapshots.length > MAX_SNAPSHOTS) {
+        const toRemove = metadata.snapshots.slice(0, metadata.snapshots.length - MAX_SNAPSHOTS);
+        metadata.snapshots = metadata.snapshots.slice(-MAX_SNAPSHOTS);
+
+        // Delete old tags
+        for (const old of toRemove) {
+          await deleteTag(projectPath, old.tag);
+        }
+      }
+
+      // Save metadata
+      await writeMetadata(projectPath, metadata);
+
+      return snapshot;
+    } finally {
+      // Always clean up temp index
+      invoke<string>('execute_command', {
+        cmd: `rm -f "${tmpIndex}"`,
+        cwd: projectPath,
+      }).catch(() => {});
     }
-
-    // Save metadata
-    await writeMetadata(projectPath, metadata);
-
-    return snapshot;
   } catch (error) {
     console.error('[Snapshot] Error creating snapshot:', error);
     throw error;
@@ -526,8 +585,16 @@ export async function restoreSnapshot(
       }
     }
 
-    // Hard reset to the snapshot commit
-    await resetHard(projectPath, commitHash);
+    // Restore files from the snapshot commit without moving HEAD
+    // Uses checkout with tree-ish to overwrite working tree files
+    await withTimeout(
+      invoke<string>('execute_command', {
+        cmd: `git checkout ${commitHash} -- .`,
+        cwd: projectPath,
+      }),
+      INVOKE_TIMEOUT_MS,
+      'snapshot: restore files'
+    );
 
     // Update current version in metadata
     metadata.currentVersion = version;
