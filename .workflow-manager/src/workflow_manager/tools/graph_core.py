@@ -12,6 +12,7 @@ from ..graph_engine import (
     Graph, GraphState, MaxVisitsExceeded,
     evaluate_transitions, take_transition,
     _write_contract_files, _cleanup_contract_files,
+    compute_ready_tasks, is_dag_complete, Task,
 )
 from ..graph_parser import load_graph_from_file, GraphParseError
 from ..graph_state import (
@@ -125,6 +126,30 @@ def register_graph_core_tools(mcp):
             if last_entry.outputs:
                 current_outputs = last_entry.outputs
 
+        # DAG info (only when current node is a DAG)
+        dag_info = None
+        if current_node and current_node.node_type == "dag" and current_node.tasks:
+            completed_ids = set(state.get_completed_tasks_for_node(current_node.id))
+            ready = compute_ready_tasks(graph, state, current_node.id)
+            ready_ids = {t.id for t in ready}
+            blocked_ids = {t.id for t in current_node.tasks if t.id not in completed_ids and t.id not in ready_ids}
+            dag_info = {
+                "total_tasks": len(current_node.tasks),
+                "completed": list(completed_ids),
+                "ready": [
+                    {
+                        "id": t.id,
+                        "name": t.name,
+                        "prompt": t.prompt[:200] if t.prompt else None,
+                        "tools_blocked": t.tools_blocked,
+                        "mcps_enabled": t.mcps_enabled,
+                    }
+                    for t in ready
+                ],
+                "blocked": list(blocked_ids),
+                "is_complete": is_dag_complete(graph, state, current_node.id),
+            }
+
         return {
             "session_id": sid,
             "graph_name": state.active_graph or graph.metadata.get('name', 'unnamed'),
@@ -153,6 +178,7 @@ def register_graph_core_tools(mcp):
                 "timestamp": state.last_dcc_timestamp,
             },
             "current_outputs": current_outputs,
+            "dag_info": dag_info,
             "last_activity": state.last_activity,
             "project_dir": resolved_dir
         }
@@ -448,6 +474,26 @@ def register_graph_core_tools(mcp):
                 _extra = "\n\n".join(_injections)
                 prompt_injection = f"{prompt_injection}\n\n{_extra}" if prompt_injection else _extra
 
+        # If new node is a DAG, compute initial ready tasks
+        dag_schedule = None
+        if new_node and new_node.node_type == "dag" and new_node.tasks:
+            ready = compute_ready_tasks(graph, state, new_node.id)
+            dag_schedule = {
+                "total_tasks": len(new_node.tasks),
+                "ready_tasks": [
+                    {
+                        "id": t.id,
+                        "name": t.name,
+                        "prompt": t.prompt,
+                        "dependencies": t.dependencies,
+                        "tools_blocked": t.tools_blocked,
+                        "mcps_enabled": t.mcps_enabled,
+                    }
+                    for t in ready
+                ],
+                "hint": "Launch ready tasks as parallel subagents. Call graph_task_complete(task_id) as each finishes to unlock dependent tasks.",
+            }
+
         result = {
             "success": True,
             "session_id": sid,
@@ -465,6 +511,7 @@ def register_graph_core_tools(mcp):
             "prompt_injection": prompt_injection,
             "dcc_analysis": dcc_result,
             "contracts_written": contracts_written,
+            "dag_schedule": dag_schedule,
             "reason": reason,
             "project_dir": resolved_dir
         }
@@ -479,6 +526,154 @@ def register_graph_core_tools(mcp):
             result["skill_recommendations"] = skill_recs
 
         return result
+
+    @mcp.tool()
+    def graph_task_complete(
+        task_id: str,
+        outputs: dict[str, str] | None = None,
+        project_dir: str | None = None,
+        session_id: str | None = None,
+    ) -> dict:
+        """Mark a DAG task as complete and return newly unblocked tasks.
+
+        Call this when a subagent finishes its assigned task. The engine will
+        compute which tasks are now unblocked and return them.
+
+        Args:
+            task_id: ID of the completed task
+            outputs: Optional key-value outputs (forwarded to dependent tasks)
+            project_dir: Project directory
+            session_id: Session ID
+        """
+        resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
+        try:
+            graph, state = _load_active_graph(resolved_dir)
+        except (ValueError, GraphParseError) as e:
+            return {
+                "error": True,
+                "session_id": sid,
+                "message": str(e),
+                "project_dir": resolved_dir,
+            }
+
+        node_id = state.get_current_node()
+        current_node = graph.nodes.get(node_id) if node_id else None
+
+        if not current_node or current_node.node_type != "dag":
+            return {
+                "error": True,
+                "session_id": sid,
+                "message": f"Current node '{node_id}' is not a DAG node",
+                "project_dir": resolved_dir,
+            }
+
+        task_ids = {t.id for t in current_node.tasks}
+        if task_id not in task_ids:
+            return {
+                "error": True,
+                "session_id": sid,
+                "message": f"Task '{task_id}' not found in node '{node_id}'",
+                "available_tasks": list(task_ids),
+                "project_dir": resolved_dir,
+            }
+
+        if state.is_task_complete(node_id, task_id):
+            return {
+                "error": True,
+                "session_id": sid,
+                "message": f"Task '{task_id}' is already complete",
+                "project_dir": resolved_dir,
+            }
+
+        state.mark_task_complete(node_id, task_id, outputs)
+        save_graph_state(resolved_dir, state)
+
+        newly_ready = compute_ready_tasks(graph, state, node_id)
+        is_complete = is_dag_complete(graph, state, node_id)
+        completed_count = len(state.get_completed_tasks_for_node(node_id))
+
+        return {
+            "success": True,
+            "session_id": sid,
+            "completed": task_id,
+            "newly_ready": [
+                {
+                    "id": t.id,
+                    "name": t.name,
+                    "prompt": t.prompt,
+                    "dependencies": t.dependencies,
+                    "tools_blocked": t.tools_blocked,
+                    "mcps_enabled": t.mcps_enabled,
+                }
+                for t in newly_ready
+            ],
+            "is_dag_complete": is_complete,
+            "completed_count": completed_count,
+            "total_tasks": len(current_node.tasks),
+            "remaining": len(current_node.tasks) - completed_count,
+            "project_dir": resolved_dir,
+        }
+
+    @mcp.tool()
+    def graph_get_ready_tasks(
+        project_dir: str | None = None,
+        session_id: str | None = None,
+    ) -> dict:
+        """Return tasks in the current DAG node that can run now.
+
+        Use this to check which tasks have their dependencies satisfied
+        and can be launched as parallel subagents.
+
+        Args:
+            project_dir: Project directory
+            session_id: Session ID
+        """
+        resolved_dir, sid = resolve_project_dir(project_dir, session_id)
+
+        try:
+            graph, state = _load_active_graph(resolved_dir)
+        except (ValueError, GraphParseError) as e:
+            return {
+                "error": True,
+                "session_id": sid,
+                "message": str(e),
+                "project_dir": resolved_dir,
+            }
+
+        node_id = state.get_current_node()
+        current_node = graph.nodes.get(node_id) if node_id else None
+
+        if not current_node or current_node.node_type != "dag":
+            return {
+                "error": True,
+                "session_id": sid,
+                "message": f"Current node '{node_id}' is not a DAG node",
+                "project_dir": resolved_dir,
+            }
+
+        ready = compute_ready_tasks(graph, state, node_id)
+        completed_ids = set(state.get_completed_tasks_for_node(node_id))
+
+        return {
+            "session_id": sid,
+            "node_id": node_id,
+            "ready_tasks": [
+                {
+                    "id": t.id,
+                    "name": t.name,
+                    "prompt": t.prompt,
+                    "dependencies": t.dependencies,
+                    "tools_blocked": t.tools_blocked,
+                    "mcps_enabled": t.mcps_enabled,
+                }
+                for t in ready
+            ],
+            "completed_count": len(completed_ids),
+            "total_tasks": len(current_node.tasks),
+            "is_dag_complete": is_dag_complete(graph, state, node_id),
+            "project_dir": resolved_dir,
+        }
 
     @mcp.tool()
     def graph_check_tool(

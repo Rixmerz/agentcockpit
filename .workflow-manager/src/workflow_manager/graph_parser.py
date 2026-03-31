@@ -7,7 +7,7 @@ Uses a simple hand-rolled parser to avoid PyYAML dependency issues.
 from pathlib import Path
 from typing import Optional, Any
 
-from .graph_engine import Graph, Node, Edge, EdgeCondition
+from .graph_engine import Node, Edge, EdgeCondition, Graph, Task
 
 
 class GraphParseError(Exception):
@@ -345,6 +345,39 @@ def parse_graph_yaml(content: str) -> Graph:
             if not contracts:
                 contracts = None
 
+        # Parse node_type (optional, defaults to "wave")
+        node_type = str(node_data.get('node_type', 'wave'))
+        if node_type not in ('wave', 'dag', 'milestone'):
+            raise GraphParseError(f"Node '{node_id}' has invalid node_type: '{node_type}'")
+
+        # Parse tasks (optional, only for dag nodes)
+        tasks_raw = node_data.get('tasks', [])
+        tasks = []
+        if isinstance(tasks_raw, list):
+            for task_data in tasks_raw:
+                if not isinstance(task_data, dict):
+                    continue
+                task_id = task_data.get('id')
+                if not task_id:
+                    raise GraphParseError(f"Task in node '{node_id}' missing 'id'")
+                deps = task_data.get('dependencies', [])
+                if isinstance(deps, str):
+                    deps = [deps]
+                t_tools_blocked = task_data.get('tools_blocked', [])
+                if isinstance(t_tools_blocked, str):
+                    t_tools_blocked = [t_tools_blocked]
+                t_mcps = task_data.get('mcps_enabled', ['*'])
+                if isinstance(t_mcps, str):
+                    t_mcps = [t_mcps]
+                tasks.append(Task(
+                    id=str(task_id),
+                    name=str(task_data.get('name', task_id)),
+                    prompt=task_data.get('prompt'),
+                    dependencies=deps,
+                    tools_blocked=t_tools_blocked,
+                    mcps_enabled=t_mcps,
+                ))
+
         node = Node(
             id=node_id,
             name=node_data.get('name', node_id),
@@ -355,7 +388,9 @@ def parse_graph_yaml(content: str) -> Graph:
             is_end=bool(node_data.get('is_end', False)),
             max_visits=int(node_data.get('max_visits', 10)),
             dcc_context=dcc_context,
-            contracts=contracts
+            contracts=contracts,
+            node_type=node_type,
+            tasks=tasks,
         )
 
         graph.add_node(node)

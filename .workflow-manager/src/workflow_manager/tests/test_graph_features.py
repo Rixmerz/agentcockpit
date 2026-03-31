@@ -8,11 +8,17 @@ from pathlib import Path
 import pytest
 
 from workflow_manager.graph_engine import (
+    Edge,
+    EdgeCondition,
+    Graph,
     GraphState,
     Node,
     PathEntry,
+    Task,
     _cleanup_contract_files,
     _write_contract_files,
+    compute_ready_tasks,
+    is_dag_complete,
 )
 from workflow_manager.graph_parser import parse_graph_yaml
 from workflow_manager.graph_state import get_graph_state_file, load_graph_state, save_graph_state
@@ -362,3 +368,416 @@ class TestParseNodeWithContracts:
 
         end = graph.nodes["end"]
         assert end.contracts is None
+
+
+# ---------------------------------------------------------------------------
+# DAG Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_dag_graph(tasks: list[Task]) -> tuple[Graph, GraphState]:
+    """Build a minimal Graph with a single DAG node containing the given tasks."""
+    dag_node = Node(
+        id="dag1",
+        name="DAG Node",
+        node_type="dag",
+        tasks=tasks,
+        is_start=True,
+    )
+    end_node = Node(id="done", name="Done", is_end=True)
+    edge = Edge(
+        id="dag1-done",
+        from_node="dag1",
+        to_node="done",
+        condition=EdgeCondition(type="always"),
+    )
+    graph = Graph(
+        metadata={"name": "test"},
+        nodes={"dag1": dag_node, "done": end_node},
+        edges=[edge],
+    )
+    state = GraphState(current_nodes=["dag1"])
+    return graph, state
+
+
+# ---------------------------------------------------------------------------
+# TestTask
+# ---------------------------------------------------------------------------
+
+
+class TestTask:
+    def test_task_defaults(self) -> None:
+        """Task with only id and name has sensible defaults."""
+        task = Task(id="a", name="Task A")
+
+        assert task.dependencies == []
+        assert task.outputs == {}
+        assert task.tools_blocked == []
+        assert task.mcps_enabled == ["*"]
+        assert task.prompt is None
+
+    def test_task_with_deps(self) -> None:
+        """Task with explicit dependencies stores them correctly."""
+        task = Task(id="b", name="Task B", dependencies=["a", "x"])
+
+        assert task.dependencies == ["a", "x"]
+
+    def test_task_with_enforcement(self) -> None:
+        """Task with tools_blocked and mcps_enabled stores them correctly."""
+        task = Task(
+            id="c",
+            name="Task C",
+            tools_blocked=["Write", "Edit"],
+            mcps_enabled=["context7"],
+        )
+
+        assert task.tools_blocked == ["Write", "Edit"]
+        assert task.mcps_enabled == ["context7"]
+
+
+# ---------------------------------------------------------------------------
+# TestComputeReadyTasks
+# ---------------------------------------------------------------------------
+
+
+class TestComputeReadyTasks:
+    def test_ready_no_deps(self) -> None:
+        """Three independent tasks with no dependencies are all ready."""
+        tasks = [
+            Task(id="a", name="A"),
+            Task(id="b", name="B"),
+            Task(id="c", name="C"),
+        ]
+        graph, state = _make_dag_graph(tasks)
+
+        ready = compute_ready_tasks(graph, state, "dag1")
+
+        ready_ids = {t.id for t in ready}
+        assert ready_ids == {"a", "b", "c"}
+
+    def test_ready_linear_chain(self) -> None:
+        """A→B→C with nothing complete: only A is ready."""
+        tasks = [
+            Task(id="a", name="A"),
+            Task(id="b", name="B", dependencies=["a"]),
+            Task(id="c", name="C", dependencies=["b"]),
+        ]
+        graph, state = _make_dag_graph(tasks)
+
+        ready = compute_ready_tasks(graph, state, "dag1")
+
+        assert [t.id for t in ready] == ["a"]
+
+    def test_ready_after_completion(self) -> None:
+        """A→B→C with A complete: only B is ready."""
+        tasks = [
+            Task(id="a", name="A"),
+            Task(id="b", name="B", dependencies=["a"]),
+            Task(id="c", name="C", dependencies=["b"]),
+        ]
+        graph, state = _make_dag_graph(tasks)
+        state.mark_task_complete("dag1", "a")
+
+        ready = compute_ready_tasks(graph, state, "dag1")
+
+        assert [t.id for t in ready] == ["b"]
+
+    def test_ready_diamond(self) -> None:
+        """Diamond pattern: A and B both point to C.
+
+        - Nothing complete → A and B ready.
+        - A done → B still ready, C still blocked (needs both).
+        - A and B both done → C ready.
+        """
+        tasks = [
+            Task(id="a", name="A"),
+            Task(id="b", name="B"),
+            Task(id="c", name="C", dependencies=["a", "b"]),
+        ]
+
+        # Nothing complete
+        graph, state = _make_dag_graph(tasks)
+        ready_ids = {t.id for t in compute_ready_tasks(graph, state, "dag1")}
+        assert ready_ids == {"a", "b"}
+
+        # A done — C still blocked
+        state.mark_task_complete("dag1", "a")
+        ready_ids = {t.id for t in compute_ready_tasks(graph, state, "dag1")}
+        assert ready_ids == {"b"}
+
+        # Both done — C ready
+        state.mark_task_complete("dag1", "b")
+        ready_ids = {t.id for t in compute_ready_tasks(graph, state, "dag1")}
+        assert ready_ids == {"c"}
+
+    def test_ready_all_complete(self) -> None:
+        """When all tasks are complete, no tasks are ready."""
+        tasks = [Task(id="a", name="A"), Task(id="b", name="B")]
+        graph, state = _make_dag_graph(tasks)
+        state.mark_task_complete("dag1", "a")
+        state.mark_task_complete("dag1", "b")
+
+        ready = compute_ready_tasks(graph, state, "dag1")
+
+        assert ready == []
+
+    def test_ready_non_dag(self) -> None:
+        """compute_ready_tasks returns empty list for a wave node."""
+        wave_node = Node(id="w1", name="Wave 1", node_type="wave", is_start=True)
+        end_node = Node(id="done", name="Done", is_end=True)
+        edge = Edge(
+            id="w1-done",
+            from_node="w1",
+            to_node="done",
+            condition=EdgeCondition(type="always"),
+        )
+        graph = Graph(
+            metadata={"name": "test"},
+            nodes={"w1": wave_node, "done": end_node},
+            edges=[edge],
+        )
+        state = GraphState(current_nodes=["w1"])
+
+        ready = compute_ready_tasks(graph, state, "w1")
+
+        assert ready == []
+
+    def test_ready_empty_dag(self) -> None:
+        """DAG node with no tasks returns empty ready list."""
+        graph, state = _make_dag_graph([])
+
+        ready = compute_ready_tasks(graph, state, "dag1")
+
+        assert ready == []
+
+
+# ---------------------------------------------------------------------------
+# TestIsDagComplete
+# ---------------------------------------------------------------------------
+
+
+class TestIsDagComplete:
+    def test_complete_all_done(self) -> None:
+        """All tasks marked complete → is_dag_complete returns True."""
+        tasks = [Task(id="a", name="A"), Task(id="b", name="B")]
+        graph, state = _make_dag_graph(tasks)
+        state.mark_task_complete("dag1", "a")
+        state.mark_task_complete("dag1", "b")
+
+        assert is_dag_complete(graph, state, "dag1") is True
+
+    def test_complete_partial(self) -> None:
+        """Some tasks still incomplete → is_dag_complete returns False."""
+        tasks = [Task(id="a", name="A"), Task(id="b", name="B")]
+        graph, state = _make_dag_graph(tasks)
+        state.mark_task_complete("dag1", "a")
+
+        assert is_dag_complete(graph, state, "dag1") is False
+
+    def test_complete_non_dag(self) -> None:
+        """Wave node is trivially complete."""
+        wave_node = Node(id="w1", name="Wave 1", node_type="wave", is_start=True)
+        end_node = Node(id="done", name="Done", is_end=True)
+        edge = Edge(
+            id="w1-done",
+            from_node="w1",
+            to_node="done",
+            condition=EdgeCondition(type="always"),
+        )
+        graph = Graph(
+            metadata={"name": "test"},
+            nodes={"w1": wave_node, "done": end_node},
+            edges=[edge],
+        )
+        state = GraphState(current_nodes=["w1"])
+
+        assert is_dag_complete(graph, state, "w1") is True
+
+    def test_complete_empty_dag(self) -> None:
+        """DAG node with no tasks is trivially complete."""
+        graph, state = _make_dag_graph([])
+
+        assert is_dag_complete(graph, state, "dag1") is True
+
+
+# ---------------------------------------------------------------------------
+# TestTaskCompletion
+# ---------------------------------------------------------------------------
+
+
+class TestTaskCompletion:
+    def test_mark_and_check(self) -> None:
+        """mark_task_complete followed by is_task_complete returns True."""
+        state = GraphState(current_nodes=["n1"])
+        state.mark_task_complete("n1", "task-a")
+
+        assert state.is_task_complete("n1", "task-a") is True
+
+    def test_not_complete(self) -> None:
+        """is_task_complete for an unknown task returns False."""
+        state = GraphState(current_nodes=["n1"])
+
+        assert state.is_task_complete("n1", "nonexistent") is False
+
+    def test_get_completed_for_node(self) -> None:
+        """Marking three tasks in the same node returns all three from get_completed_tasks_for_node."""
+        state = GraphState(current_nodes=["n1"])
+        state.mark_task_complete("n1", "t1")
+        state.mark_task_complete("n1", "t2")
+        state.mark_task_complete("n1", "t3")
+
+        completed = state.get_completed_tasks_for_node("n1")
+
+        assert set(completed) == {"t1", "t2", "t3"}
+
+    def test_get_completed_different_nodes(self) -> None:
+        """Tasks from two different nodes are kept separate."""
+        state = GraphState(current_nodes=["n1"])
+        state.mark_task_complete("n1", "ta")
+        state.mark_task_complete("n2", "tb")
+        state.mark_task_complete("n2", "tc")
+
+        completed_n1 = state.get_completed_tasks_for_node("n1")
+        completed_n2 = state.get_completed_tasks_for_node("n2")
+
+        assert completed_n1 == ["ta"]
+        assert set(completed_n2) == {"tb", "tc"}
+
+    def test_outputs_stored(self) -> None:
+        """mark_task_complete with outputs persists the outputs dict."""
+        state = GraphState(current_nodes=["n1"])
+        outputs = {"files": "3", "coverage": "85"}
+        state.mark_task_complete("n1", "t1", outputs=outputs)
+
+        entry = state.completed_tasks["n1:t1"]
+        assert entry["outputs"] == outputs
+
+
+# ---------------------------------------------------------------------------
+# TestDAGCycleDetection
+# ---------------------------------------------------------------------------
+
+
+class TestDAGCycleDetection:
+    def _make_graph_with_dag_tasks(self, tasks: list[Task]) -> Graph:
+        """Return a Graph with a DAG node containing the given tasks."""
+        dag_node = Node(
+            id="dag1",
+            name="DAG",
+            node_type="dag",
+            tasks=tasks,
+            is_start=True,
+        )
+        end_node = Node(id="done", name="Done", is_end=True)
+        edge = Edge(
+            id="dag1-done",
+            from_node="dag1",
+            to_node="done",
+            condition=EdgeCondition(type="always"),
+        )
+        return Graph(
+            metadata={"name": "test"},
+            nodes={"dag1": dag_node, "done": end_node},
+            edges=[edge],
+        )
+
+    def test_no_cycle(self) -> None:
+        """Linear A→B→C is acyclic — validate() returns no errors."""
+        tasks = [
+            Task(id="a", name="A"),
+            Task(id="b", name="B", dependencies=["a"]),
+            Task(id="c", name="C", dependencies=["b"]),
+        ]
+        graph = self._make_graph_with_dag_tasks(tasks)
+
+        errors = graph.validate()
+
+        cycle_errors = [e for e in errors if "cyclic" in e]
+        assert cycle_errors == []
+
+    def test_cycle_detected(self) -> None:
+        """A→B, B→A creates a cycle — validate() reports a cyclic dependency error."""
+        tasks = [
+            Task(id="a", name="A", dependencies=["b"]),
+            Task(id="b", name="B", dependencies=["a"]),
+        ]
+        graph = self._make_graph_with_dag_tasks(tasks)
+
+        errors = graph.validate()
+
+        assert any("cyclic" in e for e in errors)
+
+    def test_self_dependency(self) -> None:
+        """A task that depends on itself is a cycle — validate() reports an error."""
+        tasks = [Task(id="a", name="A", dependencies=["a"])]
+        graph = self._make_graph_with_dag_tasks(tasks)
+
+        errors = graph.validate()
+
+        assert any("cyclic" in e for e in errors)
+
+    def test_diamond_no_cycle(self) -> None:
+        """Diamond A→C, B→C is acyclic — validate() returns no cycle errors."""
+        tasks = [
+            Task(id="a", name="A"),
+            Task(id="b", name="B"),
+            Task(id="c", name="C", dependencies=["a", "b"]),
+        ]
+        graph = self._make_graph_with_dag_tasks(tasks)
+
+        errors = graph.validate()
+
+        cycle_errors = [e for e in errors if "cyclic" in e]
+        assert cycle_errors == []
+
+
+# ---------------------------------------------------------------------------
+# TestBackwardsCompatibility
+# ---------------------------------------------------------------------------
+
+
+class TestBackwardsCompatibility:
+    def test_wave_node_no_tasks(self) -> None:
+        """Node created without node_type defaults to 'wave' and has empty tasks."""
+        node = Node(id="w", name="wave")
+
+        assert node.node_type == "wave"
+        assert node.tasks == []
+
+    def test_compute_ready_wave(self) -> None:
+        """compute_ready_tasks on a wave node returns empty list."""
+        wave_node = Node(id="w1", name="Wave 1", node_type="wave", is_start=True)
+        end_node = Node(id="done", name="Done", is_end=True)
+        edge = Edge(
+            id="w1-done",
+            from_node="w1",
+            to_node="done",
+            condition=EdgeCondition(type="always"),
+        )
+        graph = Graph(
+            metadata={"name": "test"},
+            nodes={"w1": wave_node, "done": end_node},
+            edges=[edge],
+        )
+        state = GraphState(current_nodes=["w1"])
+
+        assert compute_ready_tasks(graph, state, "w1") == []
+
+    def test_is_complete_wave(self) -> None:
+        """is_dag_complete on a wave node returns True (trivially complete)."""
+        wave_node = Node(id="w1", name="Wave 1", node_type="wave", is_start=True)
+        end_node = Node(id="done", name="Done", is_end=True)
+        edge = Edge(
+            id="w1-done",
+            from_node="w1",
+            to_node="done",
+            condition=EdgeCondition(type="always"),
+        )
+        graph = Graph(
+            metadata={"name": "test"},
+            nodes={"w1": wave_node, "done": end_node},
+            edges=[edge],
+        )
+        state = GraphState(current_nodes=["w1"])
+
+        assert is_dag_complete(graph, state, "w1") is True

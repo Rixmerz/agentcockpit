@@ -84,6 +84,20 @@ class Node:
     max_visits: int = 10
     dcc_context: Optional[dict] = None
     contracts: list[dict] | None = None  # list of {"file": "path", "content": "..."}
+    node_type: str = "wave"  # "wave" | "dag" | "milestone"
+    tasks: list[Task] = field(default_factory=list)  # Only for node_type="dag"
+
+
+@dataclass
+class Task:
+    """A task within a DAG node. Lightweight sub-unit of work with dependencies."""
+    id: str
+    name: str
+    prompt: str | None = None
+    dependencies: list[str] = field(default_factory=list)
+    outputs: dict[str, str] = field(default_factory=dict)
+    tools_blocked: list[str] = field(default_factory=list)
+    mcps_enabled: list[str] = field(default_factory=lambda: ["*"])
 
 
 @dataclass
@@ -195,6 +209,37 @@ class Graph:
             if edge.to_node not in self.nodes:
                 errors.append(f"Edge '{edge.id}' references unknown to_node: {edge.to_node}")
 
+        # Validate DAG task dependencies
+        for node_id, node in self.nodes.items():
+            if node.node_type != "dag" or not node.tasks:
+                continue
+            task_ids = {t.id for t in node.tasks}
+            # Check references exist
+            for task in node.tasks:
+                for dep in task.dependencies:
+                    if dep not in task_ids:
+                        errors.append(f"Node '{node_id}' task '{task.id}' depends on unknown task '{dep}'")
+            # Cycle detection (Kahn's algorithm)
+            in_degree: dict[str, int] = {t.id: 0 for t in node.tasks}
+            adj: dict[str, list[str]] = {t.id: [] for t in node.tasks}
+            for task in node.tasks:
+                for dep in task.dependencies:
+                    if dep in adj:
+                        adj[dep].append(task.id)
+                        in_degree[task.id] += 1
+            queue = [tid for tid, deg in in_degree.items() if deg == 0]
+            visited = 0
+            while queue:
+                current = queue.pop(0)
+                visited += 1
+                for neighbor in adj.get(current, []):
+                    in_degree[neighbor] -= 1
+                    if in_degree[neighbor] == 0:
+                        queue.append(neighbor)
+            if visited < len(task_ids):
+                cycle_tasks = [tid for tid, deg in in_degree.items() if deg > 0]
+                errors.append(f"Node '{node_id}' has cyclic task dependencies: {cycle_tasks}")
+
         return errors
 
 
@@ -236,6 +281,7 @@ class GraphState:
     last_dcc_result: Optional[dict] = None
     last_dcc_timestamp: Optional[str] = None
     baseline_smells: list[dict] | None = None
+    completed_tasks: dict[str, dict] = field(default_factory=dict)
 
     def get_current_node(self) -> Optional[str]:
         """Get the primary current node (first in list)."""
@@ -265,6 +311,20 @@ class GraphState:
         self.current_nodes = [to_node]
         self.total_transitions += 1
         self.last_activity = entry.timestamp
+
+    def mark_task_complete(self, node_id: str, task_id: str, outputs: dict | None = None) -> None:
+        key = f"{node_id}:{task_id}"
+        self.completed_tasks[key] = {
+            "completed_at": datetime.now().isoformat(),
+            "outputs": outputs or {},
+        }
+
+    def is_task_complete(self, node_id: str, task_id: str) -> bool:
+        return f"{node_id}:{task_id}" in self.completed_tasks
+
+    def get_completed_tasks_for_node(self, node_id: str) -> list[str]:
+        prefix = f"{node_id}:"
+        return [k.split(":", 1)[1] for k in self.completed_tasks if k.startswith(prefix)]
 
 
 def _write_contract_files(node: Node, project_dir: str) -> list[str]:
@@ -402,6 +462,37 @@ def evaluate_transitions(
     return valid_edges
 
 
+def compute_ready_tasks(graph: Graph, state: GraphState, node_id: str | None = None) -> list[Task]:
+    """Return tasks in a DAG node whose dependencies are all satisfied."""
+    nid = node_id or state.get_current_node()
+    if not nid or nid not in graph.nodes:
+        return []
+    node = graph.nodes[nid]
+    if node.node_type != "dag" or not node.tasks:
+        return []
+
+    completed = set(state.get_completed_tasks_for_node(nid))
+    ready = []
+    for task in node.tasks:
+        if task.id in completed:
+            continue
+        if all(dep in completed for dep in task.dependencies):
+            ready.append(task)
+    return ready
+
+
+def is_dag_complete(graph: Graph, state: GraphState, node_id: str | None = None) -> bool:
+    """Return True if all tasks in a DAG node are completed."""
+    nid = node_id or state.get_current_node()
+    if not nid or nid not in graph.nodes:
+        return False
+    node = graph.nodes[nid]
+    if node.node_type != "dag" or not node.tasks:
+        return True  # Non-DAG or empty DAG is trivially complete
+    completed = set(state.get_completed_tasks_for_node(nid))
+    return all(t.id in completed for t in node.tasks)
+
+
 def take_transition(
     graph: Graph,
     state: GraphState,
@@ -485,6 +576,22 @@ def generate_mermaid(graph: Graph, state: Optional[GraphState] = None) -> str:
             label = "|default|"
 
         lines.append(f"    {edge.from_node} -->{label} {edge.to_node}")
+
+    # Render DAG task subgraphs
+    for node_id, node in graph.nodes.items():
+        if node.node_type != "dag" or not node.tasks:
+            continue
+        lines.append(f'    subgraph {node_id}_dag["{node.name}"]')
+        for task in node.tasks:
+            task_fqid = f"{node_id}_{task.id}"
+            completed = state.is_task_complete(node_id, task.id) if state else False
+            lines.append(f'        {task_fqid}["{task.name}"]')
+            if completed:
+                lines.append(f"        style {task_fqid} fill:#90EE90")
+        for task in node.tasks:
+            for dep in task.dependencies:
+                lines.append(f"        {node_id}_{dep} --> {node_id}_{task.id}")
+        lines.append("    end")
 
     # Highlight current node
     if current_node:

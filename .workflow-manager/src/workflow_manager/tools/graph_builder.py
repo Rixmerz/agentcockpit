@@ -75,6 +75,34 @@ def _generate_graph_yaml(builder: dict) -> str:
             for pi_line in node["prompt_injection"].split("\n"):
                 lines.append(f"      {pi_line}")
 
+        # Node type (omit default "wave" to keep YAML clean)
+        if node.get("node_type") and node["node_type"] != "wave":
+            lines.append(f'    node_type: "{node["node_type"]}"')
+
+        # Tasks (only meaningful for dag nodes)
+        if node.get("tasks"):
+            lines.append("    tasks:")
+            for task in node["tasks"]:
+                lines.append(f'      - id: "{task["id"]}"')
+                if task.get("name") and task["name"] != task["id"]:
+                    lines.append(f'        name: "{task["name"]}"')
+                if task.get("tools_blocked"):
+                    lines.append("        tools_blocked:")
+                    for tb in task["tools_blocked"]:
+                        lines.append(f'          - "{tb}"')
+                if task.get("mcps_enabled") and task["mcps_enabled"] != ["*"]:
+                    lines.append("        mcps_enabled:")
+                    for me in task["mcps_enabled"]:
+                        lines.append(f'          - "{me}"')
+                if task.get("dependencies"):
+                    lines.append("        dependencies:")
+                    for dep in task["dependencies"]:
+                        lines.append(f'          - "{dep}"')
+                if task.get("prompt"):
+                    lines.append("        prompt: |")
+                    for pl in task["prompt"].split("\n"):
+                        lines.append(f"          {pl}")
+
         lines.append("")
 
     # Edges
@@ -159,7 +187,9 @@ def register_graph_builder_tools(mcp):
         mcps_enabled: list[str] | None = None,
         tools_blocked: list[str] | None = None,
         max_visits: int = 10,
-        prompt_injection: str | None = None
+        prompt_injection: str | None = None,
+        node_type: str = "wave",
+        tasks: list[dict] | None = None
     ) -> dict:
         # destructiveHint: False
         """Add a node to a graph builder.
@@ -174,6 +204,10 @@ def register_graph_builder_tools(mcp):
             tools_blocked: List of tools to block (e.g., ["Write", "Edit", "Bash"])
             max_visits: Maximum visits before blocking (default 10)
             prompt_injection: Prompt text injected when entering this node
+            node_type: Node execution type — "wave" (default), "dag", or "milestone"
+            tasks: List of task dicts for dag nodes. Each dict: {"id": str, "name"?: str,
+                "prompt"?: str, "dependencies"?: list[str], "tools_blocked"?: list[str],
+                "mcps_enabled"?: list[str]}
 
         Example:
             graph_builder_add_node(
@@ -209,11 +243,15 @@ def register_graph_builder_tools(mcp):
             "is_end": is_end,
             "mcps_enabled": mcps_enabled or ["*"],
             "tools_blocked": tools_blocked or [],
-            "max_visits": max_visits
+            "max_visits": max_visits,
+            "node_type": node_type,
         }
 
         if prompt_injection:
             node["prompt_injection"] = prompt_injection
+
+        if tasks:
+            node["tasks"] = tasks
 
         builder["nodes"].append(node)
 
