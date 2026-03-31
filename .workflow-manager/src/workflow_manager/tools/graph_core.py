@@ -345,6 +345,23 @@ def register_graph_core_tools(mcp):
             state.last_dcc_timestamp = datetime.now().isoformat()
             save_graph_state(resolved_dir, state)
 
+        # Record trend snapshot after DCC analysis
+        try:
+            from ..graph_state import _get_centralized_state_dir
+            from ..trend_tracker import record_snapshot
+            _trend_state_dir = str(_get_centralized_state_dir(resolved_dir))
+            _trend_metrics = {}
+            if dcc_result:
+                # Extract numeric metrics from DCC analysis for trend tracking
+                _dcc_smells = dcc_result.get("smells", "")
+                import re
+                _smell_match = re.search(r"(\d+)\s+smells", str(_dcc_smells))
+                if _smell_match:
+                    _trend_metrics["smell_count"] = int(_smell_match.group(1))
+            record_snapshot(resolved_dir, _trend_state_dir, _trend_metrics)
+        except Exception:
+            pass
+
         # Experience memory: auto-collect from DCC results
         experience_context: list[dict] = []
         if dcc_raw:

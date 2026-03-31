@@ -24,6 +24,7 @@ import ruleQualityFeedback from '../../.claude/rules/quality-feedback.md?raw';
 import ruleCommitDiscipline from '../../.claude/rules/commit-discipline.md?raw';
 import ruleExecutionPhilosophy from '../../.claude/rules/execution-philosophy.md?raw';
 import ruleSprintExecution from '../../.claude/rules/sprint-execution.md?raw';
+import ruleSecurityAwareness from '../../.claude/rules/security-awareness.md?raw';
 import commandSetupAgents from '../../.claude/commands/setup-agents.md?raw';
 
 // Claude settings.json structure
@@ -663,6 +664,7 @@ const BUNDLED_RULES: Record<string, string> = {
   'commit-discipline.md': ruleCommitDiscipline,
   'execution-philosophy.md': ruleExecutionPhilosophy,
   'sprint-execution.md': ruleSprintExecution,
+  'security-awareness.md': ruleSecurityAwareness,
 };
 
 const BUNDLED_HOOKS: Record<string, string> = {

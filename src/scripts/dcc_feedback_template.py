@@ -322,6 +322,30 @@ def main():
     if new_smells and not first_run:
         print(_format_delta(new_smells, len(edited_files)), file=sys.stderr)
 
+    # ------------------------------------------------------------------
+    # 8b. Security findings from cached scan (non-blocking)
+    # ------------------------------------------------------------------
+    try:
+        _sec_cache = os.path.join(_PROJECT_PATH, ".agentcockpit", "security-scan.json")
+        if os.path.exists(_sec_cache):
+            with open(_sec_cache, "r") as _f:
+                _scan = json.load(_f)
+            _critical = _scan.get("criticalCount", 0)
+            _high = _scan.get("highCount", 0)
+            if _critical > 0 or _high > 0:
+                _parts = []
+                if _critical > 0:
+                    _parts.append(f"{_critical} CRITICAL")
+                if _high > 0:
+                    _parts.append(f"{_high} high")
+                print(
+                    f"\U0001f512 Security: {', '.join(_parts)} findings (grade {_scan.get('riskGrade', '?')})"
+                    " \u2014 use cube_get_findings() for details",
+                    file=sys.stderr,
+                )
+    except Exception:
+        pass
+
     print(_APPROVE)
 
 
