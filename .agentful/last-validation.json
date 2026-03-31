@@ -1,0 +1,176 @@
+{
+  "timestamp": "2026-03-23T00:00:00Z",
+  "branch": "master",
+  "stack": "TypeScript / React 19 / Tauri v2",
+  "overall": "failed",
+  "checks": {
+    "typescript": {
+      "passed": true,
+      "error_count": 0,
+      "note": "tsc --noEmit exited 0, no type errors"
+    },
+    "lint": {
+      "passed": false,
+      "error_count": "145 (approx)",
+      "warning_count": 8,
+      "top_categories": [
+        "no-explicit-any (spread across many files)",
+        "no-unused-vars (_onMcpsChange, _selectedNode, multiple _ destructures)",
+        "no-empty-object-type (McpPanel.tsx:22, GeminiMcpPanel types.ts:3)",
+        "react/no-direct-mutation-state - setState called synchronously in effect (McpIndicator, SettingsModal, ActionsPanel, WorkflowPanel)",
+        "react-hooks/exhaustive-deps missing deps (GitHubCloneModal, ProjectOpener, WorkflowModal, TerminalView)",
+        "no-control-regex in TerminalView.tsx:96 and usePty.ts:165"
+      ]
+    },
+    "dead_code": {
+      "passed": false,
+      "unused_files_in_src": [
+        "src/components/claude-session/ClaudeInputBar.tsx",
+        "src/components/claude-session/ClaudeSessionView.tsx",
+        "src/components/claude-session/CodeBlock.tsx",
+        "src/components/claude-session/MessageBubble.tsx",
+        "src/components/claude-session/SessionStatusBar.tsx",
+        "src/components/claude-session/ToolUseCard.tsx",
+        "src/components/index-panel/ArchitectureView.tsx (only used internally)",
+        "src/components/index-panel/DependencyMatrixView.tsx (only used internally)",
+        "src/components/index-panel/HeatmapView.tsx (only used internally)",
+        "src/components/index-panel/TimelineView.tsx (only used internally)",
+        "src/components/mcp/McpIndicator.tsx",
+        "src/components/sidebar-left/GitHubCloneModal.tsx",
+        "src/components/sidebar-left/MiniTerminal.tsx",
+        "src/components/sidebar-left/SnapshotPanel.tsx",
+        "src/components/terminal/SnapshotSelector.tsx",
+        "src/components/workflow/MermaidRenderer.tsx (lazy-loaded by WorkflowModal)",
+        "src/components/workflow/WorkflowModal.tsx (used by WorkflowPanel)",
+        "src/components/workflow/WorkflowPanel.tsx (exported via index.ts but index.ts itself unused)",
+        "src/components/workflow/WorkflowTimeline.tsx",
+        "src/components/workflow/index.ts",
+        "src/hooks/useClaudeStream.ts",
+        "src/hooks/useWorkflowPanel.ts (only used by WorkflowPanel which is unused)",
+        "src/services/pluginConfigService.ts",
+        "src/types/claude-events.ts (only used inside claude-session which is unused)"
+      ],
+      "unused_exports": [
+        "src/agents/claude/services/claudeService.ts: readSessionEnv, getCurrentSessionId, listClaudeSessions",
+        "src/contexts/AppContext.tsx: TerminalActivityContext, useTerminalActivity, useProjects, useTerminals, useSettings",
+        "src/services/dcc/_dccInternal.ts: multiple constants (DCC_RETRY_COOLDOWN_MS, etc.)",
+        "src/services/dcc/dccAnalysisService.ts: predictImpact, getCentrality, getContracts, analyzeSurface, getTemporalFeatures, suggestFix",
+        "src/services/dcc/dccClaudeMdService.ts: generateClaudeMdSection",
+        "src/services/dcc/dccInstallService.ts: isDeltaCodeCubeEnabled",
+        "src/services/dcc/dccServerService.ts: warmupDccServer",
+        "src/services/dccAutoReindexService.ts: isAutoReindexEnabled",
+        "src/services/fileSystemService.ts: executeCommand, listDirectory, pathExists, getCurrentDirectory, resolvePath",
+        "src/services/flowtrace/flowtraceInstallService.ts: isFlowtraceEnabled",
+        "src/services/git/gitHistoryService.ts: checkoutCommit, stash, stashPop",
+        "src/services/git/gitPushService.ts: SNAPSHOT_REGEX, squashSnapshotCommits",
+        "src/services/git/gitRemoteService.ts: hasRemote, getRemoteUrl, addRemote",
+        "src/services/git/gitRepoService.ts: isGitInstalled, cloneRepository",
+        "src/services/git/gitStagingService.ts: stageAll, stageFiles",
+        "src/services/git/gitStatusService.ts: getUncommittedChanges, getFilesBetweenCommits",
+        "src/services/githubService.ts: loadToken, isAuthenticated, authenticate",
+        "src/services/hookService.ts: readClaudeSettings, writeClaudeSettings, generateWorkflowEnforcerScript, generateReindexHookScript, installReindexHooks, uninstallReindexHooks, isReindexHooksInstalled, generateAsMarkdown, installAsMarkdown",
+        "src/services/mcpConfigService.ts: updateMcp, getActiveMcpCount, isWorkflowManagerEnabled",
+        "src/services/mcpService.ts: many exports",
+        "src/services/snapshotService.ts: deleteSnapshot, pruneSnapshots, getSnapshot, hasSnapshots",
+        "src/services/soundService.ts: validateSoundFile, getDefaultSoundPath, clearAudioCache, preloadDefaultSound",
+        "src/services/workflow/index.ts: many workflow functions"
+      ],
+      "unused_dependencies": [
+        "@xterm/addon-canvas",
+        "@xterm/addon-ligatures",
+        "@xterm/addon-search",
+        "@xterm/addon-unicode11",
+        "@xterm/addon-webgl",
+        "mermaid"
+      ],
+      "unused_dev_dependencies": [
+        "@tauri-apps/cli"
+      ]
+    },
+    "tests": {
+      "passed": "skipped",
+      "note": "No test framework detected (no vitest/jest config, no test files found)"
+    },
+    "coverage": {
+      "passed": false,
+      "actual": 0,
+      "required": 80,
+      "note": "No tests exist"
+    },
+    "security": {
+      "passed": false,
+      "vulnerabilities": {
+        "critical": 0,
+        "high": 8,
+        "moderate": 1
+      },
+      "packages": ["flatted (<=3.4.1 via eslint>file-entry-cache>flat-cache)", "ajv (<6.14.0 via eslint)"],
+      "hardcoded_secrets": 0,
+      "type_escape_hatches": 1,
+      "note": "All 9 vulns are in dev-only eslint dep chain. No production exposure. 1 'as any' cast in src/core/debug.ts:131."
+    }
+  },
+  "duplicate_logic": [
+    {
+      "issue": "Duplicate _DOMAIN_MAP and _extract_keywords / _guess_domain in two hook files",
+      "files": [
+        ".claude/hooks/experience_injector.py:lines 25-54",
+        ".claude/hooks/experience_recorder.py:lines 22-60"
+      ],
+      "recommendation": "Extract to a shared _common.py module in the hooks directory"
+    },
+    {
+      "issue": "Duplicate ClaudeSession interface",
+      "files": [
+        "src/types/claude.ts:2 — {id, lastAccessed, workingDir?}",
+        "src/agents/claude/services/claudeService.ts:14 — {sessionId, workingDirectory?, createdAt?}"
+      ],
+      "recommendation": "These have different shapes and are separate concerns; however the name collision is confusing. Rename the one in claudeService.ts to ClaudeSessionRecord or similar."
+    }
+  ],
+  "error_handling_gaps": [
+    "src/components/index-panel/IndexDashboardPanel.tsx:182 — .catch(() => {}) silent swallow",
+    "src/hooks/usePty.ts:140 — .catch(() => {}) on pty cleanup (comment says intentional)",
+    "src/hooks/useDccStatus.ts:49 — .catch(() => {}) silent swallow on DCC poll",
+    "src/hooks/useLspStatus.ts:57 — .catch(() => {}) silent swallow on LSP detection",
+    "src/services/dcc/dccServerService.ts:23 — .catch(() => {}) silent swallow",
+    "src/services/ollamaService.ts:35 — .catch(() => {}) on podman pull (may be intentional fire-and-forget)",
+    "src/agents/claude/index.ts:78-83 — onActivate/onDeactivate only console.log, no error handling surface"
+  ],
+  "performance_concerns": [
+    {
+      "file": "src/hooks/useWorkflowPanel.ts",
+      "issue": "Polls every 2000ms (POLLING_INTERVAL) for workflow state. Has optimization with pollingEnabledRef but still fires on every project switch. Multiple status hooks (useDccStatus, useMcpStatus, etc.) also poll independently — cumulative timer count could be high.",
+      "severity": "low"
+    },
+    {
+      "file": "src/components/mcp/McpIndicator.tsx:35",
+      "issue": "setState called synchronously inside useEffect — causes cascading renders per ESLint react rule. Same in SettingsModal.tsx:64, ActionsPanel.tsx:61, WorkflowPanel.tsx:46.",
+      "severity": "medium"
+    }
+  ],
+  "stale_references": [
+    {
+      "file": "src/services/pluginConfigService.ts",
+      "issue": "Entire file is unused — not imported anywhere. Likely stale from an earlier plugin configuration approach.",
+      "severity": "low"
+    }
+  ],
+  "must_fix": [
+    "LINT: Fix 'setState called synchronously inside useEffect' in McpIndicator.tsx:35, SettingsModal.tsx:64, ActionsPanel.tsx:61, WorkflowPanel.tsx:46 — these cause cascading renders",
+    "DEAD CODE: The entire src/components/claude-session/ directory (6 files) is not imported by anything outside itself — either wire it up or delete it",
+    "DEAD CODE: src/services/pluginConfigService.ts is not imported anywhere — delete it",
+    "DEAD CODE: src/hooks/useWorkflowPanel.ts and src/hooks/useClaudeStream.ts — only used inside unused component tree",
+    "DUPLICATE: _DOMAIN_MAP duplicated verbatim between experience_injector.py and experience_recorder.py — extract to shared module",
+    "SECURITY: 8 high vulnerabilities in eslint dependency chain (flatted <=3.4.1) — run pnpm update eslint or update flat-cache"
+  ],
+  "can_ignore": [
+    "Unused exports in service files (git, dcc, snapshot, etc.) — these are library-style APIs, some may be used by future features or external tooling",
+    "Unused xterm addons in package.json — likely candidates for future terminal features",
+    "@tauri-apps/cli in devDependencies — needed for build even if not imported as a module",
+    "9 pnpm audit vulnerabilities — all are in eslint's dep chain, no production exposure",
+    "1 'as any' cast in src/core/debug.ts:131 — debug-only utility, acceptable",
+    "console.* statements (271 total) — this is a desktop dev tool, console output is useful for debugging; but production build should have them stripped",
+    "react-hooks/exhaustive-deps warnings — several are intentional stable-ref patterns"
+  ]
+}
