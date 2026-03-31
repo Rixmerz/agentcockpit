@@ -143,11 +143,35 @@ def _summarize_debt(result: dict | None) -> str | None:
     return str(result)[:200]
 
 
+def _summarize_security(result: dict | None) -> str | None:
+    """Summarize security findings for compact injection."""
+    if not result:
+        return None
+    by_sev = result.get("by_severity", {})
+    by_status = result.get("by_status", {})
+    total = result.get("total", 0)
+    if not total and not by_sev:
+        return "No security findings"
+
+    open_count = by_status.get("open", 0)
+    if not open_count:
+        return f"Security: {total} total findings (all resolved/suppressed)"
+
+    sev_parts = []
+    for sev in ("critical", "high", "medium", "low"):
+        count = by_sev.get(sev, 0)
+        if count:
+            sev_parts.append(f"{count} {sev}")
+
+    return f"Security: {open_count} open findings ({', '.join(sev_parts)})" if sev_parts else f"Security: {open_count} open findings"
+
+
 _DCC_SUMMARIZERS = {
     "stats": ("cube_get_stats", {}, _summarize_stats),
     "smells": ("cube_detect_smells", {"summary_only": True}, _summarize_smells),
     "tensions": ("cube_get_tensions", {"limit": 10}, _summarize_tensions),
     "debt": ("cube_get_debt", {}, _summarize_debt),
+    "security": ("cube_finding_stats", {}, _summarize_security),
 }
 
 
@@ -540,7 +564,7 @@ def _is_dcc_available() -> bool:
     return "deltacodecube" in configs
 
 
-_DCC_DEFAULT_ANALYSES = ["stats", "smells"]
+_DCC_DEFAULT_ANALYSES = ["stats", "smells", "security"]
 _DCC_DEFAULT_TOKEN_BUDGET = 400
 
 
@@ -1589,6 +1613,26 @@ async def _run_pre_transition_check(
                     critical_smells_count = by_severity.get("critical", content.get("total_smells", 0))
         except Exception as e:
             print(f"[workflow-manager] Warning: failed to parse critical smells: {e}", file=sys.stderr)
+
+    # Security gate check (if configured)
+    security_gate_config = pre_check.get("security_gate", {})
+    if security_gate_config.get("enabled", False):
+        try:
+            gate_result = await _execute_dcc_tool("cube_security_gate", {
+                "max_grade": security_gate_config.get("max_grade", "C"),
+                "max_open_criticals": security_gate_config.get("max_open_criticals", 0),
+            }, project_dir)
+            if gate_result and not gate_result.get("passed", True):
+                noise_filtered = 0
+                return {
+                    "blocked": True,
+                    "reason": "security_gate_failed",
+                    "details": gate_result.get("reason", "Security gate check failed"),
+                    "findings": gate_result.get("open_findings", {}),
+                    "noise_filtered": noise_filtered,
+                }
+        except Exception:
+            pass  # Non-fatal — don't block on security gate errors
 
     # If DCC tools both returned no data, skip blocking to avoid false positives
     if raw_debt is None and raw_smells is None:

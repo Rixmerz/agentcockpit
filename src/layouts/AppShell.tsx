@@ -11,6 +11,7 @@ import { hasLocalGitRepo, initRepository } from '../services/gitService';
 import { gitWatcherService } from '../services/gitWatcherService';
 import { fileWatcherService } from '../services/fileWatcherService';
 import { ollamaService } from '../services/ollamaService';
+import { scanProject } from '../services/securityScanService';
 
 import { useIdleMode } from '../hooks/useIdleMode';
 import { useBackgroundImage } from '../hooks/useBackgroundImage';
@@ -63,6 +64,13 @@ export function AppShell() {
     ollamaService.start();
     return () => { ollamaService.stop(); };
   }, []);
+
+  // Security scan on project open (non-blocking, debounced 1h)
+  useEffect(() => {
+    if (activeProject?.path) {
+      scanProject(activeProject.path).catch(console.warn);
+    }
+  }, [activeProject?.path]);
 
   // DCC auto-reindex toggle
   useEffect(() => {

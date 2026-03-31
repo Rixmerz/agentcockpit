@@ -467,6 +467,32 @@ def register_graph_core_tools(mcp):
                             _meta_text = "## Project Metadata\n" + "\n".join(_sections)
                             if len(_meta_text) <= _budget:
                                 _injections.append(_meta_text)
+                                _budget -= len(_meta_text)
+                except Exception:
+                    pass
+
+                # Security findings for implementation context
+                try:
+                    _findings_result = await _execute_dcc_tool(
+                        "cube_get_findings",
+                        {"status": "open", "limit": 5},
+                        resolved_dir
+                    )
+                    if _findings_result and isinstance(_findings_result, dict):
+                        _findings = _findings_result.get("findings", [])
+                        if _findings and len(_findings) > 0:
+                            _sec_lines = ["## Security Findings (open)"]
+                            for _f in _findings[:5]:
+                                _sev = _f.get("severity", "?")
+                                _rule = _f.get("rule_id", "?")
+                                _fpath = _f.get("file_path", "?")
+                                _line = _f.get("start_line", "?")
+                                _sec_lines.append(f"- [{_sev}] {_rule} in {_fpath}:{_line}")
+                            _sec_lines.append("→ Use `cube_security_remediation(finding_id)` for fix guidance")
+                            _sec_text = "\n".join(_sec_lines)
+                            if len(_sec_text) <= _budget:
+                                _injections.append(_sec_text)
+                                _budget -= len(_sec_text)
                 except Exception:
                     pass
 
