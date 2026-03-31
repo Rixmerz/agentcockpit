@@ -498,6 +498,25 @@ def register_graph_core_tools(mcp):
                     if _findings_result and isinstance(_findings_result, dict):
                         _findings = _findings_result.get("findings", [])
                         if _findings and len(_findings) > 0:
+                            # Prioritize findings in files mentioned in the node prompt
+                            _node_text = (new_node.prompt_injection or "") if new_node else ""
+                            if _node_text:
+                                try:
+                                    import re as _re2
+                                    _mentioned_files = set(_re2.findall(r'[\w/.-]+\.\w+', _node_text))
+                                    for _f in _findings:
+                                        _f_path = _f.get("file_path", "")
+                                        _f["_in_prompt"] = any(mf in _f_path for mf in _mentioned_files)
+                                    _sev_rank = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+                                    _findings.sort(
+                                        key=lambda x: (
+                                            x.get("_in_prompt", False),
+                                            _sev_rank.get(x.get("severity", ""), 0),
+                                        ),
+                                        reverse=True,
+                                    )
+                                except Exception:
+                                    pass
                             _sec_lines = ["## Security Findings (open)"]
                             for _f in _findings[:5]:
                                 _sev = _f.get("severity", "?")
@@ -510,6 +529,36 @@ def register_graph_core_tools(mcp):
                             if len(_sec_text) <= _budget:
                                 _injections.append(_sec_text)
                                 _budget -= len(_sec_text)
+                except Exception:
+                    pass
+
+                # Semantic file suggestions based on first file path in node prompt
+                try:
+                    import re as _re2
+                    _node_text = (new_node.prompt_injection or "") if new_node else ""
+                    _path_match = _re2.search(
+                        r'(?:internal|src|cmd|app|lib|services|components|pkg)/[\w/.-]+\.\w+',
+                        _node_text,
+                    )
+                    if _path_match:
+                        _ref_file = _path_match.group(0)
+                        _similar = await _execute_dcc_tool(
+                            "cube_find_similar_semantic",
+                            {"file_path": _ref_file, "top_k": 5},
+                            resolved_dir,
+                        )
+                        if _similar and isinstance(_similar, dict):
+                            _matches = _similar.get("matches", [])
+                            if _matches:
+                                _rel_lines = ["## Related Files (semantic)"]
+                                for _m in _matches[:5]:
+                                    _fp = _m.get("file_path", "?")
+                                    _sim = _m.get("similarity", 0)
+                                    _rel_lines.append(f"- `{_fp}` ({_sim:.2f})")
+                                _rel_text = "\n".join(_rel_lines)
+                                if len(_rel_text) <= _budget:
+                                    _injections.append(_rel_text)
+                                    _budget -= len(_rel_text)
                 except Exception:
                     pass
 

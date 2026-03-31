@@ -19,6 +19,18 @@ _MAX_PATTERN_CHARS = 2000  # Max chars per pattern to fit in prompt injection
 _SKIP_DIRS = frozenset({"node_modules", "vendor", "target", "dist", ".git", "__pycache__", ".venv", "venv"})
 
 
+_PATTERN_DESCRIPTIONS: dict[str, str] = {
+    "repository": "database repository data access layer CRUD operations",
+    "handler": "HTTP API handler endpoint request response routing",
+    "domain_entity": "domain model entity aggregate value object",
+    "migration": "database migration schema DDL create alter table",
+    "test_unit": "unit test assertion mock setup teardown",
+    "frontend_page": "React page component view render layout",
+    "frontend_hook": "React custom hook useState useEffect state management",
+    "frontend_service": "frontend service API client data fetching",
+}
+
+
 class PatternCatalog:
     """Auto-extracts condensed code patterns from a project."""
 
@@ -108,7 +120,11 @@ class PatternCatalog:
         ]
         # Exclude test files
         exclude_keywords = ["_test", ".test.", "spec.", "_spec", "mock", "fake"]
-        path = self._find_representative_file(glob_patterns, exclude_keywords=exclude_keywords)
+        path = self._find_representative_file(
+            glob_patterns,
+            exclude_keywords=exclude_keywords,
+            semantic_desc=_PATTERN_DESCRIPTIONS["repository"],
+        )
         if path is None:
             return None
         snippet = self._extract_snippet(path)
@@ -146,7 +162,11 @@ class PatternCatalog:
             "src/**/routes*.rs",
         ]
         exclude_keywords = ["_test", ".test.", "spec.", "_spec", "mock", "fake"]
-        path = self._find_representative_file(glob_patterns, exclude_keywords=exclude_keywords)
+        path = self._find_representative_file(
+            glob_patterns,
+            exclude_keywords=exclude_keywords,
+            semantic_desc=_PATTERN_DESCRIPTIONS["handler"],
+        )
         if path is None:
             return None
         snippet = self._extract_snippet(path)
@@ -177,7 +197,11 @@ class PatternCatalog:
             "src/**/models*.rs",
         ]
         exclude_keywords = ["_test", ".test.", "spec.", "_spec", "mock", "fake", "repository", "handler", "service"]
-        path = self._find_representative_file(glob_patterns, exclude_keywords=exclude_keywords)
+        path = self._find_representative_file(
+            glob_patterns,
+            exclude_keywords=exclude_keywords,
+            semantic_desc=_PATTERN_DESCRIPTIONS["domain_entity"],
+        )
         if path is None:
             return None
         snippet = self._extract_snippet(path)
@@ -257,7 +281,11 @@ class PatternCatalog:
             "src/**/*.rs",
         ]
         # For tests, we WANT test files
-        path = self._find_representative_file(glob_patterns, require_test=True)
+        path = self._find_representative_file(
+            glob_patterns,
+            require_test=True,
+            semantic_desc=_PATTERN_DESCRIPTIONS["test_unit"],
+        )
         if path is None:
             return None
         snippet = self._extract_snippet(path)
@@ -288,7 +316,11 @@ class PatternCatalog:
             "frontend/src/**/*Page.tsx",
         ]
         exclude_keywords = ["_test", ".test.", "spec.", "_spec", "mock", "fake", "layout", "loading", "error", "not-found"]
-        path = self._find_representative_file(glob_patterns, exclude_keywords=exclude_keywords)
+        path = self._find_representative_file(
+            glob_patterns,
+            exclude_keywords=exclude_keywords,
+            semantic_desc=_PATTERN_DESCRIPTIONS["frontend_page"],
+        )
         if path is None:
             return None
         snippet = self._extract_snippet(path)
@@ -312,7 +344,11 @@ class PatternCatalog:
             "src/**/use*.tsx",
         ]
         exclude_keywords = ["_test", ".test.", "spec.", "_spec", "mock"]
-        path = self._find_representative_file(glob_patterns, exclude_keywords=exclude_keywords)
+        path = self._find_representative_file(
+            glob_patterns,
+            exclude_keywords=exclude_keywords,
+            semantic_desc=_PATTERN_DESCRIPTIONS["frontend_hook"],
+        )
         if path is None:
             return None
         snippet = self._extract_snippet(path)
@@ -336,7 +372,11 @@ class PatternCatalog:
             "src/**/*Api.ts",
         ]
         exclude_keywords = ["_test", ".test.", "spec.", "_spec", "mock", "index.ts"]
-        path = self._find_representative_file(glob_patterns, exclude_keywords=exclude_keywords)
+        path = self._find_representative_file(
+            glob_patterns,
+            exclude_keywords=exclude_keywords,
+            semantic_desc=_PATTERN_DESCRIPTIONS["frontend_service"],
+        )
         if path is None:
             return None
         snippet = self._extract_snippet(path)
@@ -350,12 +390,69 @@ class PatternCatalog:
     # File discovery helpers
     # -------------------------------------------------------------------------
 
+    def _rank_by_embedding(self, candidates: list[Path], description: str) -> list[Path]:
+        """Re-rank file candidates by semantic similarity to a description.
+
+        Falls back to original order if Ollama is unavailable.
+        """
+        try:
+            import urllib.request
+            import json as _json
+
+            # Embed the description
+            payload = _json.dumps({"model": "nomic-embed-text", "input": description}).encode()
+            req = urllib.request.Request(
+                "http://localhost:11434/api/embed",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = _json.loads(resp.read())
+                query_emb = data.get("embeddings", [None])[0]
+
+            if not query_emb:
+                return candidates
+
+            # Embed each candidate's first 500 chars
+            scored: list[tuple[Path, float]] = []
+            for path in candidates[:10]:  # Cap at 10 to avoid timeout
+                try:
+                    content = path.read_text(encoding="utf-8", errors="replace")[:500]
+                    payload = _json.dumps({"model": "nomic-embed-text", "input": content}).encode()
+                    req = urllib.request.Request(
+                        "http://localhost:11434/api/embed",
+                        data=payload,
+                        headers={"Content-Type": "application/json"},
+                    )
+                    with urllib.request.urlopen(req, timeout=2) as resp:
+                        data = _json.loads(resp.read())
+                        cand_emb = data.get("embeddings", [None])[0]
+
+                    if cand_emb and query_emb:
+                        # Cosine similarity
+                        dot = sum(a * b for a, b in zip(query_emb, cand_emb))
+                        norm_q = sum(a * a for a in query_emb) ** 0.5
+                        norm_c = sum(a * a for a in cand_emb) ** 0.5
+                        sim = dot / (norm_q * norm_c) if norm_q and norm_c else 0.0
+                        scored.append((path, sim))
+                    else:
+                        scored.append((path, 0.0))
+                except Exception:
+                    scored.append((path, 0.0))
+
+            # Sort by similarity descending
+            scored.sort(key=lambda x: x[1], reverse=True)
+            return [p for p, _ in scored]
+        except Exception:
+            return candidates  # Fallback to original order
+
     def _find_representative_file(
         self,
         patterns: list[str],
         exclude_keywords: list[str] | None = None,
         require_test: bool = False,
         max_size: int = 50_000,
+        semantic_desc: str | None = None,
     ) -> Path | None:
         """Find the first matching file that's a reasonable size.
 
@@ -364,9 +461,13 @@ class PatternCatalog:
             exclude_keywords: Substrings in the relative path that disqualify a file
             require_test: If True, only return files that look like test files
             max_size: Maximum file size in bytes
+            semantic_desc: Optional description for semantic re-ranking via embeddings
         """
         root = Path(self.project_dir)
         exclude = exclude_keywords or []
+
+        # Collect all valid candidates across all patterns
+        all_candidates: list[Path] = []
 
         for pattern in patterns:
             # Sort for determinism; prefer shorter paths (less nested = more representative)
@@ -411,9 +512,17 @@ class PatternCatalog:
                     if not is_test:
                         continue
 
-                return m
+                if m not in all_candidates:
+                    all_candidates.append(m)
 
-        return None
+        if not all_candidates:
+            return None
+
+        # Semantic re-ranking if multiple candidates and description provided
+        if len(all_candidates) > 1 and semantic_desc:
+            all_candidates = self._rank_by_embedding(all_candidates, semantic_desc)
+
+        return all_candidates[0]
 
     # -------------------------------------------------------------------------
     # Snippet extraction

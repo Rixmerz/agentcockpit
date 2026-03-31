@@ -263,6 +263,45 @@ def main():
         _save_store(store_path, store)
 
     # -----------------------------------------------------------------------
+    # Cache embeddings for new experience entries (non-fatal, background)
+    # -----------------------------------------------------------------------
+    try:
+        import urllib.request
+        for entry in new_entries[:3]:  # Max 3 entries to stay within 5s time budget
+            embed_text = f"{entry['description']} {entry.get('resolution', '')} {' '.join(entry['keywords'])}"
+            embed_text = embed_text[:2000]  # Respect context window
+
+            payload = json.dumps({"model": "nomic-embed-text", "input": embed_text}).encode()
+            req = urllib.request.Request(
+                "http://localhost:11434/api/embed",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    data = json.loads(resp.read())
+                    emb = data.get("embeddings", [None])[0]
+                    if emb:
+                        # Store in embeddings cache DB
+                        import sqlite3
+                        import hashlib
+                        db_path = Path.home() / ".deltacodecube" / "embeddings.db"
+                        if db_path.parent.exists():
+                            content_hash = hashlib.sha256(embed_text.encode()).hexdigest()[:16]
+                            entry_id = f"{entry.get('commit_hash', '')}-{entry['file_pattern']}"
+                            conn = sqlite3.connect(str(db_path), timeout=2)
+                            conn.execute("""
+                                INSERT OR REPLACE INTO embeddings (id, source, content_hash, embedding, model)
+                                VALUES (?, 'experience', ?, ?, 'nomic-embed-text')
+                            """, (entry_id, content_hash, json.dumps(emb)))
+                            conn.commit()
+                            conn.close()
+            except Exception:
+                pass  # Non-fatal per entry
+    except Exception:
+        pass  # Non-fatal overall
+
+    # -----------------------------------------------------------------------
     # Report to Claude via stderr
     # -----------------------------------------------------------------------
     domains = list(dict.fromkeys(e["domain"] for e in new_entries))

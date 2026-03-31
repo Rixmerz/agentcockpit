@@ -609,11 +609,64 @@ def derive_implementation_checklist(
             "notes": [],
         }
 
+    # ── Compute semantic relevance for entries if embeddings available ────────
+    _task_descriptions = {
+        "bounded_context": "implementing a new bounded context with domain entities repositories handlers and migrations",
+        "feature": "implementing a new frontend feature with pages hooks services and tests",
+        "migration": "creating database migration schema changes",
+        "api_endpoint": "implementing API endpoint handler with routing validation and response",
+    }
+    _task_desc = _task_descriptions.get(task_type, task_type)
+
+    _entry_scores: dict[int, float] = {}
+    try:
+        import urllib.request
+        payload = json.dumps({"model": "nomic-embed-text", "input": _task_desc}).encode()
+        req = urllib.request.Request(
+            "http://localhost:11434/api/embed",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read())
+            _query_emb = data.get("embeddings", [None])[0]
+
+        if _query_emb:
+            import sqlite3
+            db_path = Path.home() / ".deltacodecube" / "embeddings.db"
+            if db_path.exists():
+                conn = sqlite3.connect(str(db_path), timeout=2)
+                rows = conn.execute(
+                    "SELECT id, embedding FROM embeddings WHERE source='experience'"
+                ).fetchall()
+                conn.close()
+
+                _emb_cache: dict[str, list[float]] = {}
+                for row_id, emb_json in rows:
+                    try:
+                        _emb_cache[row_id] = json.loads(emb_json)
+                    except Exception:
+                        pass
+
+                for i, entry in enumerate(all_entries):
+                    _hash = getattr(entry, "commit_hash", "") or entry.id[:12] if entry.id else ""
+                    entry_id = f"{_hash}-{entry.file_pattern}"
+                    if entry_id in _emb_cache:
+                        emb = _emb_cache[entry_id]
+                        # Cosine similarity (no numpy)
+                        dot = sum(a * b for a, b in zip(_query_emb, emb))
+                        nq = sum(a * a for a in _query_emb) ** 0.5
+                        ne = sum(a * a for a in emb) ** 0.5
+                        sim = dot / (nq * ne) if nq and ne else 0.0
+                        _entry_scores[i] = sim
+    except Exception:
+        pass  # Fall back to frequency-only
+
     # ── Group entries by generalized pattern ─────────────────────────────────
-    # key: generalized pattern string  →  {occurrences, examples, group_label, raw_entries}
+    # key: generalized pattern string  →  {occurrences, examples, group_label, raw_entries, entry_indices}
     pattern_map: dict[str, dict] = {}
 
-    for entry in all_entries:
+    for i, entry in enumerate(all_entries):
         raw_pattern = entry.file_pattern
         if not raw_pattern:
             continue
@@ -630,10 +683,12 @@ def derive_implementation_checklist(
                 "examples": [],
                 "group_label": group_label,
                 "raw_entries": [],
+                "entry_indices": [],
             }
 
         bucket = pattern_map[generalized]
         bucket["occurrences"] += entry.occurrences
+        bucket["entry_indices"].append(i)
         # Keep up to 3 concrete examples from related_files or the raw pattern
         for ex in entry.related_files[:3]:
             if ex not in bucket["examples"] and len(bucket["examples"]) < 3:
@@ -659,10 +714,25 @@ def derive_implementation_checklist(
             "description": group_desc_map.get(label, label),
             "occurrences": bucket["occurrences"],
             "examples": bucket["examples"],
+            "_entry_indices": bucket["entry_indices"],
         })
 
-    # ── Sort by occurrences desc, then pattern alphabetically ────────────────
-    checklist_items.sort(key=lambda x: (-x["occurrences"], x["pattern"]))
+    # ── Sort by weighted score: occurrences * 0.6 + semantic_score * 0.4 ────
+    for item in checklist_items:
+        indices = item.get("_entry_indices", [])
+        if indices:
+            avg_sim = sum(_entry_scores.get(idx, 0.0) for idx in indices) / len(indices)
+            item["_semantic_score"] = avg_sim
+
+    checklist_items.sort(
+        key=lambda x: x["occurrences"] * 0.6 + x.get("_semantic_score", 0.0) * 0.4,
+        reverse=True,
+    )
+
+    # ── Strip internal scoring keys before returning ─────────────────────────
+    for item in checklist_items:
+        item.pop("_entry_indices", None)
+        item.pop("_semantic_score", None)
 
     # ── Extract notes from high-confidence entries ────────────────────────────
     notes = _extract_notes_from_entries(all_entries)
