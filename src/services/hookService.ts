@@ -16,6 +16,7 @@ import rulesCheckerPy from '../../.claude/hooks/rules_checker.py?raw';
 import experienceRecorderPy from '../../.claude/hooks/experience_recorder.py?raw';
 import experienceInjectorPy from '../../.claude/hooks/experience_injector.py?raw';
 import memoryInjectorPy from '../../.claude/hooks/memory_injector.py?raw';
+import smartContextPy from '../../.claude/hooks/smart_context.py?raw';
 import commonPy from '../../.claude/hooks/_common.py?raw';
 import ruleAutonomousStrategy from '../../.claude/rules/autonomous-strategy.md?raw';
 import ruleWorkflowDiscipline from '../../.claude/rules/workflow-discipline.md?raw';
@@ -672,6 +673,7 @@ const BUNDLED_HOOKS: Record<string, string> = {
   'experience_recorder.py': experienceRecorderPy,
   'experience_injector.py': experienceInjectorPy,
   'memory_injector.py': memoryInjectorPy,
+  'smart_context.py': smartContextPy,
   '_common.py': commonPy,
 };
 
@@ -775,6 +777,10 @@ export async function setupProjectDefaults(projectPath: string): Promise<HookRes
       {
         matcher: 'Edit|Write',
         hooks: [{ type: 'command', command: `python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/memory_injector.py"`, timeout: 3 }],
+      },
+      {
+        matcher: 'Read|Edit|Write',
+        hooks: [{ type: 'command', command: `python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/smart_context.py"`, timeout: 3 }],
       },
     ];
 

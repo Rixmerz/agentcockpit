@@ -302,6 +302,37 @@ def main():
         pass  # Non-fatal overall
 
     # -----------------------------------------------------------------------
+    # Inject trend summary on commit (non-fatal)
+    # -----------------------------------------------------------------------
+    try:
+        # Find trends.json in state directory
+        _config_path = Path.home() / "agentcockpit" / "agentcockpit-project.json"
+        _trends_path = None
+        if _config_path.exists():
+            _ac_config = json.loads(_config_path.read_text(encoding="utf-8"))
+            _states_dir = _ac_config.get("states_dir", ".agentcockpit/states")
+            _trend_candidate = Path.home() / "agentcockpit" / _states_dir / project_name / "trends.json"
+            if _trend_candidate.exists():
+                _trends_path = _trend_candidate
+
+        if _trends_path:
+            _trends = json.loads(_trends_path.read_text(encoding="utf-8"))
+            if isinstance(_trends, list) and len(_trends) >= 2:
+                _first, _last = _trends[0], _trends[-1]
+                _parts = []
+                for _key, _label in [("smell_count", "Smells"), ("debt_score", "Debt"), ("findings_count", "Findings")]:
+                    _old = _first.get(_key)
+                    _new = _last.get(_key)
+                    if _old is not None and _new is not None:
+                        _diff = _new - _old
+                        _sign = "+" if _diff > 0 else ""
+                        _parts.append(f"{_label}: {_old}\u2192{_new} ({_sign}{_diff})")
+                if _parts:
+                    print(f"\U0001f4ca Trend: {', '.join(_parts)}", file=sys.stderr)
+    except Exception:
+        pass
+
+    # -----------------------------------------------------------------------
     # Report to Claude via stderr
     # -----------------------------------------------------------------------
     domains = list(dict.fromkeys(e["domain"] for e in new_entries))
