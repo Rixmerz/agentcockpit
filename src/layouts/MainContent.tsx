@@ -34,20 +34,38 @@ export const MainContentArea = memo(function MainContentArea({
     setWorkflowStatus(status);
   }, []);
 
+  const handleWorkflowChange = useCallback((name: string | null) => {
+    console.log('[App] Workflow changed:', name);
+  }, []);
+
+  const handleNodeClick = useCallback((nodeId: string) => {
+    console.log('[App] Node clicked:', nodeId);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (activeProject && activeTerminal) {
+      removeTerminal(activeProject.id, activeTerminal.id);
+    }
+  }, [activeProject, activeTerminal, removeTerminal]);
+
+  const handleOpenIDE = useCallback(() => {
+    if (activeProject) {
+      handleOpenInIDE(activeProject.path);
+    }
+  }, [activeProject, handleOpenInIDE]);
+
   return (
     <main className="main-content">
       {/* Control Bars - Above Terminal */}
       <div className="app-top-bars">
         <ControlBar
           projectPath={activeProject?.path || null}
-          onWorkflowChange={(name) => {
-            console.log('[App] Workflow changed:', name);
-          }}
+          onWorkflowChange={handleWorkflowChange}
           onStatusChange={handleStatusChange}
         />
         <WorkflowStepsBar
           status={workflowStatus}
-          onNodeClick={(nodeId) => console.log('[App] Node clicked:', nodeId)}
+          onNodeClick={handleNodeClick}
         />
       </div>
 
@@ -61,8 +79,8 @@ export const MainContentArea = memo(function MainContentArea({
           <TerminalHeader
             name={activeTerminal.name}
             projectName={activeProject.name}
-            onClose={() => removeTerminal(activeProject.id, activeTerminal.id)}
-            onOpenInIDE={() => handleOpenInIDE(activeProject.path)}
+            onClose={handleClose}
+            onOpenInIDE={handleOpenIDE}
             selectedIDE={selectedIDE}
           />
         ) : (
