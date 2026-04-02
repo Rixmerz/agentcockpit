@@ -6,7 +6,7 @@ import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { open } from '@tauri-apps/plugin-shell';
 import { usePty } from '../../hooks/usePty';
 import { useTerminalActivity } from '../../hooks/useTerminalActivity';
-import { useApp, useAppSettings, useTerminalActivityState } from '../../contexts/AppContext';
+import { useAppSettings, useTerminalActivityState } from '../../contexts/AppContext';
 import { playNotificationSound } from '../../services/soundService';
 import { sessionEvents } from '../../core/utils/eventBus';
 import '@xterm/xterm/css/xterm.css';
@@ -17,14 +17,16 @@ interface TerminalViewProps {
   onClose?: () => void;
   /** Called on user input to signal activity (resets idle timer) */
   onActivity?: () => void;
+  /** Pass from parent to avoid context subscription inside memo */
+  registerTerminalWriter: (id: string, writer: (data: string) => Promise<void>) => void;
+  unregisterTerminalWriter: (id: string) => void;
+  registerPtyId: (terminalId: string, ptyId: number) => void;
 }
 
-export const TerminalView = memo(function TerminalView({ terminalId, workingDir, onClose, onActivity }: TerminalViewProps) {
+export const TerminalView = memo(function TerminalView({ terminalId, workingDir, onClose, onActivity, registerTerminalWriter, unregisterTerminalWriter, registerPtyId }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const initializedRef = useRef(false);
-
-  const { registerTerminalWriter, unregisterTerminalWriter, registerPtyId } = useApp();
 
   // Terminal notification settings
   const {

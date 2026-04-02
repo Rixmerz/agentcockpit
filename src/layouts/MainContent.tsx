@@ -25,7 +25,7 @@ export const MainContentArea = memo(function MainContentArea({
   handleOpenInIDE,
   signalActivity,
 }: MainContentAreaProps) {
-  const { state, activeProject, activeTerminal, removeTerminal } = useApp();
+  const { state, activeProject, activeTerminal, removeTerminal, registerTerminalWriter, unregisterTerminalWriter, registerPtyId } = useApp();
   const { terminalOpacity } = useAppSettings();
 
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus | null>(null);
@@ -99,6 +99,9 @@ export const MainContentArea = memo(function MainContentArea({
                 terminalId={terminal.id}
                 workingDir={activeProject.path}
                 onActivity={signalActivity}
+                registerTerminalWriter={registerTerminalWriter}
+                unregisterTerminalWriter={unregisterTerminalWriter}
+                registerPtyId={registerPtyId}
               />
             </div>
           ))}
