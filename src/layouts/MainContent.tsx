@@ -5,7 +5,7 @@
  * and terminal views.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 
 import { useApp, useAppSettings } from '../contexts/AppContext';
 import { TerminalView } from '../components/terminal/TerminalView';
@@ -20,7 +20,7 @@ interface MainContentAreaProps {
   signalActivity: () => void;
 }
 
-export function MainContentArea({
+export const MainContentArea = memo(function MainContentArea({
   selectedIDE,
   handleOpenInIDE,
   signalActivity,
@@ -96,4 +96,4 @@ export function MainContentArea({
       </div>
     </main>
   );
-}
+});
