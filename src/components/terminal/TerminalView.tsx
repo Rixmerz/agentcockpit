@@ -170,11 +170,9 @@ export const TerminalView = memo(function TerminalView({ terminalId, workingDir,
     terminalRef.current = terminal;
 
     // Phase 2: Defer heavy DOM work (terminal.open + fit + spawn) to next frame.
-    // This lets the browser paint the container immediately — user sees the
-    // terminal area appear without freeze. Canvas + PTY spawn happen next frame.
     const container = containerRef.current;
     const rafId = requestAnimationFrame(() => {
-      if (!container.isConnected) return; // Guard: component may have unmounted
+      if (!container.isConnected) return;
 
       terminal.open(container);
 
