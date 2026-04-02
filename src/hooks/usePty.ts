@@ -22,6 +22,9 @@ interface UsePtyReturn {
 // Commands that should NOT trigger snapshots (MCP management, internal commands)
 const SNAPSHOT_SKIP_COMMANDS = ['claude mcp', '/mcp', 'claude --session', '/model'];
 
+const SNAPSHOT_MIN_INTERVAL_MS = 30_000; // 30s between snapshots
+const SNAPSHOT_DEBOUNCE_MS = 2_000; // 2s after last Enter before snapshotting
+
 export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
   const ptyIdRef = useRef<number | null>(null);
   const projectPathRef = useRef<string | null>(null);
@@ -32,6 +35,8 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
   const isCreatingSnapshotRef = useRef(false);
   // Buffer to track recent input for snapshot skip detection
   const inputBufferRef = useRef<string>('');
+  const lastSnapshotTimeRef = useRef<number>(0);
+  const snapshotDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep options ref updated
   useEffect(() => {
@@ -46,6 +51,9 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
       // Only cleanup event listeners
       unlistenOutputRef.current?.();
       unlistenCloseRef.current?.();
+      if (snapshotDebounceRef.current) {
+        clearTimeout(snapshotDebounceRef.current);
+      }
     };
   }, []);
 
@@ -102,11 +110,10 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
     const projectPath = projectPathRef.current;
 
     if (isEnterPressed && projectPath && !isCreatingSnapshotRef.current) {
-      // Check if current command should skip snapshot
       const currentBuffer = inputBufferRef.current.toLowerCase();
-      const shouldSkipSnapshot = SNAPSHOT_SKIP_COMMANDS.some(cmd => currentBuffer.includes(cmd.toLowerCase()));
-
-      // Clear buffer after Enter
+      const shouldSkipSnapshot = SNAPSHOT_SKIP_COMMANDS.some(cmd =>
+        currentBuffer.includes(cmd.toLowerCase())
+      );
       inputBufferRef.current = '';
 
       if (shouldSkipSnapshot) {
@@ -114,39 +121,50 @@ export function usePty(options: UsePtyOptions = {}): UsePtyReturn {
         return;
       }
 
-      isCreatingSnapshotRef.current = true;
+      // Clear existing debounce timer
+      if (snapshotDebounceRef.current) {
+        clearTimeout(snapshotDebounceRef.current);
+      }
 
-      createSnapshot(projectPath)
-        .then(snapshot => {
-          if (snapshot) {
-            snapshotEvents.emit('created', {
-              version: snapshot.version,
-              projectPath,
-              commitHash: snapshot.commitHash,
-              timestamp: snapshot.timestamp,
-            });
-            console.log('[usePty] Snapshot V' + snapshot.version + ' created');
+      // Debounce: wait 2s after last Enter, then check throttle
+      snapshotDebounceRef.current = setTimeout(() => {
+        snapshotDebounceRef.current = null;
+        const now = Date.now();
+        if (now - lastSnapshotTimeRef.current < SNAPSHOT_MIN_INTERVAL_MS) {
+          return; // Throttled — too soon since last snapshot
+        }
 
-            // Delayed cleanup: Wait 2 seconds to ensure metadata is fully written
-            // This prevents race conditions with the snapshot save
-            setTimeout(() => {
-              cleanupPushedSnapshots(projectPath)
-                .then(cleaned => {
-                  if (cleaned > 0) {
-                    console.log(`[usePty] Cleaned ${cleaned} pushed snapshots`);
-                    snapshotEvents.emit('cleanup', { projectPath, count: cleaned });
-                  }
-                })
-                .catch(() => {}); // Ignore cleanup errors
-            }, 2000);
-          }
-        })
-        .catch(err => {
-          console.error('[usePty] Snapshot failed:', err);
-        })
-        .finally(() => {
-          isCreatingSnapshotRef.current = false;
-        });
+        isCreatingSnapshotRef.current = true;
+        lastSnapshotTimeRef.current = now;
+
+        createSnapshot(projectPath)
+          .then(snapshot => {
+            if (snapshot) {
+              snapshotEvents.emit('created', {
+                version: snapshot.version,
+                projectPath,
+                commitHash: snapshot.commitHash,
+                timestamp: snapshot.timestamp,
+              });
+              console.log('[usePty] Snapshot V' + snapshot.version + ' created');
+
+              // Delayed cleanup: Wait 2 seconds to ensure metadata is fully written
+              // This prevents race conditions with the snapshot save
+              setTimeout(() => {
+                cleanupPushedSnapshots(projectPath)
+                  .then(cleaned => {
+                    if (cleaned > 0) {
+                      console.log(`[usePty] Cleaned ${cleaned} pushed snapshots`);
+                      snapshotEvents.emit('cleanup', { projectPath, count: cleaned });
+                    }
+                  })
+                  .catch(() => {}); // Ignore cleanup errors
+              }, 2000);
+            }
+          })
+          .catch(err => console.error('[usePty] Snapshot failed:', err))
+          .finally(() => { isCreatingSnapshotRef.current = false; });
+      }, SNAPSHOT_DEBOUNCE_MS);
     }
   }, []);
 

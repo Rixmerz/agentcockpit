@@ -31,54 +31,50 @@ export function AppShell() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Auto git init
+  // Immediate: git init + git watcher (lightweight, needed for UI)
   useEffect(() => {
-    if (!activeProject?.path) return;
+    if (!activeProject?.path) {
+      gitWatcherService.stop();
+      return;
+    }
     hasLocalGitRepo(activeProject.path).then(hasRepo => {
       if (!hasRepo) initRepository(activeProject.path).catch(console.warn);
     });
-  }, [activeProject?.path]);
-
-  // Git watcher lifecycle
-  useEffect(() => {
-    if (activeProject?.path) {
-      gitWatcherService.start(activeProject.path);
-    } else {
-      gitWatcherService.stop();
-    }
+    gitWatcherService.start(activeProject.path);
     return () => gitWatcherService.stop();
   }, [activeProject?.path]);
 
-  // Native file watcher for real-time DCC feedback
+  // Deferred: heavy services (after UI paint)
   useEffect(() => {
-    if (activeProject?.path) {
-      fileWatcherService.start(activeProject.path);
-    } else {
+    if (!activeProject?.path) return;
+    const path = activeProject.path;
+    let cancelled = false;
+    const defer = typeof requestIdleCallback !== 'undefined'
+      ? requestIdleCallback
+      : (fn: () => void) => setTimeout(fn, 100);
+
+    defer(() => { if (!cancelled) fileWatcherService.start(path).catch(console.warn); });
+    defer(() => { if (!cancelled) scanProject(path).catch(console.warn); });
+    defer(() => { if (!cancelled) gitWatcherService.setAutoReindex(path, dccAutoReindex); });
+
+    return () => {
+      cancelled = true;
       fileWatcherService.stop();
-    }
-    return () => { fileWatcherService.stop(); };
-  }, [activeProject?.path]);
-
-  // Ollama auto-start for semantic embeddings
-  useEffect(() => {
-    ollamaService.start();
-    return () => { ollamaService.stop(); };
-  }, []);
-
-  // Security scan on project open (non-blocking, debounced 1h)
-  useEffect(() => {
-    if (activeProject?.path) {
-      scanProject(activeProject.path).catch(console.warn);
-    }
-  }, [activeProject?.path]);
-
-  // DCC auto-reindex toggle
-  useEffect(() => {
-    if (activeProject?.path) {
-      gitWatcherService.setAutoReindex(activeProject.path, dccAutoReindex);
-    }
-    return () => gitWatcherService.setAutoReindex('', false);
+      gitWatcherService.setAutoReindex('', false);
+    };
   }, [activeProject?.path, dccAutoReindex]);
+
+  // Ollama: lazy init after paint
+  useEffect(() => {
+    const id = typeof requestIdleCallback !== 'undefined'
+      ? requestIdleCallback(() => { ollamaService.start(); })
+      : setTimeout(() => { ollamaService.start(); }, 3000);
+    return () => {
+      if (typeof cancelIdleCallback !== 'undefined') cancelIdleCallback(id as number);
+      else clearTimeout(id as ReturnType<typeof setTimeout>);
+      ollamaService.stop();
+    };
+  }, []);
 
   // Idle mode
   const { isIdle, signalActivity } = useIdleMode({

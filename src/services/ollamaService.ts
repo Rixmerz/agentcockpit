@@ -28,7 +28,16 @@ async function start(): Promise<void> {
       await exec('podman run -d --name ollama -p 11434:11434 --device nvidia.com/gpu=all docker.io/ollama/ollama');
     }
 
-    await new Promise(r => setTimeout(r, 2000));
+    // Poll for readiness (up to 4 attempts × 500ms = 2s max, but exits early)
+    for (let i = 0; i < 4; i++) {
+      await new Promise(r => setTimeout(r, 500));
+      try {
+        const check = await exec('curl -sf http://localhost:11434/api/tags 2>/dev/null');
+        if (check && check.trim()) break; // Ollama is ready
+      } catch {
+        // Not ready yet, retry
+      }
+    }
 
     const models = await exec('podman exec ollama ollama list');
     if (!models.includes('nomic-embed-text')) {

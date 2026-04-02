@@ -72,21 +72,19 @@ export function MainContentArea({
         )}
 
         <div className="terminal-view">
-          {state.projects.flatMap(project =>
-            project.terminals.map(terminal => (
-              <div
-                key={terminal.id}
-                className={`terminal-wrapper ${state.activeTerminalId === terminal.id ? 'active' : ''}`}
-              >
-                <TerminalView
-                  terminalId={terminal.id}
-                  workingDir={project.path}
-                  onActivity={signalActivity}
-                />
-              </div>
-            ))
-          )}
-          {state.projects.every(p => p.terminals.length === 0) && (
+          {activeProject?.terminals.map(terminal => (
+            <div
+              key={terminal.id}
+              className={`terminal-wrapper ${state.activeTerminalId === terminal.id ? 'active' : ''}`}
+            >
+              <TerminalView
+                terminalId={terminal.id}
+                workingDir={activeProject.path}
+                onActivity={signalActivity}
+              />
+            </div>
+          ))}
+          {(!activeProject || activeProject.terminals.length === 0) && (
             <div className="terminal-placeholder">
               <div className="flex flex-col items-center gap-4">
                 <TerminalSquare size={48} strokeWidth={1} />

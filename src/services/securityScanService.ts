@@ -159,6 +159,12 @@ export async function scanProject(projectPath: string): Promise<ScanStatus | nul
     return cached;
   }
 
+  // Grace period: let the UI settle before starting heavy scan processes
+  await new Promise<void>(r => setTimeout(r, 5000));
+
+  // Re-check: another call may have started a scan during the grace period
+  if (_currentScan) return _currentScan;
+
   _currentScan = _doScan(projectPath);
   try {
     const result = await _currentScan;
