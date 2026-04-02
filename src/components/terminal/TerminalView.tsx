@@ -120,11 +120,13 @@ export const TerminalView = memo(function TerminalView({ terminalId, workingDir,
     return () => unregisterTerminalWriter(terminalId);
   }, [terminalId, write, registerTerminalWriter, unregisterTerminalWriter]);
 
-  // Initialize terminal
+  // Initialize terminal — deferred to requestAnimationFrame so the container
+  // renders immediately and the heavy xterm.open() runs in the next frame.
   useEffect(() => {
     if (!containerRef.current || initializedRef.current) return;
     initializedRef.current = true;
 
+    // Phase 1: Create xterm instance + addons (cheap, ~5ms)
     const terminal = new Terminal({
       cursorBlink: true,
       fontSize: 14,
@@ -156,7 +158,6 @@ export const TerminalView = memo(function TerminalView({ terminalId, workingDir,
       },
     });
 
-    // Addons
     const fitAddon = new FitAddon();
     const clipboardAddon = new ClipboardAddon();
     const webLinksAddon = new WebLinksAddon((_event, uri) => {
@@ -166,40 +167,46 @@ export const TerminalView = memo(function TerminalView({ terminalId, workingDir,
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(clipboardAddon);
     terminal.loadAddon(webLinksAddon);
-
-    terminal.open(containerRef.current);
     terminalRef.current = terminal;
 
-    // Fit and spawn
-    fitAddon.fit();
-    const { cols, rows } = terminal;
+    // Phase 2: Defer heavy DOM work (terminal.open + fit + spawn) to next frame.
+    // This lets the browser paint the container immediately — user sees the
+    // terminal area appear without freeze. Canvas + PTY spawn happen next frame.
+    const container = containerRef.current;
+    const rafId = requestAnimationFrame(() => {
+      if (!container.isConnected) return; // Guard: component may have unmounted
 
-    spawn('default', workingDir, cols, rows)
-      .then((ptyId) => {
-        registerPtyId(terminalId, ptyId);
-      })
-      .catch((err) => {
-        terminal.write(`\x1b[31mError: ${err}\x1b[0m\r\n`);
+      terminal.open(container);
+
+      fitAddon.fit();
+      const { cols, rows } = terminal;
+
+      spawn('default', workingDir, cols, rows)
+        .then((ptyId) => {
+          registerPtyId(terminalId, ptyId);
+        })
+        .catch((err) => {
+          terminal.write(`\x1b[31mError: ${err}\x1b[0m\r\n`);
+        });
+
+      // Input
+      terminal.onData((data) => {
+        write(data).catch(console.error);
+        signalUserInput();
+        onActivity?.();
       });
 
-    // Input
-    terminal.onData((data) => {
-      write(data).catch(console.error);
-      // Signal user input - prevents shell echo from triggering notification
-      signalUserInput();
-      // Signal activity to reset idle timer
-      onActivity?.();
+      // Resize — guard against 0x0 dimensions
+      terminal.onResize(({ cols, rows }) => {
+        if (cols > 0 && rows > 0) {
+          resize(cols, rows).catch(console.error);
+        }
+      });
     });
 
-    // Resize — guard against 0x0 dimensions (happens when container gets display:none)
-    terminal.onResize(({ cols, rows }) => {
-      if (cols > 0 && rows > 0) {
-        resize(cols, rows).catch(console.error);
-      }
-    });
-
-    // Cleanup: dispose xterm and addons (stops FitAddon ResizeObserver)
+    // Cleanup
     return () => {
+      cancelAnimationFrame(rafId);
       fitAddon.dispose();
       clipboardAddon.dispose();
       webLinksAddon.dispose();
