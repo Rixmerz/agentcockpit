@@ -1,6 +1,11 @@
-# UI/Frontend Architecture Patterns
-
+---
+name: ui-patterns
 description: "UI/Frontend architecture reference - React 19, Next.js 15, Vue 3, Svelte 5, Angular 19, CSS modern features, component libraries, state management, and production best practices for 2024-2025. Use when building frontend UIs, selecting frameworks, reviewing component code, or making frontend architecture decisions."
+user-invocable: true
+argument-hint: "[frameworks|patterns|architecture|practices|features|all]"
+---
+
+# UI/Frontend Architecture Patterns
 
 ## When to use this skill
 - Making frontend framework or library selection decisions

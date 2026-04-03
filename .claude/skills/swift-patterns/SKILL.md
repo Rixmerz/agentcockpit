@@ -1,6 +1,13 @@
+---
+name: swift-patterns
+description: "Swift architecture reference — SwiftUI, UIKit, Combine, async/await, actors, and production best practices for Swift 5.9/6.0 (2024-2025). Use when making architectural decisions, reviewing Swift code, or selecting libraries. Also use when the user mentions iOS development, macOS apps, or Apple platform development."
+user-invocable: true
+argument-hint: "[frameworks|patterns|architecture|practices|features|all]"
+---
+
 # Swift Architecture Patterns
 
-Rust architecture reference for Claude Code. Covers frameworks, design patterns, concurrency, architecture, and best practices for Swift 6.0-6.2 (2024-2025).
+Swift architecture reference for Claude Code. Covers frameworks, design patterns, concurrency, architecture, and best practices for Swift 6.0-6.2 (2024-2025).
 
 ## When to use this skill
 - Making architectural decisions in Swift projects

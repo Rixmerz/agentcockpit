@@ -1,6 +1,11 @@
-# UX Design Patterns and Practices
-
+---
+name: ux-patterns
 description: "UX design reference - research methods, design systems, accessibility (WCAG 2.2, EAA), UX laws, AI-driven workflows, tools (Figma, Penpot), and production best practices for 2024-2025. Use when making UX decisions, reviewing designs, implementing accessibility, selecting design tools, or applying UX principles."
+user-invocable: true
+argument-hint: "[frameworks|patterns|research|tools|practices|all]"
+---
+
+# UX Design Patterns and Practices
 
 ## When to use this skill
 - Making UX research method or tool selection decisions
