@@ -90,22 +90,25 @@ export const MainContentArea = memo(function MainContentArea({
         )}
 
         <div className="terminal-view">
-          {activeProject?.terminals.map(terminal => (
-            <div
-              key={terminal.id}
-              className={`terminal-wrapper ${state.activeTerminalId === terminal.id ? 'active' : ''}`}
-            >
-              <TerminalView
-                terminalId={terminal.id}
-                workingDir={activeProject.path}
-                onActivity={signalActivity}
-                registerTerminalWriter={registerTerminalWriter}
-                unregisterTerminalWriter={unregisterTerminalWriter}
-                registerPtyId={registerPtyId}
-              />
-            </div>
-          ))}
-          {(!activeProject || activeProject.terminals.length === 0) && (
+          {state.projects.flatMap(project =>
+            project.terminals.map(terminal => (
+              <div
+                key={terminal.id}
+                className={`terminal-wrapper ${state.activeTerminalId === terminal.id ? 'active' : ''}`}
+                style={{ display: project.id === state.activeProjectId ? undefined : 'none' }}
+              >
+                <TerminalView
+                  terminalId={terminal.id}
+                  workingDir={project.path}
+                  onActivity={signalActivity}
+                  registerTerminalWriter={registerTerminalWriter}
+                  unregisterTerminalWriter={unregisterTerminalWriter}
+                  registerPtyId={registerPtyId}
+                />
+              </div>
+            ))
+          )}
+          {state.projects.every(p => p.terminals.length === 0) && (
             <div className="terminal-placeholder">
               <div className="flex flex-col items-center gap-4">
                 <TerminalSquare size={48} strokeWidth={1} />
