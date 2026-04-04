@@ -61,6 +61,18 @@ class EdgeCondition:
 
 
 @dataclass
+class Task:
+    """A task within a DAG node. Lightweight sub-unit of work with dependencies."""
+    id: str
+    name: str
+    prompt: str | None = None
+    dependencies: list[str] = field(default_factory=list)
+    outputs: dict[str, str] = field(default_factory=dict)
+    tools_blocked: list[str] = field(default_factory=list)
+    mcps_enabled: list[str] = field(default_factory=lambda: ["*"])
+
+
+@dataclass
 class Node:
     """A node in the workflow graph.
 
@@ -86,18 +98,6 @@ class Node:
     contracts: list[dict] | None = None  # list of {"file": "path", "content": "..."}
     node_type: str = "wave"  # "wave" | "dag" | "milestone"
     tasks: list[Task] = field(default_factory=list)  # Only for node_type="dag"
-
-
-@dataclass
-class Task:
-    """A task within a DAG node. Lightweight sub-unit of work with dependencies."""
-    id: str
-    name: str
-    prompt: str | None = None
-    dependencies: list[str] = field(default_factory=list)
-    outputs: dict[str, str] = field(default_factory=dict)
-    tools_blocked: list[str] = field(default_factory=list)
-    mcps_enabled: list[str] = field(default_factory=lambda: ["*"])
 
 
 @dataclass
