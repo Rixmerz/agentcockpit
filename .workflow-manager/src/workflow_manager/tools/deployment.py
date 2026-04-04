@@ -227,14 +227,6 @@ def register_deployment_tools(mcp):
             # Inject skills into frontmatter
             fm["skills"] = ", ".join(skills_to_deploy)
 
-            # Remove agentful-specific MCP tools that won't exist in target project
-            if "tools" in fm:
-                tools = fm["tools"]
-                cleaned = ", ".join(
-                    t.strip() for t in tools.split(",")
-                    if not t.strip().startswith("mcp__agentful__")
-                )
-                fm["tools"] = cleaned
 
             # Build customized content
             new_content = _build_agent_frontmatter(fm) + "\n" + body
