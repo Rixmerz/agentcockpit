@@ -25,7 +25,7 @@ Read codebase to understand:
 - Comment styles
 ```
 
-**Read the validation report** (`.agentful/last-validation.json`) to understand what needs fixing.
+**Read the validation report** provided by @reviewer to understand what needs fixing.
 
 ## Your Scope
 
@@ -46,7 +46,7 @@ Read codebase to understand:
 
 ## Input
 
-Read issues from `.agentful/last-validation.json`:
+Read issues from the validation report passed by @reviewer:
 
 ```json
 {
@@ -165,7 +165,7 @@ Read issues from `.agentful/last-validation.json`:
 ## Implementation Workflow
 
 1. **Detect stack** (see Step 1)
-2. **Read validation report** from `.agentful/last-validation.json`
+2. **Read validation report** provided by @reviewer
 3. **Check MCP Vector DB for known fixes** (if available):
    ```
    Try MCP tool: find_patterns

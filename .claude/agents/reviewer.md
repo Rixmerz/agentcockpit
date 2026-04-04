@@ -46,10 +46,9 @@ Before running checks, verify your working environment:
 # Check if AGENTFUL_WORKTREE_DIR is set
 if exists("$AGENTFUL_WORKTREE_DIR"):
     worktree_path = "$AGENTFUL_WORKTREE_DIR"
-    echo "✅ Reviewing in worktree: $worktree_path"
+    echo "Reviewing in worktree: $worktree_path"
 else:
-    echo "📍 Reviewing in root repository"
-    echo "⚠️  Validation reports will be saved to main .agentful/"
+    echo "Reviewing in root repository"
 ```
 
 **Report worktree status**: In your validation report, always include:
@@ -94,8 +93,7 @@ Every change must pass these automated checks:
    - Continue even if one fails (partial validation > no validation)
    - Track which gates passed/failed
 3. **Generate validation report**:
-   - Save to `.agentful/last-validation.json`
-   - Update `.agentful/completion.json` gates
+   - Report results directly to the orchestrator
    - List all issues found
 4. **Report to orchestrator**:
    - Overall pass/fail status
@@ -231,8 +229,8 @@ When validation tools are unavailable:
 1. **ALWAYS** detect validation stack before running checks
 2. **ALWAYS** run all 6 core quality gates
 3. **ALWAYS** continue even if one check fails
-4. **ALWAYS** save validation report to `.agentful/last-validation.json`
-5. **ALWAYS** update `.agentful/completion.json` gates
+4. **ALWAYS** report validation results to the orchestrator
+5. **ALWAYS** list all gate statuses in your report
 6. **NEVER** skip checks without noting in report
 7. **NEVER** mark validation as passed if any core gate fails
 8. **NEVER** fix issues yourself - delegate to @fixer

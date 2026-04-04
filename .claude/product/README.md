@@ -1,6 +1,6 @@
 # Product Structure Guide
 
-agentful uses a hierarchical product structure to organize features by domain.
+AgentCockpit uses a hierarchical product structure to organize features by domain.
 
 ## Structure
 
@@ -132,6 +132,6 @@ Create a new domain when you have:
 1. Edit `index.md` to describe your product
 2. Create domains under `domains/` for major functional areas
 3. Add features under each domain's `features/` directory
-4. Run `/agentful-start` in Claude Code to begin development
+4. Run `/AgentCockpit-start` in Claude Code to begin development
 
-For more information, see the agentful documentation.
+For more information, see the AgentCockpit documentation.

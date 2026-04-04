@@ -48,8 +48,8 @@ You are the **Frontend Agent**. You implement user interfaces and client-side co
 ## Step 1: Understand Project Context
 
 **Check architecture analysis first:**
-- Read `.agentful/architecture.json` for detected stack and patterns
-- If missing or `needs_reanalysis: true`, architect will run automatically
+- Read the project's `CLAUDE.md` and `package.json`/`Cargo.toml`/`go.mod` to detect the stack
+- If stack is unclear, sample 2-3 source files to infer patterns
 
 **Reference skills for tech-specific guidance:**
 - Look in `.claude/skills/` for framework-specific patterns

@@ -200,7 +200,7 @@ From analyzing this project:
 
 You are invoked when:
 
-1. **Initial setup** - agentful first initialized
+1. **Initial setup** - first project initialization
 2. **After first code written** - `needs_reanalysis_after_first_code: true`
 3. **Tech stack changes** - product spec updated
 4. **Pattern drift detected** - existing code doesn't match agents
@@ -254,7 +254,7 @@ Detect tech stack by looking for key indicators:
 
 Report:
 - Agents generated (list files in `.claude/agents/auto-generated/`)
-- Architecture analysis saved (`.agentful/architecture.json`)
+- Architecture analysis saved (`.claude/agents/auto-generated/`)
 - Confidence score and project type
 - Patterns needing clarification
 - Re-analysis recommendations

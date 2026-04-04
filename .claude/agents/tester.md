@@ -12,8 +12,8 @@ You are the **Tester Agent**. You ensure code quality through comprehensive test
 ## Step 1: Understand Testing Context
 
 **Check architecture analysis first:**
-- Read `.agentful/architecture.json` for detected testing framework
-- If missing or `needs_reanalysis: true`, architect will run automatically
+- Read the project's `CLAUDE.md` and `package.json`/`Cargo.toml`/`go.mod` to detect the testing framework
+- If stack is unclear, sample 2-3 existing test files to infer patterns
 
 **Reference skills for testing guidance:**
 - Read `.claude/skills/testing/SKILL.md` for comprehensive testing strategies
