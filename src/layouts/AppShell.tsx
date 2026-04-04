@@ -7,7 +7,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useApp, useAppSettings } from '../contexts/AppContext';
-import { hasLocalGitRepo, initRepository } from '../services/gitService';
 import { gitWatcherService } from '../services/gitWatcherService';
 import { fileWatcherService } from '../services/fileWatcherService';
 import { ollamaService } from '../services/ollamaService';
@@ -21,6 +20,7 @@ import { SidebarLeft } from './SidebarLeft';
 import { MainContentArea } from './MainContent';
 import { SidebarRight } from './SidebarRight';
 import { LoadingScreen } from '../components/common/LoadingScreen';
+import { PanelErrorBoundary } from '../components/common/PanelErrorBoundary';
 
 export function AppShell() {
   const { state, activeProject, activeTerminal, addTerminal, removeTerminal } = useApp();
@@ -31,15 +31,12 @@ export function AppShell() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Immediate: git init + git watcher (lightweight, needed for UI)
+  // Git watcher (git init is handled in AppContext.addProject)
   useEffect(() => {
     if (!activeProject?.path) {
       gitWatcherService.stop();
       return;
     }
-    hasLocalGitRepo(activeProject.path).then(hasRepo => {
-      if (!hasRepo) initRepository(activeProject.path).catch(console.warn);
-    });
     gitWatcherService.start(activeProject.path);
     return () => gitWatcherService.stop();
   }, [activeProject?.path]);
@@ -135,18 +132,24 @@ export function AppShell() {
         />
       )}
 
-      <SidebarLeft onAddTerminal={handleAddTerminal} />
+      <PanelErrorBoundary panelName="Sidebar">
+        <SidebarLeft onAddTerminal={handleAddTerminal} />
+      </PanelErrorBoundary>
 
-      <MainContentArea
-        selectedIDE={selectedIDE}
-        handleOpenInIDE={handleOpenInIDE}
-        signalActivity={signalActivity}
-      />
+      <PanelErrorBoundary panelName="Main">
+        <MainContentArea
+          selectedIDE={selectedIDE}
+          handleOpenInIDE={handleOpenInIDE}
+          signalActivity={signalActivity}
+        />
+      </PanelErrorBoundary>
 
-      <SidebarRight
-        availableIDEs={availableIDEs}
-        onModalStateChange={setActionsPanelModalOpen}
-      />
+      <PanelErrorBoundary panelName="Actions">
+        <SidebarRight
+          availableIDEs={availableIDEs}
+          onModalStateChange={setActionsPanelModalOpen}
+        />
+      </PanelErrorBoundary>
     </div>
   );
 }

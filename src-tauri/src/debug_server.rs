@@ -71,6 +71,10 @@ pub fn start(window: WebviewWindow, _app_handle: AppHandle) {
 fn handle_request(mut request: tiny_http::Request, pending: &PendingCallbacks, window: &SharedWindow) {
     let url = request.url().to_string();
 
+    // DEV-ONLY: CORS `*` is intentional. This server only exists in debug builds
+    // (cfg(debug_assertions)), binds to 127.0.0.1, and is used by development
+    // tools. No authentication is needed for local-only debug inspection.
+
     // CORS preflight
     if *request.method() == Method::Options {
         let resp = Response::empty(204)

@@ -73,10 +73,24 @@ pub fn sort_versions_semver(versions: &mut [String]) {
     });
 }
 
+use std::sync::OnceLock;
+static CACHED_EXTENDED_PATH: OnceLock<String> = OnceLock::new();
+
 /// Build extended PATH with NVM, Homebrew (macOS only), and common locations.
 /// Same logic used across all command execution paths for consistency.
+///
+/// The result is computed once and cached for the lifetime of the process.
 pub fn build_extended_path() -> String {
+    CACHED_EXTENDED_PATH.get_or_init(compute_extended_path).clone()
+}
+
+fn compute_extended_path() -> String {
     let home = std::env::var("HOME").unwrap_or_default();
+
+    if home.is_empty() {
+        log::warn!("HOME environment variable is not set");
+    }
+
     let current_path = std::env::var("PATH").unwrap_or_default();
 
     let mut paths = vec![];
@@ -91,16 +105,22 @@ pub fn build_extended_path() -> String {
     // Common Unix paths
     paths.push("/usr/local/bin".to_string());
     paths.push("/usr/local/sbin".to_string());
-    paths.push(format!("{}/.local/bin", home));
-    paths.push(format!("{}/.cargo/bin", home));
+
+    if !home.is_empty() {
+        paths.push(format!("{}/.local/bin", home));
+        paths.push(format!("{}/.cargo/bin", home));
+    }
+
     paths.push("/usr/bin".to_string());
     paths.push("/bin".to_string());
     paths.push("/usr/sbin".to_string());
     paths.push("/sbin".to_string());
 
     // Add NVM node bin if available (respects user's default alias)
-    if let Some(nvm_bin) = get_nvm_node_bin(&home) {
-        paths.insert(0, nvm_bin);
+    if !home.is_empty() {
+        if let Some(nvm_bin) = get_nvm_node_bin(&home) {
+            paths.insert(0, nvm_bin);
+        }
     }
 
     if !current_path.is_empty() {

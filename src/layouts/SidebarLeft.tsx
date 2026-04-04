@@ -97,9 +97,18 @@ export const SidebarLeft = memo(function SidebarLeft({ onAddTerminal }: SidebarL
                   <div
                     key={terminal.id}
                     className={`terminal-item ${state.activeTerminalId === terminal.id ? 'active' : ''}`}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       setActiveTerminal(project.id, terminal.id);
                       clearTerminalActivity(terminal.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setActiveTerminal(project.id, terminal.id);
+                        clearTerminalActivity(terminal.id);
+                      }
                     }}
                   >
                     <TerminalSquare size={13} className="terminal-icon" />

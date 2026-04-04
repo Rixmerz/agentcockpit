@@ -38,10 +38,17 @@ impl DccMcpClient {
         let id = self.next_id;
         self.next_id += 1;
 
-        let msg = format!(
-            r#"{{"jsonrpc":"2.0","id":{},"method":"tools/call","params":{{"name":"{}","arguments":{}}}}}"#,
-            id, name, args
-        );
+        let args_value: serde_json::Value = serde_json::from_str(args)
+            .map_err(|e| format!("Invalid JSON arguments: {}", e))?;
+        let msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": "tools/call",
+            "params": {
+                "name": name,
+                "arguments": args_value
+            }
+        }).to_string();
 
         writeln!(self.stdin, "{}", msg).map_err(|e| format!("dcc write: {}", e))?;
         self.stdin.flush().map_err(|e| format!("dcc flush: {}", e))?;
@@ -83,6 +90,11 @@ impl DccMcpClient {
             }
             Ok(Err(e)) => Err(e),
             Err(_) => {
+                // NOTE: The spawned reader thread will self-terminate when the child process
+                // is killed (via DccMcpClient::Drop), as the BufReader::read_line will return
+                // EOF/error when the pipe closes. No explicit thread join is needed.
+                // The `stale` flag ensures dcc_start() is called to recycle the process.
+                //
                 // The spawned reader thread is still running in the background
                 // and holds the BufReader — we cannot safely reclaim it.
                 // Mark this client as stale so the next call fails fast and the
@@ -166,10 +178,19 @@ async fn dcc_start(state: tauri::State<'_, Arc<Mutex<DccState>>>, dcc_path: Stri
 
         // MCP initialize handshake
         let init_id = 1u64;
-        let init_msg = format!(
-            r#"{{"jsonrpc":"2.0","id":{},"method":"initialize","params":{{"protocolVersion":"2024-11-05","capabilities":{{}},"clientInfo":{{"name":"agentcockpit","version":"1.0"}}}}}}"#,
-            init_id
-        );
+        let init_msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": init_id,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "agentcockpit",
+                    "version": "1.0"
+                }
+            }
+        }).to_string();
 
         writeln!(stdin, "{}", init_msg).map_err(|e| format!("dcc init write: {}", e))?;
         stdin.flush().map_err(|e| format!("dcc init flush: {}", e))?;
@@ -215,7 +236,11 @@ async fn dcc_start(state: tauri::State<'_, Arc<Mutex<DccState>>>, dcc_path: Stri
         };
 
         // Send initialized notification
-        writeln!(stdin, r#"{{"jsonrpc":"2.0","method":"notifications/initialized"}}"#)
+        let notify_msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized"
+        }).to_string();
+        writeln!(stdin, "{}", notify_msg)
             .map_err(|e| format!("dcc notify write: {}", e))?;
         stdin.flush().map_err(|e| format!("dcc notify flush: {}", e))?;
 
@@ -252,7 +277,16 @@ fn dcc_stop(state: tauri::State<'_, Arc<Mutex<DccState>>>) -> Result<String, Str
     Ok(r#"{"status":"stopped"}"#.to_string())
 }
 
-/// Execute a shell command with proper environment variables
+/// Execute an arbitrary shell command in a given working directory.
+///
+/// # Security
+///
+/// This function passes `cmd` directly to `sh -c` with no sanitization.
+/// The trust boundary is the Tauri WebView — only trusted frontend code
+/// can invoke this command. There are no external HTTP callers.
+/// The frontend must never construct `cmd` from untrusted external data
+/// (e.g., user-pasted URLs, repo names from APIs).
+///
 /// CRITICAL: macOS bundled apps have limited environment, so we explicitly
 /// set HOME, USER, SHELL, PATH (with NVM/Homebrew) for all commands.
 /// This fixes git, mcp, and other CLI tools not working in bundled app.

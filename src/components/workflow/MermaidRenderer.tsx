@@ -1,40 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import mermaid from 'mermaid';
 
 interface MermaidRendererProps {
   chart: string;
   onNodeClick?: (nodeId: string) => void;
   onEdgeClick?: (edgeId: string) => void;
 }
-
-// Initialize mermaid with dark theme
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'dark',
-  themeVariables: {
-    primaryColor: '#1a1a2e',
-    primaryTextColor: '#e0e0e0',
-    primaryBorderColor: '#00d4aa',
-    lineColor: '#a855f7',
-    secondaryColor: '#16213e',
-    tertiaryColor: '#0f3460',
-    background: '#0a0a0f',
-    mainBkg: '#1a1a2e',
-    nodeBorder: '#00d4aa',
-    clusterBkg: '#16213e',
-    clusterBorder: '#a855f7',
-    titleColor: '#e0e0e0',
-    edgeLabelBackground: '#1a1a2e',
-  },
-  flowchart: {
-    htmlLabels: true,
-    curve: 'basis',
-    nodeSpacing: 50,
-    rankSpacing: 50,
-    padding: 15,
-  },
-  securityLevel: 'loose', // Allow click events
-});
 
 export function MermaidRenderer({ chart, onNodeClick, onEdgeClick }: MermaidRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -54,6 +24,36 @@ export function MermaidRenderer({ chart, onNodeClick, onEdgeClick }: MermaidRend
 
         // Generate unique ID for this render
         const id = `mermaid-${Date.now()}`;
+
+        // Lazy-load mermaid to avoid including it in the initial bundle
+        const mermaid = (await import('mermaid')).default;
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'dark',
+          themeVariables: {
+            primaryColor: '#1a1a2e',
+            primaryTextColor: '#e0e0e0',
+            primaryBorderColor: '#00d4aa',
+            lineColor: '#a855f7',
+            secondaryColor: '#16213e',
+            tertiaryColor: '#0f3460',
+            background: '#0a0a0f',
+            mainBkg: '#1a1a2e',
+            nodeBorder: '#00d4aa',
+            clusterBkg: '#16213e',
+            clusterBorder: '#a855f7',
+            titleColor: '#e0e0e0',
+            edgeLabelBackground: '#1a1a2e',
+          },
+          flowchart: {
+            htmlLabels: true,
+            curve: 'basis',
+            nodeSpacing: 50,
+            rankSpacing: 50,
+            padding: 15,
+          },
+          securityLevel: 'loose', // Allow click events
+        });
 
         // Render the chart
         const { svg } = await mermaid.render(id, chart);

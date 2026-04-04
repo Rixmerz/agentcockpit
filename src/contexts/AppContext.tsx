@@ -108,6 +108,7 @@ export function AppProvider({ children }: AppProviderProps) {
   // terminalActivity change. This prevents terminalActivity updates (high-frequency)
   // from invalidating the main AppContext value memo and re-rendering all consumers.
   const stableStateRef = useRef(state);
+  const nonActivityVersionRef = useRef(0);
   const prevNonActivityStateRef = useRef({
     projects: state.projects,
     activeProjectId: state.activeProjectId,
@@ -154,7 +155,9 @@ export function AppProvider({ children }: AppProviderProps) {
   if (nonActivityChanged) {
     prevNonActivityStateRef.current = nonActivity;
     stableStateRef.current = state;
+    nonActivityVersionRef.current += 1;
   }
+  const nonActivityVersion = nonActivityVersionRef.current;
 
   // Sync state to debug registry (DEV only)
   // activeProject/activeTerminal are computed inline here to avoid
@@ -315,10 +318,11 @@ export function AppProvider({ children }: AppProviderProps) {
       scheduleSave,
     };
   // stableStateRef.current is intentionally NOT in deps — it's a ref.
-  // We depend on nonActivityChanged (captured via prevNonActivityStateRef) instead.
+  // We depend on nonActivityVersion (a counter that increments when non-activity fields change)
+  // instead of the boolean nonActivityChanged, to avoid stale memo re-runs.
   // The linter sees this as exhaustive because we suppress the warning above.
   }, [
-    nonActivityChanged,
+    nonActivityVersion,
     addProject,
     removeProject,
     addTerminal,

@@ -143,3 +143,57 @@ Cualquier nueva lectura de configuración debe:
 | `src/services/hookService.ts` | Hooks en proyectos del usuario |
 | `.workflow-manager/src/workflow_manager/` | Enforcer Python (MCP server) |
 | `src-tauri/src/` | Backend Rust |
+
+---
+
+## Error Handling Conventions
+
+### Rust (src-tauri/)
+- All Tauri commands return `Result<String, String>` -- errors are string messages
+- Use `map_err(|e| format!("context: {}", e))` chains
+- `execute_command` is a trust boundary -- document security implications
+- MCP messages built with `serde_json::json!()` (never `format!`)
+
+### DCC MCP Server (.deltacodecube/)
+- Tools return `{"error": "message"}` dicts -- never raise exceptions
+- Database context manager rolls back on error (`__exit__` with rollback)
+- All tool inputs validated: paths non-empty, limits clamped 1-1000, enums checked
+- SARIF ingestion: LIKE queries escaped, file size limited to 50MB
+
+### React (src/)
+- `PanelErrorBoundary` per-section (SidebarLeft, MainContent, SidebarRight)
+- App-level `ErrorBoundary` as fallback
+- Services use try/catch with `console.warn` for non-critical failures
+- Hooks that do I/O use `.catch(console.warn)` for fire-and-forget operations
+
+---
+
+## Testing Strategy
+
+| Layer | Framework | Command | Tests |
+|-------|-----------|---------|-------|
+| Frontend | vitest + @testing-library/react | `pnpm test` | Smoke tests |
+| Python | pytest | `cd .workflow-manager && python -m pytest` | 145 tests |
+| Rust | cargo test | `cargo test` (from distrobox) | Unit tests in env_utils, file_watcher |
+
+---
+
+## Performance Guidelines
+
+- `build_extended_path()` cached via `OnceLock<String>` -- computed once per process
+- `mermaid` lazy-loaded via dynamic import (not in main bundle)
+- `TerminalActivityContext` isolated from AppContext (PTY output does not cause full re-render)
+- `terminal.open()` deferred to `requestAnimationFrame` (container paints first)
+- All terminals in DOM with `display:none` for inactive projects (PTY persistence)
+- Snapshot creation: 30s throttle + 2s debounce (max 2/min)
+- AppShell heavy services deferred via `requestIdleCallback`
+- Security scan: 5s grace period on project open
+
+---
+
+## Tech Debt
+
+- **ControlBar** (712 lines, 8 hooks) -- should split into per-domain sub-components
+- **Global DCC DB connection** -- fine for MCP but needs pooling for concurrent access
+- **DCC index contamination** -- projects indexed in shared DB can pollute each other's stats
+- **`any` types** -- concentrated in workflow service files (`workflowIOService.ts`, `workflowNodeService.ts`)
