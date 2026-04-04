@@ -28,6 +28,25 @@ _TECH_SKILL_MAP: dict[str, list[str]] = {
     "frontend": ["ui-patterns", "ux-patterns", "css-theming"],
 }
 
+# Mapping: tech stack keywords -> language/domain rules to copy
+_TECH_RULE_MAP: dict[str, list[str]] = {
+    "python": ["python.md"],
+    "typescript": ["typescript.md", "jsbackend.md"],
+    "javascript": ["typescript.md", "jsbackend.md"],
+    "go": ["go.md"],
+    "rust": ["rust.md"],
+    "java": ["java.md"],
+    "php": ["php.md"],
+    "swift": ["swift.md"],
+    "lua": ["lua.md"],
+    "react": ["typescript.md", "ui.md", "ux.md"],
+    "vue": ["typescript.md", "ui.md", "ux.md"],
+    "angular": ["typescript.md", "ui.md"],
+    "frontend": ["ui.md", "ux.md"],
+    "devops": ["devops.md", "dev.md"],
+    "backend": ["dev.md"],
+}
+
 # Core agents always included when include_core=True
 _CORE_AGENTS = ["orchestrator", "debugger", "reviewer"]
 
@@ -82,6 +101,18 @@ def _resolve_skills_for_stack(tech_stack: list[str], extra_skills: list[str] | N
     if extra_skills:
         skills.update(extra_skills)
     return sorted(skills)
+
+
+def _resolve_rules_for_stack(tech_stack: list[str]) -> list[str]:
+    """Given a tech_stack list, resolve the language/domain rules to copy."""
+    rules: set[str] = set()
+    for tech in tech_stack:
+        key = tech.lower().strip()
+        if key in _TECH_RULE_MAP:
+            rules.update(_TECH_RULE_MAP[key])
+    # Always include qa.md for any project
+    rules.add("qa.md")
+    return sorted(rules)
 
 
 def _resolve_agents_for_stack(tech_stack: list[str], extra_agents: list[str] | None = None) -> list[str]:
@@ -163,13 +194,18 @@ def register_deployment_tools(mcp):
         target_agents_dir = target / ".claude" / "agents"
         target_skills_dir = target / ".claude" / "skills"
 
+        hub_rules_dir = hub_dir / ".claude" / "rules"
+
         # Resolve what to deploy
         agents_to_deploy = _resolve_agents_for_stack(tech_stack, extra_agents) if include_core else list(extra_agents or [])
         skills_to_deploy = _resolve_skills_for_stack(tech_stack, extra_skills)
+        rules_to_deploy = _resolve_rules_for_stack(tech_stack)
 
         # Create target directories
         target_agents_dir.mkdir(parents=True, exist_ok=True)
         target_skills_dir.mkdir(parents=True, exist_ok=True)
+        target_rules_dir = target / ".claude" / "rules"
+        target_rules_dir.mkdir(parents=True, exist_ok=True)
 
         deployed_agents = []
         skipped_agents = []
@@ -241,6 +277,20 @@ def register_deployment_tools(mcp):
                 "files": file_count,
             })
 
+        # --- Deploy language/domain rules ---
+        deployed_rules = []
+        for rule_name in rules_to_deploy:
+            src = hub_rules_dir / rule_name
+            dst = target_rules_dir / rule_name
+
+            if not src.exists():
+                continue
+
+            # Only copy if not already present (don't overwrite user customizations)
+            if not dst.exists():
+                shutil.copy2(src, dst)
+                deployed_rules.append({"name": rule_name, "path": str(dst)})
+
         return {
             "success": True,
             "project_path": project_path,
@@ -249,9 +299,11 @@ def register_deployment_tools(mcp):
             "agents_skipped": skipped_agents,
             "skills_deployed": deployed_skills,
             "skills_skipped": skipped_skills,
+            "rules_deployed": deployed_rules,
             "summary": {
                 "agents": len(deployed_agents),
                 "skills": len(deployed_skills),
+                "rules": len(deployed_rules),
                 "skipped": len(skipped_agents) + len(skipped_skills),
             },
             "tech_context": tech_context,
