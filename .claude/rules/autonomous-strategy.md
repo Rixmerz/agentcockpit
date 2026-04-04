@@ -22,7 +22,7 @@ Use when: well-defined phases (understand → reproduce → fix → verify), rec
 **Reuse or create?**
 - First run `graph_list_available` to check existing workflows
 - Reuse if one covers the case (e.g. `debug` for bugs, `feature-dev` for features)
-- Create new only if the process is unique — use `/pipeline-manager-init`
+- Create new only if the process is unique — use `graph_builder_create`
 
 ## 4. Always
 
