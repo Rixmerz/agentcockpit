@@ -1,6 +1,6 @@
 ---
 name: workflow
-description: Workflow/Graph system - AI agent workflow orchestration with Mermaid visualization
+description: Workflow/Graph system - AI agent workflow orchestration with Mermaid visualization. Use proactively when building, modifying, or debugging workflow graphs, DAG tasks, or pipeline definitions.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---

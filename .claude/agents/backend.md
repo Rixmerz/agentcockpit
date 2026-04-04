@@ -1,8 +1,8 @@
 ---
 name: backend
-description: Implements backend services, repositories, controllers, APIs, database schemas, authentication. Never modifies frontend code.
+description: Implements backend services, repositories, controllers, APIs, database schemas, authentication. Use proactively for any server-side feature, data model, or API endpoint work. Never modifies frontend code.
 model: sonnet
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__agentful__find_patterns, mcp__agentful__store_pattern, mcp__agentful__add_feedback
+tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 
 # Backend Agent

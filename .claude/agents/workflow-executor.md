@@ -1,13 +1,11 @@
 ---
 name: workflow-executor
 description: |
-  Ejecutor autonomo de graph workflows.
-  Recibe un workflow activado y lo ejecuta paso a paso,
-  respondiendo a los prompts de cada nodo y avanzando automaticamente.
-
-  Usar este agente cuando:
-  - Se necesita ejecutar un workflow completo sin intervencion manual
-  - Se requiere delegar la ejecucion de un workflow a un sub-agent
+  Autonomous graph workflow executor. Receives an activated workflow and
+  executes it step by step, responding to each node's prompts and advancing
+  automatically. Use proactively when:
+  - A complete workflow needs to run without manual intervention
+  - Delegating workflow execution to a sub-agent
   - Se usa desde el macro-orchestrator para ejecutar micro-flujos
 tools: Read, Glob, Grep, Bash
 mcpServers:

@@ -1,6 +1,6 @@
 ---
 name: product-analyzer
-description: Analyzes product requirements for gaps, ambiguities, and readiness. Identifies blocking issues and calculates readiness score.
+description: Analyzes product requirements for gaps, ambiguities, and readiness. Identifies blocking issues and calculates readiness score. Use proactively when evaluating product specs, PRDs, or feature requirements before implementation.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---

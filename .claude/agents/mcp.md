@@ -1,6 +1,6 @@
 ---
 name: mcp
-description: MCP Management - read/write Model Context Protocol server configurations
+description: MCP Management - read/write Model Context Protocol server configurations. Use proactively when the user needs to add, configure, list, or troubleshoot MCP server connections.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---

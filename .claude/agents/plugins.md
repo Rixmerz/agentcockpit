@@ -1,6 +1,6 @@
 ---
 name: plugins
-description: Agent Plugin System - manages the pluggable AI agent architecture (Claude, Cursor, Gemini)
+description: Agent Plugin System - manages the pluggable AI agent architecture (Claude, Cursor, Gemini). Use proactively when the user needs to add, configure, or debug agent plugins.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---

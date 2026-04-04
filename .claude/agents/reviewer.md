@@ -1,8 +1,8 @@
 ---
 name: reviewer
-description: Reviews code quality, finds dead code, validates production readiness. Runs all checks and reports issues.
+description: Reviews code quality, finds dead code, validates production readiness. Runs all checks and reports issues. Use proactively after implementation is complete to catch quality issues before committing.
 model: sonnet
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Glob, Grep, Bash
 skills: debug, qa-patterns, testing, ts-patterns, validation
 ---
 # Reviewer Agent

@@ -1,8 +1,8 @@
 ---
 name: fixer
-description: Automatically fixes validation failures identified by reviewer. Removes dead code, adds tests, resolves issues.
+description: Automatically fixes validation failures identified by reviewer. Removes dead code, adds tests, resolves issues. Use proactively after reviewer identifies issues that need automated fixing.
 model: sonnet
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__agentful__find_patterns, mcp__agentful__store_pattern, mcp__agentful__add_feedback
+tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 
 # Fixer Agent

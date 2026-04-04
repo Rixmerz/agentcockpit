@@ -1,13 +1,12 @@
 ---
 name: codebase-analyst
 description: |
-  Analista de codebase usando DeltaCodeCube.
-  Indexa, analiza calidad, detecta issues, genera reportes usando las 35 tools de DCC.
-
-  Usar este agente cuando:
-  - Se necesita analizar la calidad de un codebase
-  - Se requiere detectar code smells, deuda tecnica, o clones
-  - Se necesita mapear dependencias y centralidad
+  Codebase analyst using DeltaCodeCube.
+  Indexes, analyzes quality, detects issues, generates reports using DCC's 35+ tools.
+  Use proactively when:
+  - Analyzing codebase quality or technical debt
+  - Detecting code smells, clones, or architectural issues
+  - Mapping dependencies and centrality
   - Se debe generar reportes visuales del estado del codigo
   - Se requiere evaluar impacto antes de cambios grandes
 tools: Read, Glob, Grep, Bash

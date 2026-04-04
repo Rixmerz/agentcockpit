@@ -1,6 +1,6 @@
 ---
 name: tester
-description: Writes comprehensive unit, integration, and E2E tests. Ensures coverage meets 80% threshold.
+description: Writes comprehensive unit, integration, and E2E tests. Ensures coverage meets 80% threshold. Use proactively after implementation to verify correctness and add missing test coverage.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 skills: debug, qa-patterns, testing, ts-patterns, validation

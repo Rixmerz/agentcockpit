@@ -27,6 +27,9 @@ import ruleExecutionPhilosophy from '../../.claude/rules/execution-philosophy.md
 import ruleSprintExecution from '../../.claude/rules/sprint-execution.md?raw';
 import ruleSecurityAwareness from '../../.claude/rules/security-awareness.md?raw';
 import commandSetupAgents from '../../.claude/commands/setup-agents.md?raw';
+import commandSprint from '../../.claude/commands/sprint.md?raw';
+import commandAudit from '../../.claude/commands/audit.md?raw';
+import commandStatus from '../../.claude/commands/status.md?raw';
 
 // Claude settings.json structure
 export interface ClaudeHookConfig {
@@ -679,6 +682,9 @@ const BUNDLED_HOOKS: Record<string, string> = {
 
 const BUNDLED_COMMANDS: Record<string, string> = {
   'setup-agents.md': commandSetupAgents,
+  'sprint.md': commandSprint,
+  'audit.md': commandAudit,
+  'status.md': commandStatus,
 };
 
 /**

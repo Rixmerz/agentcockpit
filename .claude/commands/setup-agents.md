@@ -1,6 +1,12 @@
+---
+name: setup-agents
+description: Detect this project's tech stack and deploy specialized subagents. Use when starting a new project or when the tech stack has changed.
+disable-model-invocation: true
+argument-hint: "[tech-stack]"
+---
+
 Detect this project's tech stack and deploy specialized subagents.
 
-Steps:
 1. Analyze the project to identify languages and frameworks:
    - Check file extensions in the project root and src/ directories
    - Read package.json, Cargo.toml, go.mod, pyproject.toml, etc. if they exist

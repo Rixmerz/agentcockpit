@@ -1,8 +1,8 @@
 ---
 name: deltacodecube
-description: DeltaCodeCube Analysis - codebase quality scoring, architecture analysis, and visualizations
+description: DeltaCodeCube Analysis - codebase quality scoring, architecture analysis, and visualizations. Use proactively when analyzing code quality, detecting smells, measuring technical debt, or generating architecture visualizations.
 model: sonnet
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Glob, Grep, Bash
 ---
 
 # DeltaCodeCube Agent

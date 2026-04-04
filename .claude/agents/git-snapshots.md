@@ -1,6 +1,6 @@
 ---
 name: git-snapshots
-description: Git and Snapshot system - full git abstraction plus automatic versioned snapshots
+description: Git and Snapshot system - full git abstraction plus automatic versioned snapshots. Use proactively when the user needs git operations, snapshot management, version history, or rollback capabilities.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---

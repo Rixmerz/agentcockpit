@@ -1,6 +1,6 @@
 ---
 name: terminal
-description: Terminal/PTY domain - multiplexed terminal sessions with xterm.js frontend and Rust PTY backend
+description: Terminal/PTY domain - multiplexed terminal sessions with xterm.js frontend and Rust PTY backend. Use proactively when working on terminal rendering, PTY management, or xterm.js integration.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---
