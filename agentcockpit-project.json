@@ -13,9 +13,17 @@
       "id": "a237af3d-c353-466f-b8a6-07f4b7941774",
       "name": "Session 2",
       "createdAt": 1772693715921,
-      "lastUsed": 1774275027893,
+      "lastUsed": 1775481563245,
       "wasPreExisting": true,
-      "terminalId": "c0b17534-6e99-4d0a-b4d7-e473f7d473ae"
+      "terminalId": "b1579e00-d664-4ebe-98d4-7aa63457e43c"
+    },
+    {
+      "id": "842339ff-c0fa-4da6-b25a-657eb2740804",
+      "name": "Session 3",
+      "createdAt": 1775483544195,
+      "lastUsed": 1775795906800,
+      "wasPreExisting": true,
+      "terminalId": "e0f2d8d0-9b7a-44a3-94c3-4ec99ffbb369"
     }
   ],
   "defaultModel": "sonnet",

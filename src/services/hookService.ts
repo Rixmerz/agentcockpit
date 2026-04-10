@@ -12,25 +12,26 @@ import workflowEnforcerTemplate from '../scripts/workflow_enforcer_template.py?r
 import reindexTriggerTemplate from '../scripts/reindex_trigger_template.py?raw';
 import dccFeedbackTemplate from '../scripts/dcc_feedback_template.py?raw';
 // Bundled defaults — imported at build time so they don't depend on filesystem paths
-import rulesCheckerPy from '../../.claude/hooks/rules_checker.py?raw';
-import experienceRecorderPy from '../../.claude/hooks/experience_recorder.py?raw';
-import experienceInjectorPy from '../../.claude/hooks/experience_injector.py?raw';
-import memoryInjectorPy from '../../.claude/hooks/memory_injector.py?raw';
-import smartContextPy from '../../.claude/hooks/smart_context.py?raw';
-import commonPy from '../../.claude/hooks/_common.py?raw';
-import ruleAutonomousStrategy from '../../.claude/rules/autonomous-strategy.md?raw';
-import ruleWorkflowDiscipline from '../../.claude/rules/workflow-discipline.md?raw';
-import ruleSubagentDelegation from '../../.claude/rules/subagent-delegation.md?raw';
-import ruleQualityFeedback from '../../.claude/rules/quality-feedback.md?raw';
-import ruleCommitDiscipline from '../../.claude/rules/commit-discipline.md?raw';
-import ruleExecutionPhilosophy from '../../.claude/rules/execution-philosophy.md?raw';
-import ruleSprintExecution from '../../.claude/rules/sprint-execution.md?raw';
-import ruleSecurityAwareness from '../../.claude/rules/security-awareness.md?raw';
+import rulesCheckerPy from '../../.hub/hooks/rules_checker.py?raw';
+import experienceRecorderPy from '../../.hub/hooks/experience_recorder.py?raw';
+import experienceInjectorPy from '../../.hub/hooks/experience_injector.py?raw';
+import memoryInjectorPy from '../../.hub/hooks/memory_injector.py?raw';
+import smartContextPy from '../../.hub/hooks/smart_context.py?raw';
+import commonPy from '../../.hub/hooks/_common.py?raw';
+import ruleAutonomousStrategy from '../../.hub/rules/autonomous-strategy.md?raw';
+import ruleWorkflowDiscipline from '../../.hub/rules/workflow-discipline.md?raw';
+import ruleSubagentDelegation from '../../.hub/rules/subagent-delegation.md?raw';
+import ruleQualityFeedback from '../../.hub/rules/quality-feedback.md?raw';
+import ruleCommitDiscipline from '../../.hub/rules/commit-discipline.md?raw';
+import ruleExecutionPhilosophy from '../../.hub/rules/execution-philosophy.md?raw';
+import ruleSprintExecution from '../../.hub/rules/sprint-execution.md?raw';
+import ruleSecurityAwareness from '../../.hub/rules/security-awareness.md?raw';
 import ruleAgentcockpitContext from '../../.claude/rules/agentcockpit-context.md?raw';
-import commandSetupAgents from '../../.claude/commands/setup-agents.md?raw';
-import commandSprint from '../../.claude/commands/sprint.md?raw';
-import commandAudit from '../../.claude/commands/audit.md?raw';
-import commandStatus from '../../.claude/commands/status.md?raw';
+import ruleSerenaMcp from '../../.hub/rules/serena-mcp.md?raw';
+import commandSetupAgents from '../../.hub/commands/setup-agents.md?raw';
+import commandSprint from '../../.hub/commands/sprint.md?raw';
+import commandAudit from '../../.hub/commands/audit.md?raw';
+import commandStatus from '../../.hub/commands/status.md?raw';
 
 // Claude settings.json structure
 export interface ClaudeHookConfig {
@@ -533,6 +534,7 @@ const BUNDLED_RULES: Record<string, string> = {
   'sprint-execution.md': ruleSprintExecution,
   'security-awareness.md': ruleSecurityAwareness,
   'agentcockpit-context.md': ruleAgentcockpitContext,
+  'serena-mcp.md': ruleSerenaMcp,
 };
 
 const BUNDLED_HOOKS: Record<string, string> = {

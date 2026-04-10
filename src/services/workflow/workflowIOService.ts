@@ -253,24 +253,24 @@ export async function getGlobalAgentsDir(): Promise<string> {
   const hubConfig = await getHubConfig();
 
   if (hubConfig) {
-    const agentsDir = hubConfig.agents_dir || '.claude/agents';
+    const agentsDir = hubConfig.agents_dir || '.hub/agents';
     return `${hubConfig.hub_dir}/${agentsDir}`;
   }
 
   // Fallback
-  return `${await getHomeDir()}/my_projects/agentcockpit/.claude/agents`;
+  return `${await getHomeDir()}/my_projects/agentcockpit/.hub/agents`;
 }
 
 export async function getGlobalSkillsDir(): Promise<string> {
   const hubConfig = await getHubConfig();
 
   if (hubConfig) {
-    const skillsDir = hubConfig.skills_dir || '.claude/skills';
+    const skillsDir = hubConfig.skills_dir || '.hub/skills';
     return `${hubConfig.hub_dir}/${skillsDir}`;
   }
 
   // Fallback
-  return `${await getHomeDir()}/my_projects/agentcockpit/.claude/skills`;
+  return `${await getHomeDir()}/my_projects/agentcockpit/.hub/skills`;
 }
 
 export async function getWorkflowPath(projectPath?: string | null): Promise<string> {
