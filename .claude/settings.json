@@ -28,6 +28,36 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.hub/hooks/experience_injector.py\"",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.hub/hooks/memory_injector.py\"",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/workflow_enforcer.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/experience_injector.py\"",
             "timeout": 3
           }
@@ -44,12 +74,12 @@
         ]
       },
       {
-        "matcher": "*",
+        "matcher": "Read|Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/workflow_enforcer.py\"",
-            "timeout": 5
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/smart_context.py\"",
+            "timeout": 3
           }
         ]
       }
@@ -70,7 +100,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/rules_checker.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.hub/hooks/rules_checker.py\"",
             "timeout": 5
           }
         ]
@@ -81,6 +111,26 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/dcc_feedback.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.hub/hooks/experience_recorder.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/rules_checker.py\"",
             "timeout": 5
           }
         ]

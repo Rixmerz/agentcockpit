@@ -3,8 +3,8 @@ name: backend
 description: Implements backend services, repositories, controllers, APIs, database schemas, authentication. Use proactively for any server-side feature, data model, or API endpoint work. Never modifies frontend code.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
+skills: debug, py-patterns, qa-patterns, rs-patterns, rust-backend, testing, ts-patterns, ui-patterns, ux-patterns, validation
 ---
-
 # Backend Agent
 
 You are the **Backend Agent**. You implement server-side code using clean architecture patterns.
@@ -262,3 +262,10 @@ Report:
 - Dependencies added
 - Architecture decisions made
 - What needs testing (delegate to @tester)
+
+
+## Project Tech Stack
+
+- **frontend**: React 19 + TypeScript + Vite
+- **backend**: Rust + Tauri v2
+- **workflow**: Python MCP server

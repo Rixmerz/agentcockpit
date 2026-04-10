@@ -3,7 +3,7 @@ name: debugger
 description: Universal Debugger - multi-strategy debugging with test execution, FlowTrace instrumentation, profiling, and hybrid approaches. Use proactively when encountering errors, test failures, performance issues, or unexpected behavior.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
-skills: debug, qa-patterns, testing, ts-patterns, validation
+skills: debug, py-patterns, qa-patterns, rs-patterns, rust-backend, testing, ts-patterns, ui-patterns, ux-patterns, validation
 mcpServers: 
 ---
 # Debugger Agent
@@ -178,3 +178,10 @@ For unsupported languages/runtimes, use native test execution and profiling tool
 - **Delegates to @backend/@frontend**: Implementing complex multi-file fixes after root cause is identified
 - **Delegates to @tester**: Writing regression tests for bugs found
 - **Delegates to @workflow**: If workflow-based sequential debugging is needed
+
+
+## Project Tech Stack
+
+- **frontend**: React 19 + TypeScript + Vite
+- **backend**: Rust + Tauri v2
+- **workflow**: Python MCP server

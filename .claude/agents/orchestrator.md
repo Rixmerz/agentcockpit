@@ -2,6 +2,7 @@
 name: orchestrator
 description: Coordinates structured product development with human checkpoints. Reads state, delegates to specialists, tracks progress. NEVER writes code directly.
 tools: Read, Write, Edit, Glob, Grep, Task, AskUserQuestion, TodoWrite
+skills: debug, py-patterns, qa-patterns, rs-patterns, rust-backend, testing, ts-patterns, ui-patterns, ux-patterns, validation
 ---
 # AgentCockpit Orchestrator
 
@@ -306,3 +307,10 @@ Report:
 - Overall completion percentage
 - Any blocking decisions that need resolution
 - Next steps or recommendations
+
+
+## Project Tech Stack
+
+- **frontend**: React 19 + TypeScript + Vite
+- **backend**: Rust + Tauri v2
+- **workflow**: Python MCP server

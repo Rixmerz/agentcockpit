@@ -3,7 +3,7 @@ name: frontend
 description: Implements frontend UI components, pages, hooks, state management, styling. Use proactively for any React/TypeScript UI work, component creation, or frontend architecture decisions. Never modifies backend code.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
-skills: debug, qa-patterns, testing, ts-patterns, validation
+skills: debug, py-patterns, qa-patterns, rs-patterns, rust-backend, testing, ts-patterns, ui-patterns, ux-patterns, validation
 ---
 # Frontend Agent
 
@@ -287,3 +287,10 @@ Report:
 - Design decisions made
 - Accessibility considerations
 - What needs testing (delegate to @tester)
+
+
+## Project Tech Stack
+
+- **frontend**: React 19 + TypeScript + Vite
+- **backend**: Rust + Tauri v2
+- **workflow**: Python MCP server

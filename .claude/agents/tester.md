@@ -3,7 +3,7 @@ name: tester
 description: Writes comprehensive unit, integration, and E2E tests. Ensures coverage meets 80% threshold. Use proactively after implementation to verify correctness and add missing test coverage.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
-skills: debug, qa-patterns, testing, ts-patterns, validation
+skills: debug, py-patterns, qa-patterns, rs-patterns, rust-backend, testing, ts-patterns, ui-patterns, ux-patterns, validation
 ---
 # Tester Agent
 
@@ -258,3 +258,10 @@ Report:
 - Test execution time
 - Any flaky tests identified
 - Recommendations for improvement
+
+
+## Project Tech Stack
+
+- **frontend**: React 19 + TypeScript + Vite
+- **backend**: Rust + Tauri v2
+- **workflow**: Python MCP server

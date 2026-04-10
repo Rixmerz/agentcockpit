@@ -3,7 +3,7 @@ name: reviewer
 description: Reviews code quality, finds dead code, validates production readiness. Runs all checks and reports issues. Use proactively after implementation is complete to catch quality issues before committing.
 model: sonnet
 tools: Read, Glob, Grep, Bash
-skills: debug, qa-patterns, testing, ts-patterns, validation
+skills: debug, py-patterns, qa-patterns, rs-patterns, rust-backend, testing, ts-patterns, ui-patterns, ux-patterns, validation
 ---
 # Reviewer Agent
 
@@ -255,3 +255,10 @@ When validation tools are unavailable:
    - List of issues requiring fixes
    - List of warnings that can be ignored
    - Recommendation: delegate to @fixer if issues found
+
+
+## Project Tech Stack
+
+- **frontend**: React 19 + TypeScript + Vite
+- **backend**: Rust + Tauri v2
+- **workflow**: Python MCP server
